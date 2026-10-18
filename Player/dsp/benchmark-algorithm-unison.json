@@ -1,0 +1,185 @@
+{
+  "cpu": "AMD Ryzen 5 5600X 6-Core Processor             ",
+  "node": "v22.22.3",
+  "date": "2026-10-18T20:19:10.291Z",
+  "rounds": 5,
+  "seconds": 1,
+  "scenario": "unison",
+  "warmupSeconds": 0.25,
+  "measuredFrames": 48000,
+  "explicitGc": true,
+  "manifests": {
+    "before": {
+      "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+      "sources": [
+        "native/dsp.c",
+        "native/dsp.h",
+        "native/envelopes.c",
+        "native/effects.c"
+      ],
+      "sourceHashNormalization": "LF",
+      "flags": [
+        "-O3",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-ffp-contract=off",
+        "-fno-fast-math",
+        "--no-entry",
+        "-sSTANDALONE_WASM=1",
+        "-sALLOW_MEMORY_GROWTH=1",
+        "-sINITIAL_MEMORY=131072",
+        "-sSTACK_SIZE=65536",
+        "-sMAXIMUM_MEMORY=2147483648",
+        "-Wl,--export=__heap_base",
+        "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
+      ],
+      "simdFlags": [
+        "-msimd128"
+      ],
+      "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
+      "sha256": {
+        "native/dsp.c": "11a6979537462010eee56c72faa3e49086285b9f6fe68816a94405b2d722ffa6",
+        "native/dsp.h": "d8128ca8db5d9fda9112a937b7a08862e736717f06b32aa75090b5bd3e1a098b",
+        "native/envelopes.c": "1bb2ff84844c91a421a451da0933f0ddf4b96764ef01e13c1f47c79a79fcf91d",
+        "native/effects.c": "5470936284f52ca04fcbd15374254b90249eb2a92d32b5463b0051e254729670",
+        "dsp/voice-mixer.wasm": "440c42463a74c63ecf2782d135cf671d2199a11f7d8cd5a3e4b160166af139f1",
+        "dsp/voice-mixer-simd.wasm": "241241f487ac0318f4090deb1424f33dc2bfb8a7a0a68b54d02cb55421fde0c9"
+      }
+    },
+    "after": {
+      "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+      "sources": [
+        "native/dsp.c",
+        "native/dsp.h",
+        "native/envelopes.c",
+        "native/effects.c"
+      ],
+      "sourceHashNormalization": "LF",
+      "flags": [
+        "-O3",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-ffp-contract=off",
+        "-fno-fast-math",
+        "--no-entry",
+        "-sSTANDALONE_WASM=1",
+        "-sALLOW_MEMORY_GROWTH=1",
+        "-sINITIAL_MEMORY=1048576",
+        "-sSTACK_SIZE=65536",
+        "-sMAXIMUM_MEMORY=2147483648",
+        "-Wl,--export=__heap_base",
+        "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_begin_block\",\"_dsp_get_cache_stats\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
+      ],
+      "simdFlags": [
+        "-msimd128"
+      ],
+      "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
+      "sha256": {
+        "native/dsp.c": "06ef059f876c9b971e33c2b9f00b91700cf86cd0851da3eacf57ace9611d7929",
+        "native/dsp.h": "2e2d36d57ffc2ac1c22e6dd25eb6630ed57debcb25d0f592aee9285810d57750",
+        "native/envelopes.c": "1bb2ff84844c91a421a451da0933f0ddf4b96764ef01e13c1f47c79a79fcf91d",
+        "native/effects.c": "5470936284f52ca04fcbd15374254b90249eb2a92d32b5463b0051e254729670",
+        "dsp/voice-mixer.wasm": "8b5cde85f23070455e45da448cd5c57234173d3a16f1665be52eaa19841b453e",
+        "dsp/voice-mixer-simd.wasm": "fb3046b306a523db482df1430ec384dbd497012376faffa16d0ea798d25427c5"
+      }
+    }
+  },
+  "cases": [
+    {
+      "notes": 64,
+      "effects": false,
+      "milliseconds": {
+        "before": [
+          73.94709999999998,
+          73.4574,
+          80.86890000000005,
+          76.9822999999999,
+          82.33929999999987
+        ],
+        "after": [
+          51.661599999999964,
+          45.813499999999976,
+          46.48610000000008,
+          47.87570000000005,
+          43.60789999999997
+        ]
+      },
+      "cpuMilliseconds": {
+        "before": [
+          108,
+          78,
+          94,
+          94,
+          94
+        ],
+        "after": [
+          62,
+          47,
+          47,
+          47,
+          62
+        ]
+      },
+      "medians": {
+        "before": 76.9822999999999,
+        "after": 46.48610000000008
+      },
+      "cpuMedians": {
+        "before": 94,
+        "after": 47
+      },
+      "pairedSpeedup": 1.607961867920465,
+      "medianSpeedup": 1.656028361166021
+    },
+    {
+      "notes": 64,
+      "effects": true,
+      "milliseconds": {
+        "before": [
+          92.77620000000002,
+          82.28919999999994,
+          81.44079999999985,
+          79.90020000000004,
+          80.13920000000007
+        ],
+        "after": [
+          58.694999999999936,
+          54.72409999999991,
+          57.113200000000234,
+          58.266799999999876,
+          57.42509999999993
+        ]
+      },
+      "cpuMilliseconds": {
+        "before": [
+          110,
+          93,
+          94,
+          94,
+          93
+        ],
+        "after": [
+          63,
+          78,
+          47,
+          125,
+          62
+        ]
+      },
+      "medians": {
+        "before": 81.44079999999985,
+        "after": 57.42509999999993
+      },
+      "cpuMedians": {
+        "before": 94,
+        "after": 63
+      },
+      "pairedSpeedup": 1.4259540701624058,
+      "medianSpeedup": 1.4182091106502202
+    }
+  ]
+}

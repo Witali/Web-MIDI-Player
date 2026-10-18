@@ -1,6 +1,12 @@
 #include "dsp.h"
 #include <stddef.h>
 #include <math.h>
+#include <string.h>
+#if defined(_MSC_VER)
+#define DSP_NOINLINE __declspec(noinline)
+#else
+#define DSP_NOINLINE __attribute__((noinline))
+#endif
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
 #endif
@@ -11,6 +17,39 @@ _Static_assert(offsetof(DspScratch, filter) == 4096, "DSP filter ABI");
 _Static_assert(offsetof(DspScratch, cursor) == 4200, "DSP cursor ABI");
 uint32_t dsp_abi_version(void) { return 1; }
 DspScratch *dsp_get_layout(void) { return &scratch; }
+
+/* This bounds cache storage, never voices. Collisions simply recompute and
+ * replace the entry. No state is shared after the host starts another block. */
+#define WAVE_CACHE_SIZE 1024
+typedef struct {
+    uint32_t generation, count;
+    const float *source;
+    int looping, loop_end, loop_length, end, active;
+    uint64_t position_bits, step_bits;
+    double next_cursor;
+    float audio[DSP_QUANTUM];
+} WaveCacheEntry;
+static WaveCacheEntry wave_cache[WAVE_CACHE_SIZE];
+static uint32_t cache_generation, cache_stats[3], uncached_blocks;
+static int cache_probe = 1;
+void dsp_begin_block(void) {
+    uint32_t i;
+    /* Enable after >=50% reuse; keep it until reuse drops below 25% so
+     * ordinary hash collisions do not repeatedly disable a useful cache.
+     * Unique parts probe again within 16 quanta. */
+    if (cache_stats[2] && cache_stats[1]) {
+        if ((double)cache_stats[0] < cache_stats[1] / (cache_probe ? 1. : 3.)) uncached_blocks = 15;
+        else cache_probe = 0;
+    }
+    cache_stats[2] = uncached_blocks == 0;
+    if (uncached_blocks) { uncached_blocks--; cache_probe = 1; }
+    if (++cache_generation == 0) {
+        for (i = 0; i < WAVE_CACHE_SIZE; i++) wave_cache[i].generation = 0;
+        cache_generation = 1;
+    }
+    cache_stats[0] = cache_stats[1] = 0;
+}
+const uint32_t *dsp_get_cache_stats(void) { return cache_stats; }
 
 static int hermite(uint32_t n, const float *data, int looping, int loop_end,
     int loop_length, int end, double cursor, double step) {
@@ -37,6 +76,30 @@ static int hermite(uint32_t n, const float *data, int looping, int loop_end,
     }
     scratch.cursor = cursor;
     return 1;
+}
+
+static DSP_NOINLINE int oscillator_cached(uint32_t count, const float *samples, int looping,
+    int loop_end, int loop_length, int end, double cursor, double step) {
+    uint64_t position_bits, step_bits; uint32_t hash; WaveCacheEntry *entry; int active;
+    memcpy(&position_bits, &cursor, sizeof(cursor)); memcpy(&step_bits, &step, sizeof(step));
+    hash = (uint32_t)(uintptr_t)samples ^ (uint32_t)position_bits ^ (uint32_t)(position_bits >> 32)
+        ^ (uint32_t)step_bits ^ (uint32_t)(step_bits >> 32);
+    hash ^= hash >> 16; hash *= 0x85ebca6bu; hash ^= hash >> 13;
+    entry = &wave_cache[hash & (WAVE_CACHE_SIZE - 1)];
+    if (entry->generation == cache_generation && entry->source == samples && entry->count == count
+        && entry->position_bits == position_bits && entry->step_bits == step_bits
+        && entry->looping == looping && entry->loop_end == loop_end && entry->loop_length == loop_length && entry->end == end) {
+        memcpy(scratch.audio[0], entry->audio, count * sizeof(float));
+        if (entry->active) scratch.cursor = entry->next_cursor;
+        cache_stats[0]++; return entry->active;
+    }
+    cache_stats[1]++;
+    active = hermite(count, samples, looping, loop_end, loop_length, end, cursor, step);
+    entry->generation = cache_generation; entry->source = samples; entry->count = count;
+    entry->position_bits = position_bits; entry->step_bits = step_bits;
+    entry->looping = looping; entry->loop_end = loop_end; entry->loop_length = loop_length; entry->end = end;
+    entry->active = active; entry->next_cursor = scratch.cursor;
+    memcpy(entry->audio, scratch.audio[0], count * sizeof(float)); return active;
 }
 
 #if defined(__wasm_simd128__)
@@ -75,7 +138,9 @@ int dsp_process_voice(uint32_t count, int filtered, double gain, double incremen
     double x1 = f[5], x2 = f[6], y1 = f[7], y2 = f[8];
     if (!count || count > DSP_QUANTUM || (samples && (end < 4 || !isfinite(cursor) || !isfinite(step) || cursor < 0 || step < 0 ||
         (looping && (loop_length <= 0 || loop_end > end || loop_end < loop_length))))) return -1;
-    if (samples) active = hermite(count, samples, looping, loop_end, loop_length, end, cursor, step);
+    if (samples) active = cache_stats[2]
+        ? oscillator_cached(count, samples, looping, loop_end, loop_length, end, cursor, step)
+        : hermite(count, samples, looping, loop_end, loop_length, end, cursor, step);
     for (i = 0; i < count; i++) {
         const double input = scratch.audio[0][i];
         double sample = input;

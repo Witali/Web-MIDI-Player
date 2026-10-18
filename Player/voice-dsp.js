@@ -62,6 +62,7 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
   synth.process = (outputL, outputR, start = 0, count = outputL.length - start) => {
     if (count < 1 || count > 128) throw new RangeError('Voice DSP blocks must contain 1–128 samples.');
     left.fill(0); right.fill(0);
+    exports.dsp_begin_block?.();
     nativeProcess(left, right, 0, count);
     outputL.set(left.subarray(0, count), start); outputR.set(right.subarray(0, count), start);
   };

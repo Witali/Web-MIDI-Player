@@ -34,6 +34,20 @@ The C module imports no JavaScript DSP or math functions. The host supplies
 bank lookup tables and refreshes cached typed arrays after memory growth.
 Volume envelope evaluation and voice rendering share one C call per block.
 
+The host calls `dsp_begin_block()` before rendering each audio quantum. A
+bounded waveform cache can then reuse Hermite output only when source pointer,
+all loop/end parameters, block length and exact cursor/step bits match. Each
+voice still runs its own envelope, filter, gains, stereo routing and sends in
+the original order. Collisions recompute and replace an entry; they never
+remove a voice. EOF results preserve the reference cursor semantics.
+
+The cache occupies about 0.56 MiB and the module starts with 1 MiB of memory;
+the sample/state arena continues to grow. It enables after at least 50% reuse,
+remains enabled above 25%, and otherwise probes once every 16 quanta. This
+avoids copying unique waveforms continually. `dsp_get_cache_stats()` returns
+three uint32 values: hits, misses and enabled for the current block. Native
+users who do not call `dsp_begin_block()` retain the uncached renderer.
+
 JavaScript still parses MIDI/SF2, schedules events, calculates SoundFont generator
 parameters and handles the public transport. Envelope initialization/release
 parameter setup, LFO control calculations, advanced GS/XG insertion effects and

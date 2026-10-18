@@ -15,6 +15,10 @@ typedef struct {
 
 uint32_t dsp_abi_version(void);
 DspScratch *dsp_get_layout(void);
+/* Begin one host audio block. Immutable oscillator waveforms may be reused
+ * within this block; filters/envelopes/mixing still execute for every voice. */
+void dsp_begin_block(void);
+const uint32_t *dsp_get_cache_stats(void); /* hits, misses, enabled in current block */
 int dsp_process_voice(uint32_t count, int filtered, double gain, double increment,
     double left, double right, double reverb, double chorus, double delay, int insertion,
     const float *samples, int looping, int loop_end, int loop_length, int end,

@@ -34,6 +34,49 @@ static void interpolation_and_end(void) {
     CHECK(s->audio[1][0] == 1 && s->audio[1][1] == 0 && s->audio[1][7] == 0);
     CHECK(dsp_process_voice(8, 0, 1, 0, 1, 0, 0, 0, 0, 0, sample, 1, 8, 0, 8, 0, 1) == -1);
 }
+/* Deliberately unoptimized oracle: keep the original per-sample boundary
+ * checks and coefficient evaluation independent from the fast block path. */
+static int reference_hermite(float *output, unsigned count, const float *data, int looping,
+    int loop_end, int loop_length, int end, double *position, double step) {
+    unsigned i; double cursor = *position;
+    for (i = 0; i < count; i++) {
+        int y0, y1, y2, y3; double t, xm1, x0, x1, x2, c, v, w, a, b;
+        if (looping) while (cursor >= loop_end) cursor -= loop_length;
+        y0 = (int)cursor; y1 = y0 + 1; y2 = y0 + 2; y3 = y0 + 3; t = cursor - y0;
+        if (looping) {
+            while (y1 >= loop_end) y1 -= loop_length;
+            while (y2 >= loop_end) y2 -= loop_length;
+            while (y3 >= loop_end) y3 -= loop_length;
+        } else if (y3 >= end) { for (; i < count; i++) output[i] = 0; return 0; }
+        xm1 = data[y0]; x0 = data[y1]; x1 = data[y2]; x2 = data[y3];
+        c = (x1 - xm1) * .5; v = x0 - x1; w = c + v;
+        a = w + v + (x2 - x0) * .5; b = w + a;
+        output[i] = (float)(((a * t - b) * t + c) * t + x0); cursor += step;
+    }
+    *position = cursor; return 1;
+}
+static void interpolation_boundaries(void) {
+    float data[1024], expected[128]; unsigned i, trial; uint32_t random = 0x358ef123;
+    const double steps[] = {0, .03125, .1, .5, .9999999999999999, 1, 1.0000000000000002, 2.7, 11.125, 129};
+    for (i = 0; i < 1024; i++) data[i] = (float)(sin(i * .17) * .6);
+    for (trial = 0; trial < 2000; trial++) {
+        const int looping = (trial / 10) % 2, end = trial % 3 ? 1024 : 17;
+        const int loop_length = trial % 5 ? end / 2 : 1 + (int)(trial % 3);
+        const unsigned count = 1 + trial % 128;
+        double cursor, expected_cursor; int active;
+        random = random * 1664525u + 1013904223u;
+        cursor = (random % (unsigned)(end * 16)) / 16.;
+        if (trial % 7 == 0) cursor = end - 3.0000000000000004;
+        expected_cursor = cursor;
+        active = reference_hermite(expected, count, data, looping, end, loop_length, end,
+            &expected_cursor, steps[trial % 10]);
+        clear(); s->cursor = cursor;
+        CHECK(dsp_process_voice(count, 0, 1, 0, 1, 0, 0, 0, 0, 0, data,
+            looping, end, loop_length, end, cursor, steps[trial % 10]) == active);
+        CHECK(memcmp(expected, s->audio[0], count * sizeof(float)) == 0);
+        CHECK(s->cursor == expected_cursor);
+    }
+}
 static void dense_polyphony(void) {
     unsigned voice, i; clear();
     for (voice = 0; voice < 4096; voice++) {
@@ -41,6 +84,31 @@ static void dense_polyphony(void) {
         CHECK(render(128, 0, 1, 0, 1, 1, 0) == 1);
     }
     CHECK(s->audio[1][64] == 512 && s->audio[2][64] == 512);
+}
+static void waveform_cache(void) {
+    static float sample[8192]; unsigned i; const uint32_t *stats = dsp_get_cache_stats();
+    for (i = 0; i < 8192; i++) sample[i] = .125f;
+    clear(); for (i = 0; i < 17; i++) dsp_begin_block();
+    CHECK(stats[2] == 1);
+    CHECK(dsp_process_voice(128, 0, 1, 0, 1, 0, 0, 0, 0, 0, sample, 1, 8192, 4096, 8192, 0, .5) == 1);
+    CHECK(stats[0] == 0 && stats[1] == 1);
+    s->filter[0] = .5;
+    CHECK(dsp_process_voice(128, 1, 2, 0, 0, 1, 0, 0, 0, 0, sample, 1, 8192, 4096, 8192, 0, .5) == 1);
+    CHECK(stats[0] == 1 && stats[1] == 1);
+    for (i = 0; i < 128; i++) CHECK(s->audio[1][i] == .125f && s->audio[2][i] == .125f);
+    CHECK(s->filter[5] == .125 && s->filter[7] == .0625);
+    /* More unique entries than cache slots must still render every voice. */
+    clear(); for (i = 0; i < 17; i++) dsp_begin_block();
+    for (i = 0; i < 4096; i++) CHECK(dsp_process_voice(1, 0, 1, 0, 1, 0, 0, 0, 0, 0,
+        sample, 0, 0, 0, 8192, i, 0) == 1);
+    CHECK(s->audio[1][0] == 512 && stats[0] == 0 && stats[1] == 4096);
+    dsp_begin_block(); CHECK(stats[2] == 0); /* no reuse: bypass caching */
+    for (i = 0; i < 17; i++) dsp_begin_block();
+    CHECK(stats[2] == 1 && stats[0] == 0 && stats[1] == 0);
+    /* A new block never reuses data from a previous block's source. */
+    sample[1] = .75f; clear();
+    CHECK(dsp_process_voice(1, 0, 1, 0, 1, 0, 0, 0, 0, 0, sample, 0, 0, 0, 8192, 0, 0) == 1);
+    CHECK(s->audio[1][0] == .75f && stats[0] == 0 && stats[1] == 1);
 }
 static void envelopes(void) {
     static float table[32601], convex[1000];
@@ -124,6 +192,6 @@ static void golden(void) {
 int main(int argc, char **argv) {
     s = dsp_get_layout(); CHECK(dsp_abi_version() == 1);
     if (argc > 1 && strcmp(argv[1], "--golden") == 0) { golden(); return 0; }
-    impulse(); gain_pan_and_sends(); interpolation_and_end(); dense_polyphony(); envelopes(); chorus_and_delay(); reverb();
+    impulse(); gain_pan_and_sends(); interpolation_and_end(); interpolation_boundaries(); dense_polyphony(); envelopes(); chorus_and_delay(); reverb(); waveform_cache();
     printf("PASS native C DSP: %u checks\n", checks); return 0;
 }

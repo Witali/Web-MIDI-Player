@@ -41,6 +41,8 @@
     "benchmark": "dsp/benchmark-node.json",
     "experimentBranch": "feature/c-wasm-audio-core",
     "prototypeBranch": "experiment/wasm-voice-dsp",
+    "algorithmBenchmark": "dsp/benchmark-algorithm-mixed.json",
+    "failedPipelineBranch": "experiment/fused-voice-pipeline",
     "compiler": "Emscripten 6.0.12",
     "nativeTests": "native/test_dsp.c",
     "scope": "Main sample/envelope/filter/mix loops, chorus, delay lines and Dattorro reverb; MIDI/SF2 parsing and extended insertion effects remain JavaScript"

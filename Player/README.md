@@ -81,6 +81,12 @@ Dattorro reverb run in C/WASM. MIDI interpretation and SoundFont parameter
 setup remain unchanged. Use `dsp: 'js'`, `'wasm'` or `'wasm-simd'`
 to select a backend explicitly; `metadata.dsp` reports the one in use.
 
+An adaptive C cache reuses identical oscillator waveforms within each audio
+block. Every voice retains its own envelope, filter and stereo/effect gains;
+the order of mixing and the PCM rounding remain unchanged. The cache probes
+for reuse and bypasses itself for parts with distinct oscillator phases.
+It bounds cache memory, with no limit on musical voices.
+
 [DSP-PERFORMANCE.md](DSP-PERFORMANCE.md) records the successful experiment branch,
 reproducible benchmarks and bit-identical audio checks. The browser comparison
 page is `example/benchmark.html`. Portable C sources and native tests are in

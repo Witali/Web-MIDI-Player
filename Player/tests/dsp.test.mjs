@@ -51,6 +51,36 @@ test('native C golden output matches scalar and SIMD WASM through the JavaScript
   }
 });
 
+test('Hermite oscillator preserves exact samples and cursor across pitch ratios, loop boundaries and EOF', async () => {
+  function reference(data, count, wave, step) {
+    const audio = new Float32Array(count); let cursor = wave.cursor;
+    for (let i = 0; i < count; i++) {
+      if (wave.isLooping) while (cursor >= wave.loopEnd) cursor -= wave.loopLength;
+      const y0 = Math.trunc(cursor), t = cursor - y0;
+      const indexes = [y0, y0 + 1, y0 + 2, y0 + 3];
+      if (wave.isLooping) for (let j = 1; j < 4; j++) while (indexes[j] >= wave.loopEnd) indexes[j] -= wave.loopLength;
+      else if (y0 + 3 >= wave.end) return { audio, cursor: wave.cursor, active: false };
+      const [xm1, x0, x1, x2] = indexes.map(index => data[index]);
+      const c = (x1 - xm1) * .5, v = x0 - x1, w = c + v;
+      const a = w + v + (x2 - x0) * .5, b = w + a;
+      audio[i] = ((a * t - b) * t + c) * t + x0; cursor += step;
+    }
+    return { audio, cursor, active: true };
+  }
+  const sampleData = Float32Array.from({ length: 257 }, (_, i) => Math.sin(i * .17) * .6);
+  for (const backend of ['wasm', 'wasm-simd']) for (const count of [1, 3, 127, 128])
+    for (const step of [0, .03125, .1, .5, .9999999999999999, 1, 1.0000000000000002, 2.7, 11.125])
+      for (const isLooping of [false, true]) for (const cursor of [0, .25, 8, 16.75, 254]) {
+        const synth = { synthCore: {}, process() {} }; await installVoiceDSP(synth, backend);
+        const wave = { sampleData, isLooping, loopEnd: 17, loopLength: 3, end: 257, cursor, playbackStep: step };
+        const expected = reference(sampleData, count, wave, step);
+        const active = synth.synthCore.voiceDSP.render({}, false, 1, 0, count, 1, 0, 0, 0, 0, false, wave, 1);
+        assert.equal(active, expected.active);
+        assert.deepEqual(synth.synthCore.voiceBuffer.slice(0, count), expected.audio);
+        assert.equal(wave.cursor, expected.cursor);
+      }
+});
+
 test('prebuilt WASM is tied to the C sources and does not import a JavaScript DSP implementation', async () => {
   const manifest = JSON.parse(await fs.readFile(new URL('../dsp/build.json', import.meta.url), 'utf8'));
   for (const [file, expected] of Object.entries(manifest.sha256)) {
@@ -65,5 +95,36 @@ test('prebuilt WASM is tied to the C sources and does not import a JavaScript DS
         assert.ok(names.includes(name), `Missing C DSP export: ${name}`);
       }
     }
+  }
+});
+
+test('waveform cache matches uncached C for independent voice states, key changes, EOF and memory growth', async () => {
+  for (const file of ['voice-mixer.wasm', 'voice-mixer-simd.wasm']) {
+    const module = await WebAssembly.compile(await fs.readFile(new URL('../dsp/' + file, import.meta.url)));
+    const baseline = (await WebAssembly.instantiate(module)).exports;
+    const cached = (await WebAssembly.instantiate(module)).exports;
+    const source = Float32Array.from({ length: 257 }, (_, i) => Math.sin(i * .17) * .6);
+    for (const e of [baseline, cached]) new Float32Array(e.memory.buffer, Number(e.__heap_base.value), source.length).set(source);
+    cached.dsp_begin_block();
+    const voice = [128, 1, 17, 7, 257, 0, .5];
+    const cases = [voice, voice, voice, [127, 1, 17, 7, 257, 0, .5], [128, 1, 17, 7, 257, .25, .5],
+      [128, 1, 17, 7, 257, 0, .51], [128, 1, 17, 8, 257, 0, .5], [128, 1, 18, 7, 257, 0, .5],
+      [3, 0, 0, 0, 257, 254, 1], [3, 0, 0, 0, 257, 254, 1], [128, 1, 17, 7, 250, 0, .5], voice];
+    for (let i = 0; i < cases.length; i++) {
+      const [count, loop, loopEnd, loopLength, end, cursor, step] = cases[i];
+      if (i === 2) cached.memory.grow(1);
+      const results = [baseline, cached].map(e => {
+        const base = e.dsp_get_layout(), filter = new Float64Array(e.memory.buffer, base + 4096, 9);
+        filter.set([.42 + i * .001, .2, .1, -.3, .05, .1, -.2, .03, .04]);
+        const active = e.dsp_process_voice(count, i % 2, .13 + i * .01, .003, .71, .27, .12, .08, .03, i % 3 === 0 ? 1 : 0,
+          Number(e.__heap_base.value), loop, loopEnd, loopLength, end, cursor, step);
+        return { active, audio: new Uint32Array(e.memory.buffer, base, 1024).slice(), filter: filter.slice(),
+          cursor: new Float64Array(e.memory.buffer, base + 4200, 1)[0] };
+      });
+      assert.deepEqual(results[1], results[0], `${file}, voice ${i}`);
+    }
+    const stats = new Uint32Array(cached.memory.buffer, cached.dsp_get_cache_stats(), 3);
+    assert.ok(stats[0] >= 3); assert.ok(stats[1] >= 6); assert.equal(stats[2], 1);
+    cached.dsp_begin_block(); assert.deepEqual([...stats], [0, 0, 0]);
   }
 });
