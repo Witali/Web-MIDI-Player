@@ -99,6 +99,11 @@ export class MidiPlayer extends EventTarget {
     this._worker.postMessage({ type: 'connect', port: channel.port2 }, [channel.port2]);
     this._node.port.onmessage = ({ data }) => {
       if (data.epoch !== this._epoch || this.state === 'disposed') return;
+      if (data.type === 'duration' && Number.isFinite(data.duration)) {
+        this.duration = data.duration;
+        if (this.metadata) this.metadata.duration = data.duration;
+        this._emit('durationchange', { duration: this.duration });
+      }
       if (data.type === 'position' || data.type === 'ended') {
         this.currentTime = Math.min(this.duration, data.seconds);
         this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration, underruns: data.underruns });

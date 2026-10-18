@@ -213,3 +213,21 @@ test('automatic DSP falls back to JavaScript when WebAssembly is unavailable', a
     await assert.rejects(createSoundFontPreview(panned(), bank, { dsp: 'wasm' }), /Simulated unavailable WASM/);
   } finally { WebAssembly.instantiate = original; preview?.close(); }
 });
+
+test('long instrument releases and reverb extend playback beyond the initial two-second tail', async () => {
+  const preview = await createSoundFontPreview(timedScore([[0, 0x90, 69, 110],
+    [1000, 0x80, 69, 0]], 88), bank, { effects: true, dsp: 'wasm-simd' });
+  try {
+    let lastPeak = 0, audibleAfterInitialEnd = false;
+    while (preview.stats.position < preview.stats.duration) {
+      const time = preview.stats.position, channels = preview.read(128);
+      lastPeak = Math.max(...channels.map(samples => samples.reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0)));
+      if (time > 3.05 && lastPeak > 1e-6) audibleAfterInitialEnd = true;
+      assert.ok(preview.stats.position < 30, 'A released note must finish naturally');
+    }
+    assert.ok(audibleAfterInitialEnd, 'The real release must remain audible after source duration + 2 seconds');
+    assert.ok(lastPeak < 1e-6, `The ending must be quiet, not cut at peak ${lastPeak}`);
+    assert.ok(preview.stats.duration > 3);
+    assert.equal(preview.read(128)[0].length, 0);
+  } finally { preview.close(); }
+});

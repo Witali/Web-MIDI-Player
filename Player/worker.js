@@ -44,7 +44,8 @@ function render(data) {
   if (data.epoch !== epoch || !preview) return;
   try {
     const channels = preview.read(2048);
-    port.postMessage({ epoch, channels, done: preview.stats.position >= preview.stats.duration }, channels.map(samples => samples.buffer));
+    const stats = preview.stats;
+    port.postMessage({ epoch, channels, duration: stats.duration, done: stats.position >= stats.duration }, channels.map(samples => samples.buffer));
   } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
 }
 async function command(data) {

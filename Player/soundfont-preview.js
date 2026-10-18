@@ -11,9 +11,9 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   const midi = normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
   let heldNotes = [];
   try { heldNotes = parseMidi(new Uint8Array(midi.writeMIDI())).notes; } catch { /* Extended multi-port files still play through the native sequencer. */ }
-  let synth, sequence, frames = 0;
+  let synth, sequence, frames = 0, quietTailFrames = 0;
   const warnings = new Set();
-  const duration = midi.duration + 2;
+  let duration = midi.duration + 2;
   async function reset() {
     synth?.stopAllChannels(true);
     synth = new SpessaSynthProcessor(48000, { effectsEnabled: effects, eventsEnabled: false, maxBufferSize: 128 });
@@ -42,7 +42,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     }
     sequence = new SpessaSynthSequencer(synth);
     sequence.skipToFirstNoteOn = false; sequence.loopCount = 0;
-    sequence.loadNewSongList([midi]); sequence.play(); frames = 0;
+    sequence.loadNewSongList([midi]); sequence.play(); frames = quietTailFrames = 0;
   }
   await reset();
   return {
@@ -52,7 +52,17 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
       const count = Math.max(0, Math.min(capacity, Math.ceil(duration * 48000) - frames));
       const channels = [new Float32Array(count), new Float32Array(count)];
       for (let at = 0; at < count; at += 128) {
-        sequence.processTick(); synth.process(channels[0], channels[1], at, Math.min(128, count - at));
+        const size = Math.min(128, count - at);
+        sequence.processTick(); synth.process(channels[0], channels[1], at, size);
+        const endFrame = frames + at + size;
+        if (endFrame >= Math.ceil(midi.duration * 48000)) {
+          let peak = 0;
+          for (let i = at; i < at + size; i++) peak = Math.max(peak, Math.abs(channels[0][i]), Math.abs(channels[1][i]));
+          quietTailFrames = synth.voiceCount || peak > 1e-6 ? 0 : quietTailFrames + size;
+          // A two-second estimate must never truncate a real voice or wet tail.
+          // Wait for 250 ms of quiet and grow the advertised duration as needed.
+          if (endFrame >= Math.ceil(duration * 48000) && quietTailFrames < 12000) duration = endFrame / 48000 + 1;
+        }
       }
       frames += count; return channels;
     },
@@ -67,7 +77,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
         synth.noteOn(note.channel, note.pitch, note.velocity);
         if (note.keyOff < seconds) synth.noteOff(note.channel, note.pitch);
       }
-      frames = Math.round(seconds * 48000);
+      frames = Math.round(seconds * 48000); quietTailFrames = 0;
       return { seconds: frames / 48000 };
     },
     close() { synth?.stopAllChannels(true); synth = sequence = null; }

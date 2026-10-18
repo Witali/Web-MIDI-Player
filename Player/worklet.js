@@ -8,6 +8,10 @@ class MidiOutput extends AudioWorkletProcessor {
         this.stream = data.port;
         this.stream.onmessage = ({ data }) => {
           if (data.epoch !== this.epoch) return;
+          if (Number.isFinite(data.duration) && data.duration !== this.duration) {
+            this.duration = data.duration;
+            this.port.postMessage({ type: 'duration', epoch: this.epoch, duration: data.duration });
+          }
           this.pending = false; this.queues.forEach((queue, i) => queue.push(data.channels[i]));
           if (data.done) { this.done = true; this.queues.forEach(queue => queue.finish()); }
           this.request();
@@ -15,7 +19,7 @@ class MidiOutput extends AudioWorkletProcessor {
         this.stream.start();
       } else if (data.type === 'reset') {
         this.queues.forEach(queue => queue.reset()); this.epoch = data.epoch; this.offset = data.offset || 0;
-        this.frames = this.reportedFrames = 0; this.pending = this.done = this.ended = false;
+        this.frames = this.reportedFrames = 0; this.pending = this.done = this.ended = false; this.duration = undefined;
         this.running = data.running; this.request();
       }
     };

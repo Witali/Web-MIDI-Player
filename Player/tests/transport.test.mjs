@@ -38,9 +38,11 @@ test('stereo AudioWorklet preserves channels, resamples, ignores stale blocks an
     processor.port.onmessage({ data: { type: 'reset', epoch: 1, running: true } });
     const left = new Float32Array(128), right = new Float32Array(128);
     processor.process([], [[left, right]]); assert.equal(requests.length, 1);
-    stream.onmessage({ data: { epoch: 0, channels: [new Float32Array(193), new Float32Array(193)], done: true } });
+    stream.onmessage({ data: { epoch: 0, duration: 999, channels: [new Float32Array(193), new Float32Array(193)], done: true } });
     assert.equal(processor.queues[0].length, 0);
-    stream.onmessage({ data: { epoch: 1, channels: [new Float32Array(193).fill(.25), new Float32Array(193).fill(-.5)], done: true } });
+    assert.equal(processor.messages.filter(m => m.type === 'duration').length, 0);
+    stream.onmessage({ data: { epoch: 1, duration: 4.5, channels: [new Float32Array(193).fill(.25), new Float32Array(193).fill(-.5)], done: true } });
+    assert.deepEqual(processor.messages.find(m => m.type === 'duration'), { type: 'duration', epoch: 1, duration: 4.5 });
     processor.process([], [[left, right]]); assert.ok(left.every(n => n === .25)); assert.ok(right.every(n => n === -.5));
     processor.process([], [[left, right]]); assert.equal(processor.messages.filter(m => m.type === 'ended').length, 1);
     processor.port.onmessage({ data: { type: 'reset', epoch: 2, offset: 5, running: true } });

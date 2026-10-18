@@ -21,7 +21,11 @@ or connection to the original Z80 project. Serve it over HTTPS or localhost.
 metadata. The transport provides `play()`, `pause()`, `seek(seconds)`, `stop()`
 and `dispose()`. Set `player.volume` from 0 to 1. Read `state`, `duration` and
 `currentTime`. Subscribe to `loaded`, `statechange`, `timeupdate`, `ended` and
-`error` using `addEventListener`; payloads are in `event.detail`.
+`error` using `addEventListener`; payloads are in `event.detail`. Long release
+and effect tails extend the initial duration estimate instead of being cut;
+`durationchange` reports the updated duration. The same metadata object is
+updated, so site seek controls can follow it. Playback waits for inactive
+voices and 250 ms below −120 dBFS, with at least two seconds of ending headroom.
 
 The sample page is `example/index.html`. It generates its own short test score;
 no copyrighted or downloaded MIDI is included.
