@@ -124,99 +124,68 @@
     if ($('related')) $('related').onclick = () => { reset(); state.family = related; update(); $('details').close(); };
     if (!$('details').open) $('details').showModal();
   }
+  const sampleModule = location.protocol === 'file:' ? null : import('./player/index.js');
+  // Resolve module failures on first use, keeping catalog search available.
+  sampleModule?.catch(() => {});
   class MidiPlayer {
-    constructor() { this.item = null; this.song = null; this.playing = false; this.position = 0; this.voices = new Set(); this.token = 0; this.timer = null; }
-    context() {
-      if (!this.audio) {
-        this.audio = new (window.AudioContext || window.webkitAudioContext)();
-        this.master = this.audio.createGain(); this.master.gain.value = Number($('volume').value);
-        const compressor = this.audio.createDynamicsCompressor(); compressor.threshold.value = -12; compressor.ratio.value = 8;
-        this.master.connect(compressor); compressor.connect(this.audio.destination);
-        this.noise = this.audio.createBuffer(1, this.audio.sampleRate * .3, this.audio.sampleRate);
-        const data = this.noise.getChannelData(0); for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      }
-      return this.audio;
+    constructor() { this.item = null; this.song = null; this.playing = false; this.position = 0; this.token = 0; }
+    async initialize() {
+      if (this.engine) return this.engine;
+      const { MidiPlayer: SamplePlayer } = await sampleModule;
+      const engine = this.engine = new SamplePlayer({ volume: Number($('volume').value) });
+      engine.addEventListener('statechange', () => {
+        if (this.engine !== engine) return;
+        this.playing = engine.state === 'playing'; this.display();
+      });
+      engine.addEventListener('timeupdate', event => {
+        if (this.engine !== engine) return;
+        this.position = event.detail.currentTime; $('seek').value = this.position;
+        $('current-time').textContent = time(this.position);
+      });
+      engine.addEventListener('error', event => { if (this.engine === engine) toast(event.detail.message); });
+      return engine;
     }
     async toggle(item = this.item) {
       if (!item) return;
-      if (this.item?.id === item.id && this.song) { this.playing ? this.pause() : this.start(this.position); return; }
-      if (location.protocol === 'file:') { toast('Для прослушивания запустите «Открыть каталог.cmd» в папке C:\\Work\\MIDI.'); return; }
+      if (location.protocol === 'file:') { toast('Для прослушивания запустите «Открыть каталог.cmd» в папке проекта.'); return; }
       const token = ++this.token;
-      this.pause(); this.item = item; this.song = null; this.position = 0;
-      this.display(); $('player-title').textContent = `Загрузка: ${item.title}`;
       try {
-        const context = this.context(); await context.resume();
-        const response = await fetch(href(item.versions[0].file));
-        if (!response.ok) throw new Error('Не удалось прочитать локальный файл');
-        const song = window.MidiCore.readMidi(await response.arrayBuffer());
+        const engine = await this.initialize(); await engine.unlock();
         if (token !== this.token) return;
-        if (!song.notes.length) throw new Error('В этом MIDI не найдены звучащие ноты');
-        this.song = song; this.start(0);
-      } catch (error) { if (token === this.token) { toast(error.message); this.display(); } }
+        if (this.item?.id === item.id && this.song) {
+          engine.state === 'playing' ? await engine.pause() : await engine.play(); return;
+        }
+        this.item = item; this.song = null; this.position = 0; this.display();
+        $('player-title').textContent = `Загрузка: ${item.title}`;
+        const song = await engine.load(href(item.versions[0].file));
+        if (token !== this.token) return;
+        this.song = song; this.display();
+        if (song.warnings?.length) toast(song.warnings.join(' '));
+        await engine.play();
+      } catch (error) { if (token === this.token && error.name !== 'AbortError') { toast(error.message); this.display(); } }
     }
-    clearVoices() { for (const voice of this.voices) { try { voice.source.stop(); voice.source.disconnect(); voice.gain.disconnect(); voice.filter?.disconnect(); } catch {} } this.voices.clear(); }
-    current() { return this.playing ? Math.min(this.song.duration, this.audio.currentTime - this.anchor) : this.position; }
-    pause() {
-      if (this.playing) this.position = this.current();
-      this.playing = false; clearInterval(this.timer); this.clearVoices(); this.display();
-    }
-    start(position) {
+    async seek(position) {
       if (!this.song) return;
-      this.context().resume(); this.clearVoices(); clearInterval(this.timer);
-      if (position >= this.song.duration) position = 0;
-      this.position = Math.max(0, position); this.anchor = this.audio.currentTime + .06 - this.position;
-      let low = 0, high = this.song.notes.length;
-      while (low < high) { const mid = (low + high) >> 1; if (this.song.notes[mid].start < this.position) low = mid + 1; else high = mid; }
-      this.index = low; this.playing = true;
-      this.timer = setInterval(() => this.tick(), 40); this.tick(); this.display();
-    }
-    tick() {
-      if (!this.playing) return;
-      const horizon = this.audio.currentTime - this.anchor + .25;
-      let processed = 0;
-      while (this.index < this.song.notes.length && this.song.notes[this.index].start <= horizon && processed++ < 2000) this.sound(this.song.notes[this.index++]);
-      const current = Math.max(0, this.current());
-      $('seek').value = current; $('current-time').textContent = time(current);
-      if (current >= this.song.duration) { this.position = 0; this.pause(); }
-    }
-    sound(note) {
-      if (this.voices.size >= 96 || note.end <= this.audio.currentTime - this.anchor) return;
-      const context = this.audio, start = Math.max(context.currentTime + .005, this.anchor + note.start);
-      const family = window.MidiCore.instrumentFamily(note.program, note.channel);
-      let duration = Math.max(.035, Math.min(note.end - note.start, family === 'Фортепиано' || family === 'Гитара' ? 3 : 12));
-      const gain = context.createGain(); let source, filter;
-      if (note.channel === 9 && note.pitch !== 35 && note.pitch !== 36) {
-        source = context.createBufferSource(); source.buffer = this.noise; duration = Math.min(duration, note.pitch >= 42 ? .1 : .2);
-        filter = context.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = note.pitch >= 42 ? 5000 : 1200;
-        source.connect(filter); filter.connect(gain);
-      } else {
-        source = context.createOscillator();
-        source.type = family === 'Духовые' || family === 'Синтезатор' ? 'sawtooth' : family === 'Орган' || family === 'Бас' || note.channel === 9 ? 'sine' : 'triangle';
-        source.frequency.setValueAtTime(note.channel === 9 ? 95 : 440 * 2 ** ((note.pitch - 69) / 12), start);
-        if (note.channel === 9) { source.frequency.exponentialRampToValueAtTime(38, start + .16); duration = .18; }
-        filter = context.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = family === 'Духовые' ? 1800 : 4200;
-        source.connect(filter); filter.connect(gain);
-      }
-      const peak = Math.max(.0001, note.velocity * .085);
-      gain.gain.setValueAtTime(.0001, start); gain.gain.linearRampToValueAtTime(peak, start + .012);
-      gain.gain.exponentialRampToValueAtTime(peak * .35, start + Math.max(.025, duration * .8));
-      gain.gain.exponentialRampToValueAtTime(.0001, start + duration + .1); gain.connect(this.master);
-      const voice = { source, gain, filter }; this.voices.add(voice);
-      source.onended = () => { this.voices.delete(voice); source.disconnect(); gain.disconnect(); filter?.disconnect(); };
-      source.start(start); source.stop(start + duration + .12);
+      try { await this.engine.seek(position); this.position = this.engine.currentTime; this.display(); }
+      catch (error) { toast(error.message); }
     }
     display() {
       $('player').hidden = !this.item;
       if (this.item) {
         $('player-title').textContent = this.item.title; $('player-artist').textContent = this.item.artist;
         $('total-time').textContent = time(this.song?.duration ?? this.item.duration);
-        $('current-time').textContent = time(this.position); $('seek').max = this.song?.duration || 1; $('seek').value = this.position;
+        $('current-time').textContent = time(this.position); $('seek').max = this.song?.duration || 1;
+        $('seek').value = this.position; $('seek').disabled = !this.song;
         $('player-toggle').textContent = this.playing ? 'Ⅱ' : '▶'; $('player-toggle').setAttribute('aria-label', this.playing ? 'Пауза' : 'Продолжить');
       }
       render();
     }
-    close() { this.token++; this.pause(); this.item = null; this.song = null; this.position = 0; this.display(); }
+    close() {
+      this.token++; const engine = this.engine; this.engine = null; engine?.dispose().catch(error => toast(error.message));
+      this.item = this.song = null; this.playing = false; this.position = 0; this.display();
+    }
   }
+
   const player = new MidiPlayer();
   let searchTimer;
   $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.query = $('search').value; state.page = 1; update(); }, 100); });
@@ -241,8 +210,8 @@
   $('close-details').onclick = () => $('details').close();
   $('details').onclick = event => { if (event.target === $('details') && (event.offsetX < 0 || event.offsetX > $('details').clientWidth || event.offsetY < 0 || event.offsetY > $('details').clientHeight)) $('details').close(); };
   $('player-toggle').onclick = () => player.toggle(); $('player-close').onclick = () => player.close();
-  $('seek').onchange = () => { const position = Number($('seek').value); if (player.song) { if (player.playing) player.start(position); else { player.position = position; player.display(); } } };
-  $('volume').oninput = () => { if (player.master) player.master.gain.setTargetAtTime(Number($('volume').value), player.audio.currentTime, .02); };
+  $('seek').onchange = () => { const position = Number($('seek').value); if (player.song) { player.seek(position); } };
+  $('volume').oninput = () => { if (player.engine) player.engine.volume = Number($('volume').value); };
   $('export').onclick = () => {
     const cell = value => { let text = String(value ?? ''); if (/^[=+@-]/.test(text)) text = "'" + text; return `"${text.replaceAll('"', '""')}"`; };
     const rows = [['Название', 'Исполнитель', 'Раздел', 'Время', 'BPM', 'Инструменты', 'Источники', 'Файл'], ...filtered.map(item => [item.title, item.artist, item.category, time(item.duration), item.tempo, item.instruments.join('; '), item.versions.length, item.versions[0].file])];

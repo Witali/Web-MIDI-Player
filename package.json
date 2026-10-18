@@ -9,8 +9,9 @@
   },
   "scripts": {
     "start": "node catalog-server.mjs --open",
-    "test": "node --test test/catalog.test.mjs",
+    "test": "node --test test/catalog.test.mjs Player/tests/*.test.mjs",
     "catalog": "node catalog.mjs",
-    "catalog:serve": "node catalog-server.mjs --open"
+    "catalog:serve": "node catalog-server.mjs --open",
+    "player:assets": "node Player/tools/fetch-assets.mjs"
   }
 }

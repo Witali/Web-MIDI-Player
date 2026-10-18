@@ -15,4 +15,8 @@ const html = read('catalog/index.template.html')
   .replace('/* MIDI_CORE */', () => `(() => {\n${core}\nwindow.MidiCore = {readMidi, instrumentFamily};\n})();`)
   .replace('/* CATALOG_APP */', () => read('catalog/app.js'));
 fs.writeFileSync(path.join(directory, 'index.html'), html);
+fs.cpSync(path.join(root, 'Player'), path.join(directory, 'player'), {
+  recursive: true,
+  filter: source => !['tests', 'node_modules', '.cache', '.git'].includes(path.basename(source))
+});
 console.log(JSON.stringify({ ...library.stats, catalog: path.join(directory, 'index.html') }, null, 2));

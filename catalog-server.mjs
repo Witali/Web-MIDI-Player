@@ -24,14 +24,22 @@ export function createCatalogServer(directory) {
     else if (pathname.startsWith('/midi/') && /\.(mid|midi|rmi|kar)$/i.test(pathname)) {
       absolute = path.resolve(root, `.${pathname}`); type = 'audio/midi';
       if (!absolute.startsWith(`${midiRoot}${path.sep}`)) { fail(404); return; }
+    } else if (pathname.startsWith('/player/')) {
+      const playerTypes = { '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
+        '.wasm': 'application/wasm', '.sf2': 'application/octet-stream', '.html': 'text/html; charset=utf-8',
+        '.css': 'text/css; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
+      type = playerTypes[path.extname(pathname).toLowerCase()];
+      absolute = path.resolve(root, `.${pathname}`);
+      if (!type || !absolute.startsWith(`${path.join(root, 'player')}${path.sep}`)) { fail(404); return; }
     } else { fail(404); return; }
     try {
       const real = fs.realpathSync(absolute), stat = fs.statSync(real);
       if (!real.startsWith(`${root}${path.sep}`) || !stat.isFile()) { fail(404); return; }
       if (type === 'audio/midi' && !real.startsWith(`${midiRoot}${path.sep}`)) { fail(404); return; }
+      if (pathname.startsWith('/player/') && !real.startsWith(`${path.join(root, 'player')}${path.sep}`)) { fail(404); return; }
       response.writeHead(200, { 'Content-Type': type, 'Content-Length': stat.size, 'Cache-Control': 'no-cache',
         'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
-        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" });
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" });
       if (request.method === 'HEAD') response.end();
       else { const stream = fs.createReadStream(real); stream.on('error', () => response.destroy()); stream.pipe(response); }
     } catch { fail(404); }
