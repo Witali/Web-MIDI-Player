@@ -11,7 +11,7 @@ body{font:16px system-ui;background:#11161d;color:#edf0f3;max-width:720px;margin
 <label>Позиция <output id="time">0.0 / 0.0 с</output><input id="seek" type="range" min="0" max="1" step="0.1" value="0"></label>
 <label>Громкость<input id="volume" type="range" min="0" max="1" step="0.01" value="0.55"></label>
 <label>Свой MIDI-файл<input id="file" type="file" accept=".mid,.midi,.kar,.rmi"></label>
-<small>FluidR3 GM · 128 инструментов · стереопанорама CC10 · <a href="../README.md">API и установка</a></small>
+<small>FluidR3 GM · 128 инструментов · стереопанорама CC10 · <span id="backend">DSP выбирается при загрузке</span><br><a href="../README.md">API и установка</a> · <a href="./benchmark.html">Сравнить скорость JS / WASM / SIMD</a></small>
 <script type="module">
 import { MidiPlayer } from '../index.js';
 const $=id=>document.getElementById(id),player=new MidiPlayer({effects:false});
@@ -25,6 +25,7 @@ let source=score(),busy=false;
 function update(){const state={empty:'Готов',loading:'Загрузка инструментов…',seeking:'Перемотка…',ready:'Готов к воспроизведению',playing:'Воспроизводится · стерео',paused:'Пауза',ended:'Воспроизведение завершено',error:'Ошибка'};if(!busy)$('status').textContent=state[player.state]||player.state;$('play').textContent=player.state==='playing'?'Ⅱ Пауза':'▶ Воспроизвести';$('seek').max=player.duration||1;$('seek').value=player.currentTime;$('time').textContent=`${player.currentTime.toFixed(1)} / ${player.duration.toFixed(1)} с`;}
 async function action(fn){try{busy=true;$('status').textContent='Подготовка…';await fn();}catch(e){$('status').textContent=e.message;return;}finally{busy=false;}update();}
 player.addEventListener('statechange',update);player.addEventListener('timeupdate',update);player.addEventListener('error',e=>$('status').textContent=e.detail.message);
+player.addEventListener('loaded',event=>$('backend').textContent=`DSP: ${event.detail.dsp==='wasm-simd'?'WASM SIMD128':event.detail.dsp==='wasm'?'WASM':'JavaScript'}`);
 $('play').onclick=()=>action(async()=>{if(player.state==='playing')return player.pause();await player.unlock();if(!player.metadata)await player.load(source);await player.play();});
 $('stop').onclick=()=>action(()=>player.stop());
 $('seek').onchange=()=>action(()=>player.seek(Number($('seek').value)));

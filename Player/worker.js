@@ -51,7 +51,7 @@ async function command(data) {
   if (data.type === 'load' && data.engine !== 'z80') {
     const [{ createSoundFontPreview }, bank] = await Promise.all([import('./soundfont-preview.js'), soundfont(data.soundfontUrl)]);
     preview?.close(); preview = null;
-    preview = await createSoundFontPreview(data.bytes, bank, { effects: data.effects });
+    preview = await createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp });
     epoch = data.epoch; return preview.stats;
   }
   if (data.type === 'seek') {

@@ -174,3 +174,42 @@ test('SoundFont instruments retain their own attack and release envelopes', asyn
     assert.ok(fast[0] > .001 && fast[3] < 1e-12, `The lead must retain its fast attack and shorter release: ${fast}`);
   } finally { pad.close(); lead.close(); }
 });
+
+test('WASM and SIMD match reference audio across all 128 GM programs, drums, pan and effects', async () => {
+  const events = [];
+  for (let program = 0; program < 128; program++) {
+    const at = program * 80, key = 48 + program % 36;
+    events.push([at, 0xc0, program], [at, 0xb0, 10, program * 13 % 128],
+      [at, 0xb0, 91, 64], [at, 0xb0, 93, 48], [at, 0x90, key, 80], [at + 40, 0x80, key, 0]);
+  }
+  for (let key = 35; key <= 81; key++) {
+    const at = 10240 + (key - 35) * 40;
+    events.push([at, 0xb9, 10, key * 13 % 128], [at, 0x99, key, 100], [at + 20, 0x89, key, 0]);
+  }
+  const source = timedScore(events);
+  for (const effects of [false, true]) {
+    const previews = await Promise.all(['js', 'wasm', 'wasm-simd'].map(dsp => createSoundFontPreview(source, bank, { effects, dsp })));
+    try {
+      assert.deepEqual(previews.map(p => p.stats.dsp), ['js', 'wasm', 'wasm-simd']);
+      while (previews[0].stats.position < previews[0].stats.duration) {
+        const audio = previews.map(p => p.read(2047)); // Exercise odd final quanta.
+        for (let backend = 1; backend < 3; backend++) for (let channel = 0; channel < 2; channel++) {
+          assert.deepEqual(audio[backend][channel], audio[0][channel],
+            `PCM differs: effects=${effects}, DSP=${previews[backend].stats.dsp}, channel=${channel}, time=${previews[0].stats.position}`);
+        }
+      }
+    } finally { previews.forEach(p => p.close()); }
+  }
+});
+
+test('automatic DSP falls back to JavaScript when WebAssembly is unavailable', async () => {
+  const original = WebAssembly.instantiate;
+  WebAssembly.instantiate = async () => { throw new Error('Simulated unavailable WASM'); };
+  let preview;
+  try {
+    preview = await createSoundFontPreview(panned(), bank, { effects: false });
+    assert.equal(preview.stats.dsp, 'js'); assert.ok(preview.stats.warnings.some(message => message.includes('using JavaScript')));
+    assert.ok(preview.read(4096).some(samples => energy(samples) > .001));
+    await assert.rejects(createSoundFontPreview(panned(), bank, { dsp: 'wasm' }), /Simulated unavailable WASM/);
+  } finally { WebAssembly.instantiate = original; preview?.close(); }
+});

@@ -68,6 +68,19 @@ retriggers held notes; their attack/phase restarts at the seek position. The Z80
 backend reconstructs PCM from the beginning to retain phase and envelopes.
 New seek requests cancel obsolete requests.
 
+## WASM voice DSP
+
+The default `dsp: 'auto'` selects SIMD128 when available, then scalar WASM,
+then JavaScript. Hermite interpolation, filtering, envelope gain and stereo
+mixing run in small local WASM modules. MIDI interpretation and SoundFont
+envelope parameters remain unchanged. Use `dsp: 'js'`, `'wasm'` or `'wasm-simd'`
+to select a backend explicitly; `metadata.dsp` reports the one in use.
+
+[DSP-PERFORMANCE.md](DSP-PERFORMANCE.md) records the successful experiment branch,
+reproducible benchmarks and bit-identical audio checks. The browser comparison
+page is `example/benchmark.html`. Source WAT and prebuilt modules are in `dsp/`;
+rebuilding requires the pinned WABT dev dependency and `npm run build:dsp`.
+
 ## Assets and deployment
 
 The unmodified FluidR3 bank is about **142 MiB**, loaded on first use and kept

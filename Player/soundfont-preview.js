@@ -1,10 +1,12 @@
 import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from './vendor/spessasynth.js';
 import { parseMidi } from './engine/src/midi.js';
 import { normalizeSmpteTiming } from './midi-timing.js';
+import { installVoiceDSP } from './voice-dsp.js';
 
 // The portable transport also accepts a complete SF2 bank when all GM timbres
 // are required. Stereo, controllers and SoundFont modulators stay in the synth.
-export async function createSoundFontPreview(bytes, bank, { effects = true } = {}) {
+export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto' } = {}) {
+  if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
   SpessaLog.setLogLevel(false, false, false);
   const midi = normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
   let heldNotes = [];
@@ -26,6 +28,18 @@ export async function createSoundFontPreview(bytes, bank, { effects = true } = {
     synth.setSystemParameter('autoAllocateVoices', true);
     synth.setSystemParameter('blackMIDIMode', false);
     synth.setSystemParameter('monophonicRetrigger', false);
+    if (dsp !== 'js') {
+      try {
+        if (dsp === 'auto') {
+          try { await installVoiceDSP(synth, 'wasm-simd'); }
+          catch { await installVoiceDSP(synth, 'wasm'); }
+        } else await installVoiceDSP(synth, dsp);
+      }
+      catch (error) {
+        if (dsp === 'wasm') throw error;
+        warnings.add(`WASM voice DSP unavailable; using JavaScript: ${error.message}`);
+      }
+    }
     sequence = new SpessaSynthSequencer(synth);
     sequence.skipToFirstNoteOn = false; sequence.loopCount = 0;
     sequence.loadNewSongList([midi]); sequence.play(); frames = 0;
@@ -33,7 +47,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true } = {
   await reset();
   return {
     get stats() { return { duration, sourceDuration: midi.duration, position: frames / 48000, channels: 2,
-      sampleRate: 48000, engine: 'soundfont', bank: bank.soundBankInfo.name, warnings: [...warnings], parts: [], title: midi.getName() }; },
+      sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', bank: bank.soundBankInfo.name, warnings: [...warnings], parts: [], title: midi.getName() }; },
     read(capacity = 2048) {
       const count = Math.max(0, Math.min(capacity, Math.ceil(duration * 48000) - frames));
       const channels = [new Float32Array(count), new Float32Array(count)];

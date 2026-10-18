@@ -1,10 +1,12 @@
 // Public transport API. PCM synthesis remains in the Worker/WASM engine.
 export class MidiPlayer extends EventTarget {
-  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl } = {}) {
+  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, dsp = 'auto' } = {}) {
     super();
     this.state = 'empty'; this.currentTime = 0; this.duration = 0;
     this.metadata = null; this._volume = 0.55; this.volume = volume;
     if (!['soundfont', 'z80'].includes(engine)) throw new TypeError('Unknown playback engine.');
+    if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
+    this._dsp = dsp;
     this._engine = engine; this._effects = effects;
     this._soundfontUrl = soundfontUrl ? new URL(soundfontUrl, globalThis.location?.href || import.meta.url).href : undefined;
     this._revision = 0; this._epoch = 0; this._sequence = 0; this._pending = new Map();
@@ -66,7 +68,7 @@ export class MidiPlayer extends EventTarget {
       else throw new TypeError('Load a MIDI URL, File, Blob, ArrayBuffer or typed array.');
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       const metadata = await this._call('load', { bytes, epoch: this._epoch, engine: this._engine,
-        effects: this._effects, soundfontUrl: this._soundfontUrl }, [bytes.buffer]);
+        effects: this._effects, soundfontUrl: this._soundfontUrl, dsp: this._dsp }, [bytes.buffer]);
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       this.metadata = metadata; this.duration = metadata.duration;
       this._state('ready'); this._emit('loaded', metadata); return metadata;

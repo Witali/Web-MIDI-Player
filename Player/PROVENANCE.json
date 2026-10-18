@@ -14,7 +14,8 @@
       "Copied MIDI parser: timed CC10 and SMPTE; source repository unchanged",
       "SpessaSynth import rewritten to local pinned stb-vorbis.js",
       "SpessaSynth CC123 releases keys through Note Off to respect the sustain pedal (MIDI 1.0 Appendix A-5)",
-      "Copied MIDI parser: no fixed per-channel or total note-count polyphony limit"
+      "Copied MIDI parser: no fixed per-channel or total note-count polyphony limit",
+      "Optional local voice DSP hooks: Hermite, filter, envelope gain, stereo/effect sends; scalar JS path retained"
     ]
   },
   "soundfont": {
@@ -28,6 +29,12 @@
     "packageUrl": "https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gm_3.1-5.3_all.deb",
     "packageSha256": "6f531493ac4e4d9772fd96b2488ea1790af81c196135fbdd25997da0781fc60e",
     "licenseUrl": "https://sources.debian.org/src/fluid-soundfont/3.1-5/COPYING"
+  },
+  "voiceDSP": {
+    "sources": ["dsp/voice-mixer.wat", "dsp/mix-simd.wat", "voice-dsp.js"],
+    "build": "dsp/build.json",
+    "benchmark": "dsp/benchmark-node.json",
+    "experimentBranch": "experiment/wasm-voice-dsp"
   },
   "dependencies": [
     {
@@ -43,6 +50,14 @@
       "url": "https://registry.npmjs.org/stb-vorbis/-/stb-vorbis-0.0.6.tgz",
       "integrity": "sha512-CyvjJEGROIdnuZknwFvdOfMIO1ssUxO2OawsXCR3IlbJ8z2IMBjDe8FDxFJqBfLgf1ZOdqvoHAYx3Xk8q9rbbg==",
       "license": "Apache-2.0"
+    },
+    {
+      "name": "wabt",
+      "version": "1.0.39",
+      "url": "https://registry.npmjs.org/wabt/-/wabt-1.0.39.tgz",
+      "integrity": "sha512-ba+dRL/75VQQY7RkU/CgriGbkoWAfS8TDyUlJfJhJ8KhtXgMl5dhNvoPNUcQ9IWRhW8u41glMSuZeTvsYq2rRg==",
+      "license": "Apache-2.0",
+      "buildOnly": true
     }
   ]
 }

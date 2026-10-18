@@ -1,0 +1,11 @@
+{
+  "builder": "tools/build-dsp.mjs",
+  "compiler": "wabt 1.0.39",
+  "arithmetic": "Float64; Float32 at original renderer rounding points; no relaxed SIMD",
+  "sha256": {
+    "voice-mixer.wat": "f2e394a8e14b2100c130f86efe0a5716164724c1c0f88a3541771285892ac7bc",
+    "mix-simd.wat": "59cba35f78b555528f52678d8f967a19757e2426770d908a287a48da154854a7",
+    "voice-mixer.wasm": "8b71bce1f99cb586852f117e1c4e04c30c45218de77aefa8af01d0571ccf579f",
+    "voice-mixer-simd.wasm": "f6ac58d8f8f89aaeced5ad4ad756125c82a8717f56f9604339e818b19eabba44"
+  }
+}

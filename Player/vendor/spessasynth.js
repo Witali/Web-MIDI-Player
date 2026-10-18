@@ -6763,10 +6763,13 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		return;
 	}
 	const buffer = core.voiceBuffer;
-	voice.isActive = voice.wavetable.process(sampleCount, voice.tuningRatio, buffer);
+	const dsp = core.voiceDSP;
+	const deferredOscillator = dsp && voice.wavetable === voice.oscillators[2];
+	voice.isActive = deferredOscillator || voice.wavetable.process(sampleCount, voice.tuningRatio, buffer);
 	let gain = voice.volEnv.outputGain;
 	const envActive = voice.volEnv.process(sampleCount, gainTarget);
 	const gainInc = (voice.volEnv.outputGain - gain) / sampleCount;
+	let filterEnabled = false;
 	{
 		const f = voice.filter;
 		const initialFc = modulated[GeneratorTypes.initialFilterFc];
@@ -6779,7 +6782,7 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		const modulatedResonance = modulated[GeneratorTypes.initialFilterQ];
 		if (f.currentInitialFc > 13499 && targetCutoff > 13499 && modulatedResonance === 0) {
 			f.currentInitialFc = 13500;
-			for (let i = 0; i < sampleCount; i++) {
+			if (!dsp) for (let i = 0; i < sampleCount; i++) {
 				buffer[i] *= gain;
 				gain += gainInc;
 			}
@@ -6789,6 +6792,8 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 				f.resonanceCb = modulatedResonance;
 				f.calculateCoefficients(targetCutoff);
 			}
+			if (dsp) filterEnabled = true;
+			else {
 			const { a0, a1, a2, a3, a4 } = f;
 			let { x1, x2, y1, y2 } = f;
 			for (let i = 0; i < sampleCount; i++) {
@@ -6805,6 +6810,7 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 			f.x2 = x2;
 			f.y1 = y1;
 			f.y2 = y2;
+			}
 		}
 	}
 	voice.isActive = voice.isActive && envActive;
@@ -6819,6 +6825,20 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	const index = Math.min(Math.max(-500, pan + this.currentPan), 500) + 500 | 0;
 	const gainLeft = panTableLeft[index] * outputGain;
 	const gainRight = panTableRight[index] * outputGain;
+	if (dsp) {
+		const enabled = systemParameters.effectsEnabled;
+		const reverbSend = modulated[GeneratorTypes.reverbEffectsSend] * voice.reverbSend;
+		const chorusSend = modulated[GeneratorTypes.chorusEffectsSend] * voice.chorusSend;
+		const delaySend = this._midiControllers[MIDIControllers.variationDepth] * voice.delaySend;
+		const active = dsp.render(voice.filter, filterEnabled, gain, gainInc, sampleCount, gainLeft, gainRight,
+			enabled && reverbSend > 0 ? systemParameters.reverbGain * outputGain * (reverbSend / 1e3) : 0,
+			enabled && chorusSend > 0 ? systemParameters.chorusGain * (chorusSend / 1e3) * outputGain : 0,
+			enabled && core.delayActive && delaySend > 0 ? outputGain * systemParameters.delayGain * ((delaySend >> 7) / 127) : 0,
+			!!(this._midiParameters.efxAssign && enabled && core.insertionActive),
+			deferredOscillator ? voice.wavetable : null, voice.tuningRatio);
+		voice.isActive = voice.isActive && active;
+		return;
+	}
 	if (this._midiParameters.efxAssign && systemParameters.effectsEnabled && core.insertionActive) {
 		const insertionL = core.insertionInputL;
 		const insertionR = core.insertionInputR;
@@ -19956,6 +19976,11 @@ var SynthesizerCore = class {
 			ch.renderVoice(v, this.currentTime, outputs[outputIndex][0], outputs[outputIndex][1], startIndex, sampleCount);
 			ch.voiceCount++;
 			this._voiceCount++;
+		}
+		if (this.voiceDSP) {
+			// The sample cache may have grown while voices were rendered.
+			effectsLeft = this.voiceDSP.left;
+			effectsRight = this.voiceDSP.right;
 		}
 		if (this.systemParameters.effectsEnabled) {
 			const { chorusInput, delayInput, reverbInput, insertionInputR, insertionInputL } = this;
