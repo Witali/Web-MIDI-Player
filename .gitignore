@@ -1,0 +1,24 @@
+# Downloaded collection, local caches and dependencies
+/downloads/
+/.cache/
+/node_modules/
+**/node_modules/
+*.log
+/.worktree/
+*.mid
+*.midi
+*.rmi
+*.kar
+# Large sample banks are restored with Player/tools/fetch-assets.mjs
+*.sf2
+*.sf3
+*.deb
+*.tgz
+# The scraper stays available locally, outside version control
+/midiworld.mjs
+/src/midiworld.mjs
+/test/midiworld.test.mjs
+/test/archive.test.mjs
+/deduplicate.mjs
+/SCRAPER-LOCAL.md
+/catalog-preview.png
