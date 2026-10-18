@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installVoiceDSP } from '../voice-dsp.js';
+import fs from 'node:fs/promises';
 
 test('WASM and SIMD preserve filter state, Float32 mix rounding, sends and partial blocks', async () => {
   for (const backend of ['wasm', 'wasm-simd']) for (const count of [1, 3, 127, 128])
@@ -31,4 +32,20 @@ test('WASM and SIMD preserve filter state, Float32 mix rounding, sends and parti
         `${backend}, count=${count}, filter=${enabled}, insertion=${insertion}, output=${j}`);
       assert.deepEqual(filter, expectedFilter);
     }
+});
+
+test('native C golden output matches scalar and SIMD WASM through the JavaScript ABI', async () => {
+  const expected = JSON.parse(await fs.readFile(new URL('./native-dsp-golden.json', import.meta.url), 'utf8'));
+  for (const file of ['voice-mixer.wasm', 'voice-mixer-simd.wasm']) {
+    const { instance } = await WebAssembly.instantiate(await fs.readFile(new URL('../dsp/' + file, import.meta.url)));
+    const e = instance.exports, base = e.dsp_get_layout(), pointer = Number(e.__heap_base.value);
+    assert.equal(e.dsp_abi_version(), 1);
+    new Float32Array(e.memory.buffer, pointer, 12).set([0, .2, -.6, .9, .7, -.2, -.4, .3, .8, -.5, .1, 0]);
+    const state = new Float64Array(e.memory.buffer, base + 4096, 9);
+    state.set([.42, .2, .1, -.3, .05, .1, -.2, .03, .04]);
+    assert.equal(e.dsp_process_voice(8, 1, .13, .003, .71, .27, .12, .08, .03, 0, pointer, 1, 12, 8, 12, 10.25, .7), 1);
+    assert.deepEqual([...new Float32Array(e.memory.buffer, base + 512, 8)], expected.audio);
+    assert.deepEqual([...state], expected.filter);
+    assert.equal(new Float64Array(e.memory.buffer, base + 4200, 1)[0], expected.cursor);
+  }
 });

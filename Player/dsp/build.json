@@ -1,11 +1,30 @@
 {
-  "builder": "tools/build-dsp.mjs",
-  "compiler": "wabt 1.0.39",
-  "arithmetic": "Float64; Float32 at original renderer rounding points; no relaxed SIMD",
+  "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+  "flags": [
+    "-O3",
+    "-std=c11",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-ffp-contract=off",
+    "-fno-fast-math",
+    "--no-entry",
+    "-sSTANDALONE_WASM=1",
+    "-sALLOW_MEMORY_GROWTH=1",
+    "-sINITIAL_MEMORY=131072",
+    "-sSTACK_SIZE=65536",
+    "-sMAXIMUM_MEMORY=2147483648",
+    "-Wl,--export=__heap_base",
+    "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_process_voice\"]"
+  ],
+  "simdFlags": [
+    "-msimd128"
+  ],
+  "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
   "sha256": {
-    "voice-mixer.wat": "f2e394a8e14b2100c130f86efe0a5716164724c1c0f88a3541771285892ac7bc",
-    "mix-simd.wat": "59cba35f78b555528f52678d8f967a19757e2426770d908a287a48da154854a7",
-    "voice-mixer.wasm": "8b71bce1f99cb586852f117e1c4e04c30c45218de77aefa8af01d0571ccf579f",
-    "voice-mixer-simd.wasm": "f6ac58d8f8f89aaeced5ad4ad756125c82a8717f56f9604339e818b19eabba44"
+    "native/dsp.c": "42ce203d24965f3aaff0f440f233f140052726c4803153bc7259ccae22732f7e",
+    "native/dsp.h": "aae12ea2f207455dec67c697b0b5eb55615084536a2d443e25f064ccea1410c6",
+    "dsp/voice-mixer.wasm": "33f6ae99344b2ed771bf747f76eb1cabeabd42bb37368d3c42fb7195e4e56358",
+    "dsp/voice-mixer-simd.wasm": "221cf283a15daa72f872aacdbd08da11405fb4d87d1f04eb4b49803e8ad659be"
   }
 }

@@ -4,7 +4,7 @@
   "description": "Portable browser MIDI player using the Z80 Lab sample preview engine",
   "type": "module",
   "exports": { ".": "./index.js" },
-  "files": ["*.js", "dsp", "engine", "vendor", "soundfonts", "licenses", "tools", "example", "README.md", "PROVENANCE.json"],
-  "scripts": { "test": "node --test tests/*.test.mjs", "assets": "node tools/fetch-assets.mjs", "build:dsp": "node tools/build-dsp.mjs", "benchmark": "node tools/benchmark-polyphony.mjs" },
+  "files": ["*.js", "native", "dsp", "engine", "vendor", "soundfonts", "licenses", "tools", "example", "README.md", "PROVENANCE.json"],
+  "scripts": { "test": "node --test tests/*.test.mjs", "test:core": "node tools/test-core.mjs", "assets": "node tools/fetch-assets.mjs", "build:dsp": "node tools/build-core.mjs", "build:wat": "node tools/build-dsp.mjs", "benchmark": "node tools/benchmark-polyphony.mjs" },
   "devDependencies": { "wabt": "1.0.39" }
 }

@@ -17,19 +17,23 @@ async function module(backend) {
 
 export async function installVoiceDSP(synth, backend = 'wasm') {
   const code = await module(backend);
-  const { exports: { memory, processVoice } } = await WebAssembly.instantiate(code);
+  const { exports } = await WebAssembly.instantiate(code);
+  const { memory } = exports;
+  const processVoice = exports.dsp_process_voice || exports.processVoice;
+  const base = exports.dsp_get_layout ? exports.dsp_get_layout() : 0;
+  if (exports.dsp_abi_version && exports.dsp_abi_version() !== 1) throw new Error('Unsupported C DSP ABI.');
   const core = synth.synthCore;
   let left, right, state, cursor;
   const refresh = () => {
-    const view = offset => new Float32Array(memory.buffer, offset, 128);
+    const view = offset => new Float32Array(memory.buffer, base + offset, 128);
     core.voiceBuffer = view(0); left = view(512); right = view(1024);
     core.reverbInput = view(1536); core.chorusInput = view(2048); core.delayInput = view(2560);
     core.insertionInputL = view(3072); core.insertionInputR = view(3584);
-    state = new Float64Array(memory.buffer, 4096, 9); cursor = new Float64Array(memory.buffer, 4200, 1);
+    state = new Float64Array(memory.buffer, base + 4096, 9); cursor = new Float64Array(memory.buffer, base + 4200, 1);
   };
   refresh();
   const sampleCache = new WeakMap();
-  let nextSample = 65536;
+  let nextSample = Math.max(65536, Number(exports.__heap_base?.value || 65536));
   const nativeProcess = synth.process;
   synth.process = (outputL, outputR, start = 0, count = outputL.length - start) => {
     if (count < 1 || count > 128) throw new RangeError('Voice DSP blocks must contain 1–128 samples.');
