@@ -1,0 +1,16 @@
+{
+  "name": "midi-library",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local MIDI collection catalog and portable sample player",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node catalog-server.mjs --open",
+    "test": "node --test test/catalog.test.mjs",
+    "catalog": "node catalog.mjs",
+    "catalog:serve": "node catalog-server.mjs --open"
+  }
+}

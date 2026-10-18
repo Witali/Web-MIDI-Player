@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>MIDI Library — каталог мелодий</title>
+  <style>/* CATALOG_STYLES */</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="MIDI Library, вся коллекция"><span class="brand-mark" aria-hidden="true">▥</span><span>MIDI<span class="brand-light">LIBRARY</span></span></a>
+    <div class="side-label">ВАША БИБЛИОТЕКА</div>
+    <nav id="views" aria-label="Библиотека">
+      <button class="nav-item active" data-view="all"><span>♫ &nbsp; Вся коллекция</span><span id="count-all"></span></button>
+      <button class="nav-item" data-view="favorites"><span>☆ &nbsp; Избранное</span><span id="count-favorites">0</span></button>
+      <button class="nav-item" data-view="issues"><span>◌ &nbsp; С пометками</span><span id="count-issues"></span></button>
+    </nav>
+    <div class="side-label section-label">РАЗДЕЛЫ</div>
+    <nav id="categories" aria-label="Разделы музыки"></nav>
+    <div class="sidebar-bottom"><span class="local-dot"></span> Локальная коллекция<br><span class="subtle">Файлы хранятся на вашем компьютере</span><a href="library.csv" download>Скачать полный каталог CSV ↗</a></div>
+  </aside>
+  <main>
+    <header class="page-header"><div class="eyebrow">MIDIWORLD COLLECTION</div><div class="heading-row"><h1 id="page-title">Вся коллекция</h1><span class="offline-label">OFFLINE LIBRARY</span></div><p id="library-summary" class="description"></p></header>
+    <div class="file-notice" id="file-notice" hidden>Для прослушивания откройте <strong>«Открыть каталог.cmd»</strong> в папке проекта. Поиск и ссылки на файлы работают и здесь.</div>
+    <section class="catalog-controls" aria-label="Поиск и фильтры">
+      <div class="search-row"><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Название, исполнитель, композитор…" autocomplete="off" aria-label="Поиск мелодий"><kbd>/</kbd></label><button class="secondary-button" id="export">Экспорт списка ↓</button></div>
+      <div class="filters"><label><span>Исполнитель</span><input id="artist" list="artist-list" placeholder="Все исполнители" autocomplete="off"><datalist id="artist-list"></datalist></label><label><span>Инструмент</span><select id="instrument"><option value="">Все инструменты</option></select></label><label><span>Длительность</span><select id="duration"><option value="">Любая</option><option value="short">До 2 минут</option><option value="medium">2–5 минут</option><option value="long">Больше 5 минут</option><option value="unknown">Не определена</option></select></label><label><span>Сортировка</span><select id="sort"><option value="artist">По исполнителю</option><option value="title">По названию</option><option value="duration">Сначала короткие</option><option value="duration-desc">Сначала длинные</option><option value="tempo">По темпу</option><option value="copies">По числу источников</option></select></label></div>
+    </section>
+    <div class="results-toolbar"><div><strong id="result-count" aria-live="polite"></strong><span id="active-filter" class="filter-chip" hidden></span></div><button id="reset" class="text-button">Сбросить фильтры</button></div>
+    <section class="results" aria-label="Мелодии"><div class="table-scroll"><table><thead><tr><th class="star-col"><span class="sr-only">Избранное</span></th><th class="play-col"><span class="sr-only">Прослушать</span></th><th class="song-col">МЕЛОДИЯ / ИСПОЛНИТЕЛЬ</th><th class="time-col">ВРЕМЯ</th><th class="tempo-col">BPM</th><th class="instruments-col">ИНСТРУМЕНТЫ</th><th class="copies-col">ИСТ.</th><th class="download-col"><span class="sr-only">Скачать MIDI</span></th></tr></thead><tbody id="rows"></tbody></table></div><div id="empty" class="empty" hidden><div class="empty-icon">♫</div><h2 id="empty-title">Ничего не найдено</h2><p id="empty-description">Попробуйте другой запрос или сбросьте фильтры.</p><button id="empty-reset" class="secondary-button">Показать всю коллекцию</button></div></section>
+    <footer class="catalog-footer"><div id="range"></div><div class="pagination"><label class="page-size-label">На странице <select id="page-size" aria-label="Мелодий на странице"><option>50</option><option>100</option><option>200</option></select></label><button id="previous" aria-label="Предыдущая страница">←</button><span id="page-number"></span><button id="next" aria-label="Следующая страница">→</button></div></footer>
+    <p class="catalog-note">Точные копии удалены после побайтного сравнения. Сохранённый файл и все источники доступны в карточке мелодии. Разделы составлены по метаданным каталога.</p>
+  </main>
+  <section id="player" class="player" aria-label="MIDI-плеер" hidden>
+    <button id="player-toggle" class="player-main-button" aria-label="Пауза">Ⅱ</button><div class="now-playing"><strong id="player-title"></strong><span id="player-artist"></span></div><div class="player-timeline"><div><span id="current-time">0:00</span><span id="total-time">0:00</span></div><input id="seek" type="range" min="0" max="1" step="0.1" value="0" aria-label="Позиция воспроизведения"></div><label class="volume-control"><span aria-hidden="true">♪</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.55" aria-label="Громкость"></label><span class="synth-label">Базовый синтезатор<br><span>Тембры приблизительные</span></span><button id="player-close" class="icon-button" aria-label="Закрыть плеер">×</button>
+  </section>
+  <dialog id="details" aria-labelledby="details-title"><div class="detail-header"><span class="eyebrow">КАРТОЧКА МЕЛОДИИ</span><button id="close-details" class="icon-button" aria-label="Закрыть карточку">×</button></div><div id="detail-body"></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <noscript><p>Для поиска в каталоге включите JavaScript. Полная таблица доступна в файле library.csv.</p></noscript>
+  <script id="library-data" type="application/json">/* CATALOG_DATA */</script>
+  <script>/* MIDI_CORE */</script>
+  <script>/* CATALOG_APP */</script>
+</body>
+</html>
