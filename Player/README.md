@@ -41,6 +41,19 @@ translating the parsed song to an equivalent fixed-tempo clock in memory.
 Tempo events do not change SMPTE timing; ordinary PPQN tempo maps are retained.
 The source file is unchanged, and seeking uses the same corrected timeline.
 
+Playback has no fixed voice-count limit: the SoundFont voice pool grows as
+needed, and the compact WASM preview mixes all sounding notes without the ROM
+compiler's four-voice allocator. Notes and release tails can overlap, including
+repeated pitches. CPU and memory determine practical capacity; input validation
+limits are documented separately from musical polyphony.
+
+The SoundFont engine uses each instrument's volume and modulation envelopes.
+Note Off starts its release unless CC64 sustain is holding it. CC123 All Notes
+Off respects sustain; CC120 All Sound Off silences active voices immediately.
+Explicit MIDI mono mode and percussion choke groups still follow the file and
+instrument definitions. No artificial sustain or forced single-note retrigger
+is added by the adapter.
+
 The original Z80 preview renderer is retained as `{ engine: 'z80' }`. Its
 20 melodic sample types and PCM drums render in C/WASM at 48 kHz, now using
 two synchronized channels with a shared normalization gain. Its copied MIDI
@@ -71,8 +84,8 @@ needs `worker-src 'self'`, `connect-src 'self'`, and
 
 Keep the complete `licenses/` folder when redistributing the player and banks.
 `PROVENANCE.json` records versions, source URLs, source-project commit and hashes.
-Only the copied parser and portable adapter are modified; the Z80 repository is
-unchanged. SoundFont samples are used under their own MIT license, while the
+Local adapter/parser and vendor patches are recorded in `PROVENANCE.json`;
+the Z80 repository is unchanged. SoundFont samples use their own MIT license, while the
 legacy bank retains its original CC0 source notices.
 
 Run `npm test` from this folder after restoring the SoundFont.

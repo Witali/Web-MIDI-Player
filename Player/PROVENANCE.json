@@ -12,7 +12,9 @@
     "changes": [
       "Portable API and stereo transport",
       "Copied MIDI parser: timed CC10 and SMPTE; source repository unchanged",
-      "SpessaSynth import rewritten to local pinned stb-vorbis.js"
+      "SpessaSynth import rewritten to local pinned stb-vorbis.js",
+      "SpessaSynth CC123 releases keys through Note Off to respect the sustain pedal (MIDI 1.0 Appendix A-5)",
+      "Copied MIDI parser: no fixed per-channel or total note-count polyphony limit"
     ]
   },
   "soundfont": {

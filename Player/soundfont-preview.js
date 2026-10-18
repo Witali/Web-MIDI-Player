@@ -21,7 +21,11 @@ export async function createSoundFontPreview(bytes, bank, { effects = true } = {
     };
     synth.soundBankManager.addSoundBank(bank, 'main');
     await synth.processorInitialized;
+    // The initial pool is reusable storage, not a musical voice limit. Grow
+    // instead of stealing old notes, and retain each instrument's envelopes.
     synth.setSystemParameter('autoAllocateVoices', true);
+    synth.setSystemParameter('blackMIDIMode', false);
+    synth.setSystemParameter('monophonicRetrigger', false);
     sequence = new SpessaSynthSequencer(synth);
     sequence.skipToFirstNoteOn = false; sequence.loopCount = 0;
     sequence.loadNewSongList([midi]); sequence.play(); frames = 0;

@@ -106,7 +106,8 @@ export function parseMidi(input,{percussion=true}={}) {
         ...(isDrum?{percussion:true,drumKey:e.a,drumName:drumNames[e.a-35]}:{}),
         pan: [{ time: e.time, value: c.pan }], levels: [{ time: e.time, gain: gain(c, e.b) }] };
       notes.push(note); c.active.push(note);
-      if (notes.length > 30000 || c.active.length > 512) throw new Error('Слишком много нот или более 512 одновременных нот на канале. Разделите MIDI.');
+      // File-size and event-count checks bound parsing; musical polyphony is
+      // not capped. Dense held chords must also survive transport seeks.
     } else if (e.kind === 8 || (e.kind === 9 && !e.b)) {
       const note = c.active.find(n => n.pitch === e.a && !n.released && n.end === null);
       if (note) { note.released = true; note.keyOff = e.time; if (note.percussion || !c.sustain) finish(note, e.time); }

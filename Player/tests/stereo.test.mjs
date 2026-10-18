@@ -63,3 +63,14 @@ test('reset and seek reconstruction reproduce both channels exactly', () => {
     assert.deepEqual(preview.read(1000), later);
   } finally { preview.close(); }
 });
+
+test('the compact WASM preview mixes 1024 voices without a four-voice allocator', () => {
+  const count = 1024;
+  const bytes = midi([[0, 0xc0, 73], ...Array.from({ length: count }, () => [0, 0x90, 69, 20]),
+    ...Array.from({ length: count }, (_, i) => [...vlq(i === 0 ? 960 : 0), 0x80, 69, 0]), [0, 255, 47, 0]]);
+  const preview = open(bytes);
+  try {
+    assert.equal(preview.stats.notes, count); assert.equal(preview.stats.polyphony, count);
+    assert.ok(preview.read(1024).every(samples => energy(samples) > .001));
+  } finally { preview.close(); }
+});

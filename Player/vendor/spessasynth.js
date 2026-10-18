@@ -6884,8 +6884,14 @@ function controllerChange(controller, value, sendEvent = true) {
 	switch (controller) {
 		case MIDIControllers.omniModeOff:
 		case MIDIControllers.omniModeOn:
-		case MIDIControllers.allNotesOff:
 			this.stopAllNotes();
+			break;
+		case MIDIControllers.allNotesOff:
+			// Local fix: CC123 releases keys like Note Off. CC64 still holds
+			// them until pedal-up (MIDI 1.0 Detailed Specification, App. A-5).
+			for (let note = 0; note < 128; note++) {
+				while (this.noteOffID[note] < this.noteOnID[note]) this.noteOff(note);
+			}
 			break;
 		case MIDIControllers.allSoundOff:
 			this.stopAllNotes(true);

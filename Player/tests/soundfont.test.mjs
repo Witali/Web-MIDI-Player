@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { SoundBankLoader, SpessaLog, SpessaSynthProcessor } from '../vendor/spessasynth.js';
 import { createSoundFontPreview } from '../soundfont-preview.js';
-import { panned, smptePanned } from './fixtures.mjs';
+import { midi, vlq, panned, smptePanned } from './fixtures.mjs';
 SpessaLog.setLogLevel(false, false, false);
 const bytes = fs.readFileSync(new URL('../soundfonts/FluidR3_GM.sf2', import.meta.url));
 const bank = SoundBankLoader.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
@@ -81,4 +81,96 @@ test('SMPTE SoundFont playback keeps absolute note and pan times despite tempo c
       assert.equal(energy(beforeNote[0]) + energy(beforeNote[1]), 0, 'Seek before the first note must stay silent');
     } finally { preview.close(); }
   });
+});
+
+function timedScore(events, program = 81) {
+  let previous = 0;
+  return midi([[0, 255, 81, 3, 15, 66, 64], [0, 0xc0, program], ...events.map(([time, ...message]) => {
+    const event = [...vlq(time - previous), ...message]; previous = time; return event;
+  }), [0, 255, 47, 0]], 1000);
+}
+
+function renderUntil(preview, seconds) {
+  while (preview.stats.position < seconds) preview.read(128);
+}
+
+test('dense polyphony grows beyond the initial voice pool and survives a seek with 1024 held notes', async () => {
+  const count = 1024;
+  const events = [...Array.from({ length: count }, () => [0, 0x90, 69, 16]),
+    ...Array.from({ length: count }, () => [1000, 0x80, 69, 0])];
+  const single = await createSoundFontPreview(timedScore([[0, 0x90, 69, 16], [1000, 0x80, 69, 0]]), bank, { effects: false });
+  const dense = await createSoundFontPreview(timedScore(events), bank, { effects: false });
+  try {
+    const one = single.read(4096).reduce((sum, samples) => sum + energy(samples), 0);
+    const many = dense.read(4096).reduce((sum, samples) => sum + energy(samples), 0);
+    assert.ok(Math.abs(Math.sqrt(many / one) - count) < .05, `Expected ${count} complete notes, got ${Math.sqrt(many / one)}`);
+    await dense.seek(.25);
+    const after = dense.read(4096).reduce((sum, samples) => sum + energy(samples), 0);
+    assert.ok(after > one * count * count * .5, 'The held notes must survive seeking beyond 512 notes on one channel');
+  } finally { single.close(); dense.close(); }
+});
+
+test('a repeated note mixes with the previous release envelope instead of cutting its tail', async () => {
+  const first = [[0, 0x90, 60, 100], [250, 0x80, 60, 0]];
+  const second = [[350, 0x90, 60, 100], [450, 0x80, 60, 0]];
+  const previews = await Promise.all([first, second, [...first, ...second]].map(events =>
+    createSoundFontPreview(timedScore(events, 0), bank, { effects: false })));
+  try {
+    const channels = previews.map(preview => { const pcm = [[], []]; while (preview.stats.position < .65) {
+      preview.read(128).forEach((samples, i) => pcm[i].push(...samples));
+    } return pcm; });
+    for (let c = 0; c < 2; c++) {
+      let residual = 0, tailEnergy = 0;
+      for (let i = Math.ceil(.37 * 48000); i < Math.floor(.43 * 48000); i++) {
+        const tail = channels[0][c][i], next = channels[1][c][i], mixed = channels[2][c][i];
+        tailEnergy += tail * tail; residual += (mixed - tail - next) ** 2;
+      }
+      assert.ok(tailEnergy > .001, 'The piano release must still be audible when the new note starts');
+      assert.ok(residual < tailEnergy * 1e-7, `Release tail lost: ${residual}/${tailEnergy}`);
+    }
+  } finally { previews.forEach(preview => preview.close()); }
+});
+
+test('MIDI Note Off and All Notes Off respect sustain; pedal release starts the release envelope', async () => {
+  const preview = await createSoundFontPreview(timedScore([[0, 0x90, 69, 100], [100, 0xb0, 64, 127],
+    [200, 0x80, 69, 0], [300, 0xb0, 123, 0], [1000, 0xb0, 64, 0]]), bank, { effects: false });
+  try {
+    renderUntil(preview, .7);
+    assert.ok(preview.read(2048).some(samples => energy(samples) > .001), 'The pedal must hold a released note');
+    renderUntil(preview, 1.05);
+    assert.ok(preview.read(128).some(samples => energy(samples) > 1e-8), 'Pedal release must allow the instrument release tail');
+    renderUntil(preview, 1.5);
+    assert.ok(preview.read(2048).every(samples => energy(samples) < 1e-12), 'The note must end after pedal release');
+  } finally { preview.close(); }
+});
+
+test('MIDI All Sound Off silences sounding and sustained notes', async () => {
+  const preview = await createSoundFontPreview(timedScore([[0, 0x90, 69, 100], [100, 0xb0, 64, 127],
+    [200, 0x80, 69, 0], [500, 0xb0, 120, 0]]), bank, { effects: false });
+  try {
+    renderUntil(preview, .3); assert.ok(preview.read(2048).some(samples => energy(samples) > .001));
+    renderUntil(preview, .65); assert.ok(preview.read(2048).every(samples => energy(samples) < 1e-12));
+  } finally { preview.close(); }
+});
+
+test('SoundFont instruments retain their own attack and release envelopes', async () => {
+  const events = [[0, 0x90, 69, 100], [1000, 0x80, 69, 0]];
+  const pad = await createSoundFontPreview(timedScore(events, 89), bank, { effects: false });
+  const lead = await createSoundFontPreview(timedScore(events, 81), bank, { effects: false });
+  try {
+    const measure = preview => {
+      const windows = [0, 0, 0, 0];
+      while (preview.stats.position < 1.6) {
+        const time = preview.stats.position, pcm = preview.read(128);
+        const index = time > .02 && time < .08 ? 0 : time > .65 && time < .71 ? 1 :
+          time > 1.05 && time < 1.11 ? 2 : time > 1.5 && time < 1.56 ? 3 : -1;
+        if (index >= 0) windows[index] += pcm.reduce((sum, samples) => sum + energy(samples), 0);
+      }
+      return windows;
+    };
+    const slow = measure(pad), fast = measure(lead);
+    assert.ok(slow[1] > slow[0] * 10, `The warm pad must keep its slow attack: ${slow}`);
+    assert.ok(slow[2] > slow[3] && slow[3] > 1e-8, `The warm pad must retain a decaying release: ${slow}`);
+    assert.ok(fast[0] > .001 && fast[3] < 1e-12, `The lead must retain its fast attack and shorter release: ${fast}`);
+  } finally { pad.close(); lead.close(); }
 });
