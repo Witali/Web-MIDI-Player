@@ -1,0 +1,13 @@
+Portable MIDI Player C DSP
+
+Audio algorithms adapted from SpessaSynth core 4.3.22 by spessasus and
+contributors, licensed under Apache License 2.0. The local changes translate
+the sample, envelope, filter and effects loops to portable C and add scalar
+and SIMD128 WebAssembly builds and native tests.
+
+Upstream: https://github.com/spessasus/spessasynth_core
+License: ../licenses/SpessaSynth-Apache-2.0.txt
+
+The Dattorro reverb algorithm was originally implemented by khoin and released
+into the public domain, then adapted for SpessaSynth by spessasus.
+Original source: https://github.com/khoin/DattorroReverbNode/

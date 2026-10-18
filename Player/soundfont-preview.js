@@ -31,8 +31,10 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     if (dsp !== 'js') {
       try {
         if (dsp === 'auto') {
-          try { await installVoiceDSP(synth, 'wasm-simd'); }
-          catch { await installVoiceDSP(synth, 'wasm'); }
+          // The C scalar kernel won most representative measurements on the
+          // target machine. Keep SIMD selectable rather than assuming a win.
+          try { await installVoiceDSP(synth, 'wasm'); }
+          catch { await installVoiceDSP(synth, 'wasm-simd'); }
         } else await installVoiceDSP(synth, dsp);
       }
       catch (error) {
@@ -47,7 +49,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   await reset();
   return {
     get stats() { return { duration, sourceDuration: midi.duration, position: frames / 48000, channels: 2,
-      sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', bank: bank.soundBankInfo.name, warnings: [...warnings], parts: [], title: midi.getName() }; },
+      sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, warnings: [...warnings], parts: [], title: midi.getName() }; },
     read(capacity = 2048) {
       const count = Math.max(0, Math.min(capacity, Math.ceil(duration * 48000) - frames));
       const channels = [new Float32Array(count), new Float32Array(count)];

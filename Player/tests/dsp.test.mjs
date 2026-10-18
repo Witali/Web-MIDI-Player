@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installVoiceDSP } from '../voice-dsp.js';
 import fs from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 
 test('WASM and SIMD preserve filter state, Float32 mix rounding, sends and partial blocks', async () => {
   for (const backend of ['wasm', 'wasm-simd']) for (const count of [1, 3, 127, 128])
@@ -47,5 +48,22 @@ test('native C golden output matches scalar and SIMD WASM through the JavaScript
     assert.deepEqual([...new Float32Array(e.memory.buffer, base + 512, 8)], expected.audio);
     assert.deepEqual([...state], expected.filter);
     assert.equal(new Float64Array(e.memory.buffer, base + 4200, 1)[0], expected.cursor);
+  }
+});
+
+test('prebuilt WASM is tied to the C sources and does not import a JavaScript DSP implementation', async () => {
+  const manifest = JSON.parse(await fs.readFile(new URL('../dsp/build.json', import.meta.url), 'utf8'));
+  for (const [file, expected] of Object.entries(manifest.sha256)) {
+    let data = await fs.readFile(new URL('../' + file, import.meta.url));
+    if (/\.[ch]$/.test(file)) data = data.toString('utf8').replaceAll('\r\n', '\n');
+    assert.equal(createHash('sha256').update(data).digest('hex'), expected, `Stale source or WASM artifact: ${file}`);
+    if (file.endsWith('.wasm')) {
+      const module = await WebAssembly.compile(data);
+      assert.deepEqual(WebAssembly.Module.imports(module), []);
+      const names = WebAssembly.Module.exports(module).map(item => item.name);
+      for (const name of ['dsp_process_voice', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro']) {
+        assert.ok(names.includes(name), `Missing C DSP export: ${name}`);
+      }
+    }
   }
 });

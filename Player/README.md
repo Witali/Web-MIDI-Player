@@ -74,16 +74,21 @@ New seek requests cancel obsolete requests.
 
 ## WASM voice DSP
 
-The default `dsp: 'auto'` selects SIMD128 when available, then scalar WASM,
-then JavaScript. Hermite interpolation, filtering, envelope gain and stereo
-mixing run in small local WASM modules. MIDI interpretation and SoundFont
-envelope parameters remain unchanged. Use `dsp: 'js'`, `'wasm'` or `'wasm-simd'`
+The default `dsp: 'auto'` selects the measured faster scalar C/WASM kernel,
+then SIMD128 or JavaScript as fallback. Hermite interpolation, filtering,
+volume/modulation envelope evaluation, stereo mixing, chorus, delay lines and
+Dattorro reverb run in C/WASM. MIDI interpretation and SoundFont parameter
+setup remain unchanged. Use `dsp: 'js'`, `'wasm'` or `'wasm-simd'`
 to select a backend explicitly; `metadata.dsp` reports the one in use.
 
 [DSP-PERFORMANCE.md](DSP-PERFORMANCE.md) records the successful experiment branch,
 reproducible benchmarks and bit-identical audio checks. The browser comparison
-page is `example/benchmark.html`. Source WAT and prebuilt modules are in `dsp/`;
-rebuilding requires the pinned WABT dev dependency and `npm run build:dsp`.
+page is `example/benchmark.html`. Portable C sources and native tests are in
+`native/`, with prebuilt modules in `dsp/`. Rebuild using
+`npm run build:dsp -- --emsdk /path/to/emsdk` (tested Emscripten 6.0.12).
+`npm run test:core` runs native C tests; `npm test` checks WASM/JavaScript,
+native golden-output parity and the full player. See `native/README.md` for
+the exact boundary between the C audio core and JavaScript control logic.
 
 ## Assets and deployment
 

@@ -16,16 +16,18 @@ function run(parameters) {
   if (result.status !== 0) throw new Error(result.stderr || result.error?.message || 'C/WASM compilation failed');
   return result.stdout.trim();
 }
-const exports = ['dsp_abi_version', 'dsp_get_layout', 'dsp_process_voice'];
-const common = ['native/dsp.c', '-O3', '-std=c11', '-Wall', '-Wextra', '-Werror', '-ffp-contract=off', '-fno-fast-math',
+const exports = ['dsp_abi_version', 'dsp_get_layout', 'dsp_process_voice', 'dsp_process_voice_envelope', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro'];
+const common = ['native/dsp.c', 'native/envelopes.c', 'native/effects.c', '-O3', '-std=c11', '-Wall', '-Wextra', '-Werror', '-ffp-contract=off', '-fno-fast-math',
   '--no-entry', '-sSTANDALONE_WASM=1', '-sALLOW_MEMORY_GROWTH=1', '-sINITIAL_MEMORY=131072', '-sSTACK_SIZE=65536',
   '-sMAXIMUM_MEMORY=2147483648', '-Wl,--export=__heap_base', `-sEXPORTED_FUNCTIONS=${JSON.stringify(exports.map(name => '_' + name))}`];
 for (const [name, flags] of [['voice-mixer', []], ['voice-mixer-simd', ['-msimd128']]]) {
   run([...common, ...flags, '-o', `dsp/${name}.wasm`]);
   console.log(`${name}: ${fs.statSync(path.join(root, 'dsp', name + '.wasm')).size} bytes`);
 }
-const hash = file => createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex');
-const files = ['native/dsp.c', 'native/dsp.h', 'dsp/voice-mixer.wasm', 'dsp/voice-mixer-simd.wasm'];
+const hash = file => createHash('sha256').update(/\.[ch]$/.test(file)
+  ? fs.readFileSync(path.join(root, file), 'utf8').replaceAll('\r\n', '\n') : fs.readFileSync(path.join(root, file))).digest('hex');
+const files = ['native/dsp.c', 'native/dsp.h', 'native/envelopes.c', 'native/effects.c', 'dsp/voice-mixer.wasm', 'dsp/voice-mixer-simd.wasm'];
 fs.writeFileSync(path.join(root, 'dsp', 'build.json'), JSON.stringify({ compiler: run(['--version']).split(/\r?\n/)[0],
-  flags: common.slice(1), simdFlags: ['-msimd128'], arithmetic: 'Float64; explicit Float32 stores; no fast math or relaxed SIMD',
+  sources: files.filter(file => /\.[ch]$/.test(file)), sourceHashNormalization: 'LF',
+  flags: common.filter(value => !value.endsWith('.c')), simdFlags: ['-msimd128'], arithmetic: 'Float64; explicit Float32 stores; no fast math or relaxed SIMD',
   sha256: Object.fromEntries(files.map(file => [file, hash(file)])) }, null, 2) + '\n');

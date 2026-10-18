@@ -12,13 +12,13 @@ if (process.platform === 'win32') {
   if (!fs.existsSync(visual)) throw new Error('Pass --vcvars PATH to Visual C++ vcvars64.bat.');
   const quote = value => '"' + value + '"';
   const parameters = ['/nologo', '/O2', '/std:c11', '/fp:strict', '/W4', '/WX', '/D_CRT_SECURE_NO_WARNINGS',
-    quote(path.join(root, 'native', 'dsp.c')), quote(path.join(root, 'native', 'test_dsp.c')), '/Fe:' + quote(binary)];
+    ...['dsp.c', 'envelopes.c', 'effects.c', 'test_dsp.c'].map(file => quote(path.join(root, 'native', file))), '/Fe:' + quote(binary)];
   const batch = path.join(build, 'compile.cmd');
   fs.writeFileSync(batch, `@echo off\r\ncall ${quote(visual)} >nul\r\nif errorlevel 1 exit /b 1\r\ncl ${parameters.join(' ')}\r\nexit /b %errorlevel%\r\n`);
   result = spawnSync('cmd.exe', ['/d', '/c', batch], { cwd: build, encoding: 'utf8' });
 } else {
   result = spawnSync(option('--cc', 'cc'), ['-O3', '-std=c11', '-Wall', '-Wextra', '-Werror', '-ffp-contract=off',
-    path.join(root, 'native', 'dsp.c'), path.join(root, 'native', 'test_dsp.c'), '-lm', '-o', binary], { cwd: build, encoding: 'utf8' });
+    ...['dsp.c', 'envelopes.c', 'effects.c', 'test_dsp.c'].map(file => path.join(root, 'native', file)), '-lm', '-o', binary], { cwd: build, encoding: 'utf8' });
 }
 if (result.status !== 0) throw new Error(result.stdout + result.stderr || result.error?.message || 'Native C compilation failed');
 const tested = spawnSync(binary, [], { encoding: 'utf8' });

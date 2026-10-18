@@ -1,5 +1,12 @@
 {
   "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+  "sources": [
+    "native/dsp.c",
+    "native/dsp.h",
+    "native/envelopes.c",
+    "native/effects.c"
+  ],
+  "sourceHashNormalization": "LF",
   "flags": [
     "-O3",
     "-std=c11",
@@ -15,16 +22,18 @@
     "-sSTACK_SIZE=65536",
     "-sMAXIMUM_MEMORY=2147483648",
     "-Wl,--export=__heap_base",
-    "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_process_voice\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
   ],
   "simdFlags": [
     "-msimd128"
   ],
   "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
   "sha256": {
-    "native/dsp.c": "42ce203d24965f3aaff0f440f233f140052726c4803153bc7259ccae22732f7e",
-    "native/dsp.h": "aae12ea2f207455dec67c697b0b5eb55615084536a2d443e25f064ccea1410c6",
-    "dsp/voice-mixer.wasm": "33f6ae99344b2ed771bf747f76eb1cabeabd42bb37368d3c42fb7195e4e56358",
-    "dsp/voice-mixer-simd.wasm": "221cf283a15daa72f872aacdbd08da11405fb4d87d1f04eb4b49803e8ad659be"
+    "native/dsp.c": "11a6979537462010eee56c72faa3e49086285b9f6fe68816a94405b2d722ffa6",
+    "native/dsp.h": "d8128ca8db5d9fda9112a937b7a08862e736717f06b32aa75090b5bd3e1a098b",
+    "native/envelopes.c": "1bb2ff84844c91a421a451da0933f0ddf4b96764ef01e13c1f47c79a79fcf91d",
+    "native/effects.c": "5470936284f52ca04fcbd15374254b90249eb2a92d32b5463b0051e254729670",
+    "dsp/voice-mixer.wasm": "440c42463a74c63ecf2782d135cf671d2199a11f7d8cd5a3e4b160166af139f1",
+    "dsp/voice-mixer-simd.wasm": "241241f487ac0318f4090deb1424f33dc2bfb8a7a0a68b54d02cb55421fde0c9"
   }
 }

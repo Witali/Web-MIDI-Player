@@ -1,5 +1,6 @@
 #include "dsp.h"
 #include <stddef.h>
+#include <math.h>
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
 #endif
@@ -72,7 +73,7 @@ int dsp_process_voice(uint32_t count, int filtered, double gain, double incremen
     double *f = scratch.filter;
     const double a0 = f[0], a1 = f[1], a2 = f[2], a3 = f[3], a4 = f[4];
     double x1 = f[5], x2 = f[6], y1 = f[7], y2 = f[8];
-    if (!count || count > DSP_QUANTUM || (samples && (end < 4 || cursor < 0 || step < 0 ||
+    if (!count || count > DSP_QUANTUM || (samples && (end < 4 || !isfinite(cursor) || !isfinite(step) || cursor < 0 || step < 0 ||
         (looping && (loop_length <= 0 || loop_end > end || loop_end < loop_length))))) return -1;
     if (samples) active = hermite(count, samples, looping, loop_end, loop_length, end, cursor, step);
     for (i = 0; i < count; i++) {
@@ -102,4 +103,16 @@ int dsp_process_voice(uint32_t count, int filtered, double gain, double incremen
     mix_simd(count, left, right, reverb, chorus, delay, insertion);
 #endif
     return active;
+}
+
+int dsp_process_voice_envelope(uint32_t count, int filtered, double *env, double target, const float *table,
+    double left, double right, double reverb, double chorus, double delay, int insertion,
+    const float *samples, int looping, int loop_end, int loop_length, int end, double cursor, double step) {
+    double gain, increment; int envelope_active, active;
+    if (!env || !table || !count || count > DSP_QUANTUM) return -1;
+    gain = env[0]; envelope_active = dsp_volume_envelope(env, count, target, table);
+    increment = (env[0] - gain) / count;
+    active = dsp_process_voice(count, filtered, gain, increment, left, right, reverb, chorus, delay,
+        insertion, samples, looping, loop_end, loop_length, end, cursor, step);
+    return active < 0 ? active : active && envelope_active;
 }

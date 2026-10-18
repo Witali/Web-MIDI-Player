@@ -29,6 +29,7 @@ function score(count){
   new DataView(data.buffer).setUint32(18,events.length);data.set(events,22);return data;
 }
 const paint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+function render(preview,seconds){for(let remaining=Math.round(seconds*48000);remaining>0;){const count=Math.min(2048,remaining);preview.read(count);remaining-=count;}}
 $('run').onclick=async()=>{
   $('run').disabled=true;$('results').replaceChildren();
   try{
@@ -39,8 +40,7 @@ $('run').onclick=async()=>{
       const preview=await createSoundFontPreview(bytes,bank,{effects:true,dsp});
       try{
         if(preview.stats.dsp!==dsp)throw Error(`Недоступен ${names[dsp]}`);
-        while(preview.stats.position<.25)preview.read(2048);
-        const end=preview.stats.position+1,start=performance.now();while(preview.stats.position<end)preview.read(2048);
+        render(preview,.25);const start=performance.now();render(preview,1);
         times[dsp].push(performance.now()-start);
       }finally{preview.close();}
     }

@@ -31,10 +31,19 @@
     "licenseUrl": "https://sources.debian.org/src/fluid-soundfont/3.1-5/COPYING"
   },
   "voiceDSP": {
-    "sources": ["dsp/voice-mixer.wat", "dsp/mix-simd.wat", "voice-dsp.js"],
+    "sources": [
+      "native/dsp.c",
+      "native/dsp.h",
+      "native/envelopes.c",
+      "native/effects.c"
+    ],
     "build": "dsp/build.json",
     "benchmark": "dsp/benchmark-node.json",
-    "experimentBranch": "experiment/wasm-voice-dsp"
+    "experimentBranch": "feature/c-wasm-audio-core",
+    "prototypeBranch": "experiment/wasm-voice-dsp",
+    "compiler": "Emscripten 6.0.12",
+    "nativeTests": "native/test_dsp.c",
+    "scope": "Main sample/envelope/filter/mix loops, chorus, delay lines and Dattorro reverb; MIDI/SF2 parsing and extended insertion effects remain JavaScript"
   },
   "dependencies": [
     {
@@ -50,14 +59,6 @@
       "url": "https://registry.npmjs.org/stb-vorbis/-/stb-vorbis-0.0.6.tgz",
       "integrity": "sha512-CyvjJEGROIdnuZknwFvdOfMIO1ssUxO2OawsXCR3IlbJ8z2IMBjDe8FDxFJqBfLgf1ZOdqvoHAYx3Xk8q9rbbg==",
       "license": "Apache-2.0"
-    },
-    {
-      "name": "wabt",
-      "version": "1.0.39",
-      "url": "https://registry.npmjs.org/wabt/-/wabt-1.0.39.tgz",
-      "integrity": "sha512-ba+dRL/75VQQY7RkU/CgriGbkoWAfS8TDyUlJfJhJ8KhtXgMl5dhNvoPNUcQ9IWRhW8u41glMSuZeTvsYq2rRg==",
-      "license": "Apache-2.0",
-      "buildOnly": true
     }
   ]
 }

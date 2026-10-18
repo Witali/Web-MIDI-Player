@@ -22,8 +22,13 @@ function score(count) {
   header.writeUInt32BE(body.length, 18); return new Uint8Array(Buffer.concat([header, body]));
 }
 const result = { date: new Date().toISOString(), node: process.version, cpu: os.cpus()[0].model,
+  rendererManifest: JSON.parse(await fs.readFile(new URL('../dsp/build.json', import.meta.url), 'utf8')),
+  measuredFrames: Math.round(seconds * 48000),
   rounds, seconds, warmupSeconds: .25, scope: 'steady-state offline rendering; initialization excluded; no audio device', cases: [] };
 const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+const render = (preview, seconds) => { for (let remaining = Math.round(seconds * 48000); remaining > 0;) {
+  const count = Math.min(2048, remaining); preview.read(count); remaining -= count;
+} };
 for (const notes of counts) for (const effects of [false, true]) {
   const data = score(notes), measurements = Object.fromEntries(backends.map(backend => [backend, []]));
   for (let round = 0; round < rounds; round++) {
@@ -33,9 +38,8 @@ for (const notes of counts) for (const effects of [false, true]) {
       const preview = await createSoundFontPreview(data, bank, { effects, dsp });
       try {
         if (preview.stats.dsp !== dsp) throw new Error(`Requested ${dsp}, got ${preview.stats.dsp}`);
-        while (preview.stats.position < .25) preview.read(2048);
-        const end = preview.stats.position + seconds, start = performance.now();
-        while (preview.stats.position < end) preview.read(2048);
+        render(preview, .25);
+        const start = performance.now(); render(preview, seconds);
         measurements[dsp].push(performance.now() - start);
       } finally { preview.close(); }
     }

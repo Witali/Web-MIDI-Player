@@ -5,8 +5,9 @@ source compiles to a native executable for independent C tests. No fixed voice
 count is encoded in the core: the host grows its sample/state arena and submits
 every sounding voice, including release tails.
 
-The current core implements Hermite interpolation, the biquad filter, envelope
-gain ramps, stereo mixing and effect sends. Float64 arithmetic, explicit
+The core implements Hermite interpolation, the biquad filter, volume and
+modulation envelope evaluation, gain ramps, stereo mixing, effect sends, chorus,
+delay lines and Dattorro reverb. Float64 arithmetic, explicit
 Float32 stores and disabled floating-point contraction retain reference rounding.
 `DspScratch` and the exported ABI are defined in `dsp.h`; invalid block sizes
 and loop parameters are rejected before writing buffers.
@@ -29,6 +30,17 @@ The native executable generates `tests/native-dsp-golden.json`; JavaScript tests
 compare both WASM modules against that output. Full player tests compare GM
 instruments, drums, envelopes, MIDI controls, transport and JS fallback.
 
-The WAT prototype remains available for comparing the original experiment.
-The remaining envelope/modulation and effects port is tracked in the improvement
-plan; the source Z80 tester project is not modified.
+The C module imports no JavaScript DSP or math functions. The host supplies
+bank lookup tables and refreshes cached typed arrays after memory growth.
+Volume envelope evaluation and voice rendering share one C call per block.
+
+JavaScript still parses MIDI/SF2, schedules events, calculates SoundFont generator
+parameters and handles the public transport. Envelope initialization/release
+parameter setup, LFO control calculations, advanced GS/XG insertion effects and
+some effect routing remain in SpessaSynth. The per-sample main voice, chorus,
+delay-line and Dattorro loops run in C/WASM. This is not a claim that every
+controller or vendor extension has been rewritten in C.
+
+The WAT prototype remains in branch `experiment/wasm-voice-dsp`. The source
+Z80 tester project is not modified. The adapted SpessaSynth algorithms retain
+their Apache-2.0 license; see [NOTICE](NOTICE).

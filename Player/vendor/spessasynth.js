@@ -6767,7 +6767,8 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	const deferredOscillator = dsp && voice.wavetable === voice.oscillators[2];
 	voice.isActive = deferredOscillator || voice.wavetable.process(sampleCount, voice.tuningRatio, buffer);
 	let gain = voice.volEnv.outputGain;
-	const envActive = voice.volEnv.process(sampleCount, gainTarget);
+	const deferredEnvelope = dsp?.stateful && voice.volEnv._cState;
+	const envActive = deferredEnvelope ? true : voice.volEnv.process(sampleCount, gainTarget);
 	const gainInc = (voice.volEnv.outputGain - gain) / sampleCount;
 	let filterEnabled = false;
 	{
@@ -6835,7 +6836,8 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 			enabled && chorusSend > 0 ? systemParameters.chorusGain * (chorusSend / 1e3) * outputGain : 0,
 			enabled && core.delayActive && delaySend > 0 ? outputGain * systemParameters.delayGain * ((delaySend >> 7) / 127) : 0,
 			!!(this._midiParameters.efxAssign && enabled && core.insertionActive),
-			deferredOscillator ? voice.wavetable : null, voice.tuningRatio);
+			deferredOscillator ? voice.wavetable : null, voice.tuningRatio,
+			deferredEnvelope ? voice.volEnv : null, gainTarget);
 		voice.isActive = voice.isActive && active;
 		return;
 	}
@@ -20793,4 +20795,5 @@ var SpessaSynthProcessor = class {
 //#endregion
 export { BasicInstrument, BasicInstrumentZone, BasicMIDI, BasicPreset, BasicPresetZone, BasicSample, BasicSoundBank, BasicZone, CONTROLLER_TABLE_SIZE, DEFAULT_CHANNEL_MIDI_PARAMETERS, DEFAULT_CHANNEL_SYSTEM_PARAMETERS, DEFAULT_DRUM_REVERB, DEFAULT_GLOBAL_MIDI_PARAMETERS, DEFAULT_GLOBAL_SYSTEM_PARAMETERS, DEFAULT_MIDI_CONTROLLERS, DEFAULT_PERCUSSION, DEFAULT_SYNTH_MODE, EmptySample, GENERATORS_AMOUNT, Generator, GeneratorLimits, GeneratorTypes, IndexedByteArray, InterpolationTypes, KeyModifier, MAX_GENERATOR, MIDIBuilder, MIDIChannel, MIDIControllers, MIDIMessage, MIDIMessageTypes, MIDIPatchTools, MIDITrack, MIDIUtils, Modulator, ModulatorControllerSources, ModulatorCurveTypes, ModulatorSource, ModulatorTransformTypes, NonRegisteredLSB, NonRegisteredMSB, RegisteredParameterTypes, SPESSASYNTH_GAIN_FACTOR, SPESSA_BUFSIZE, SampleTypes, SoundBankLoader, SpessaLog, SpessaSynthCoreUtils, SpessaSynthProcessor, SpessaSynthSequencer, VOICE_CAP, audioToWav };
 
+export { CENTIBEL_LOOKUP_TABLE, CONVEX_ATTACK };
 //# sourceMappingURL=index.js.map

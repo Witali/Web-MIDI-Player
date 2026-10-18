@@ -19,4 +19,12 @@ int dsp_process_voice(uint32_t count, int filtered, double gain, double incremen
     double left, double right, double reverb, double chorus, double delay, int insertion,
     const float *samples, int looping, int loop_end, int loop_length, int end,
     double cursor, double step);
+int dsp_volume_envelope(double *state, uint32_t count, double target, const float *centibels);
+int dsp_process_voice_envelope(uint32_t count, int filtered, double *envelope, double target, const float *centibels,
+    double left, double right, double reverb, double chorus, double delay, int insertion,
+    const float *samples, int looping, int loop_end, int loop_length, int end, double cursor, double step);
+double dsp_modulation_envelope(double *state, double time, double release_start, const float *convex_attack);
+void dsp_chorus(double *state, float *buffer_left, float *buffer_right, uint32_t count);
+void dsp_delay_line(double *state, float *buffer, const float *input, float *output, uint32_t count);
+void dsp_dattorro(double *state, uintptr_t *lines, const int16_t *taps, float *predelay, uint32_t count);
 #endif
