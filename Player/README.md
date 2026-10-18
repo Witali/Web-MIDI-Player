@@ -36,6 +36,11 @@ are processed by **SpessaSynth core 4.3.22** (Apache-2.0). Each SoundFont may ad
 its own stereo image; reverb and chorus can place a wet tail in both channels.
 Pass `{ effects: false }` to audition dry panning.
 
+The adapter handles SMPTE time division at 24, 25, 30000/1001 and 30 fps by
+translating the parsed song to an equivalent fixed-tempo clock in memory.
+Tempo events do not change SMPTE timing; ordinary PPQN tempo maps are retained.
+The source file is unchanged, and seeking uses the same corrected timeline.
+
 The original Z80 preview renderer is retained as `{ engine: 'z80' }`. Its
 20 melodic sample types and PCM drums render in C/WASM at 48 kHz, now using
 two synchronized channels with a shared normalization gain. Its copied MIDI
@@ -76,5 +81,6 @@ Run `npm test` from this folder after restoring the SoundFont.
 
 [MIDI-SUPPORT.md](MIDI-SUPPORT.md) records verified support gaps and playback
 limitations. [IMPROVEMENT-PLAN.md](IMPROVEMENT-PLAN.md) tracks the prioritized
-improvements and their acceptance criteria. Unmodified official PDFs for Standard MIDI Files and MIDI 1.0
+improvements and their acceptance criteria. Unmodified official PDFs for
+Standard MIDI Files and MIDI 1.0
 messages are in [specs/](specs/README.md), with source links and SHA-256 hashes.

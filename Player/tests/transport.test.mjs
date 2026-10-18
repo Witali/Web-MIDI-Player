@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker, MessageChannel } from 'node:worker_threads';
 import { once } from 'node:events';
-import { panned } from './fixtures.mjs';
+import { panned, smptePanned } from './fixtures.mjs';
 
 test('portable Worker loads, streams stereo, seeks, rejects stale reads and reports invalid input', async () => {
   const worker = new Worker(new URL('./worker-fixture.mjs', import.meta.url)), channel = new MessageChannel();
@@ -48,4 +48,24 @@ test('stereo AudioWorklet preserves channels, resamples, ignores stale blocks an
     processor.process([], [[left, right]]);
     assert.equal(processor.messages.at(-1).epoch, 2); assert.ok(processor.messages.at(-1).seconds > 5);
   } finally { delete globalThis.sampleRate; delete globalThis.AudioWorkletProcessor; delete globalThis.registerProcessor; }
+});
+
+test('the public Worker SoundFont path loads SMPTE timing and seeks to the held note', async () => {
+  const worker = new Worker(new URL('./worker-fixture.mjs', import.meta.url)), channel = new MessageChannel();
+  let id = 0;
+  const call = async (type, values) => {
+    const reply = once(worker, 'message'); worker.postMessage({ type, id: ++id, ...values });
+    const response = (await reply)[0]; assert.equal(response.id, id); assert.equal(response.error, undefined); return response.result;
+  };
+  try {
+    const loaded = await call('load', { bytes: smptePanned(25), epoch: 1, effects: false });
+    assert.ok(Math.abs(loaded.sourceDuration - 1.25) < 1e-9);
+    worker.postMessage({ type: 'connect', port: channel.port2 }, [channel.port2]);
+    await call('seek', { seconds: .95, epoch: 2 });
+    const reply = once(channel.port1, 'message'); channel.port1.postMessage({ type: 'read', epoch: 2 });
+    const audio = (await reply)[0];
+    assert.equal(audio.epoch, 2); assert.ok(audio.channels[1].some(n => Math.abs(n) > .001));
+    const energy = samples => samples.reduce((sum, n) => sum + n * n, 0);
+    assert.ok(energy(audio.channels[1]) > energy(audio.channels[0]) * 1000);
+  } finally { channel.port1.close(); await worker.terminate(); }
 });

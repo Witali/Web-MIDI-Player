@@ -1,11 +1,12 @@
 import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from './vendor/spessasynth.js';
 import { parseMidi } from './engine/src/midi.js';
+import { normalizeSmpteTiming } from './midi-timing.js';
 
 // The portable transport also accepts a complete SF2 bank when all GM timbres
 // are required. Stereo, controllers and SoundFont modulators stay in the synth.
 export async function createSoundFontPreview(bytes, bank, { effects = true } = {}) {
   SpessaLog.setLogLevel(false, false, false);
-  const midi = BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  const midi = normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
   let heldNotes = [];
   try { heldNotes = parseMidi(new Uint8Array(midi.writeMIDI())).notes; } catch { /* Extended multi-port files still play through the native sequencer. */ }
   let synth, sequence, frames = 0;

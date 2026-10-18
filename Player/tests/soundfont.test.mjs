@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { SoundBankLoader, SpessaLog, SpessaSynthProcessor } from '../vendor/spessasynth.js';
 import { createSoundFontPreview } from '../soundfont-preview.js';
-import { panned } from './fixtures.mjs';
+import { panned, smptePanned } from './fixtures.mjs';
 SpessaLog.setLogLevel(false, false, false);
 const bytes = fs.readFileSync(new URL('../soundfonts/FluidR3_GM.sf2', import.meta.url));
 const bank = SoundBankLoader.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
@@ -53,4 +53,32 @@ test('fast seeking restores CC10 and retriggers a held note without rendering th
     assert.ok(sum[1]>.001,'A held note must still sound after seeking');
     await preview.seek(.25); const before=preview.read(4096); assert.ok(energy(before[0])>energy(before[1])*1000);
   }finally{preview.close();}
+});
+
+test('SMPTE SoundFont playback keeps absolute note and pan times despite tempo changes', async t => {
+  for (const frameCode of [24, 25, 29, 30]) await t.test(`frame code -${frameCode}`, async () => {
+    const factor = frameCode === 29 ? 1.001 : 1;
+    const preview = await createSoundFontPreview(smptePanned(frameCode), bank, { effects: false });
+    try {
+      assert.ok(Math.abs(preview.stats.sourceDuration - 1.25 * factor) < 1e-9, `Wrong duration: ${preview.stats.sourceDuration}`);
+      const silence = [0, 0], left = [0, 0], right = [0, 0], released = [0, 0];
+      while (preview.stats.position < 1.8) {
+        const time = preview.stats.position, channels = preview.read(128);
+        const window = time < .2 ? silence : time > .35 && time < .5 ? left :
+          time > 1.1 && time < 1.2 ? right : time > 1.6 ? released : null;
+        if (window) channels.forEach((samples, i) => window[i] += energy(samples));
+      }
+      assert.equal(silence[0] + silence[1], 0, 'Preserve the initial quarter-second silence');
+      assert.ok(left[0] > .001 && left[0] > left[1] * 1000, JSON.stringify({ left }));
+      assert.ok(right[1] > .001 && right[1] > right[0] * 1000, JSON.stringify({ right }));
+      assert.ok(released[0] + released[1] < 1e-8, JSON.stringify({ released }));
+      await preview.seek(.95 * factor);
+      const held = [0, 0];
+      for (let i = 0; i < 30; i++) preview.read(128).forEach((samples, j) => held[j] += energy(samples));
+      assert.ok(held[1] > .001 && held[1] > held[0] * 1000, 'Seek must restore the held note and right pan');
+      await preview.seek(.1);
+      const beforeNote = preview.read(4096);
+      assert.equal(energy(beforeNote[0]) + energy(beforeNote[1]), 0, 'Seek before the first note must stay silent');
+    } finally { preview.close(); }
+  });
 });
