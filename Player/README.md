@@ -71,3 +71,9 @@ unchanged. SoundFont samples are used under their own MIT license, while the
 legacy bank retains its original CC0 source notices.
 
 Run `npm test` from this folder after restoring the SoundFont.
+
+## MIDI support and reference documents
+
+[MIDI-SUPPORT.md](MIDI-SUPPORT.md) records verified support gaps and playback
+limitations. Unmodified official PDFs for Standard MIDI Files and MIDI 1.0
+messages are in [specs/](specs/README.md), with source links and SHA-256 hashes.
