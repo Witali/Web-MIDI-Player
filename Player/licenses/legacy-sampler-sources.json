@@ -1,0 +1,52 @@
+{
+  "library": "VSCO 2 Community Edition",
+  "authors": "Versilian Studios / Sam Gossner and contributors",
+  "license": "CC0-1.0",
+  "project_url": "https://github.com/sgossner/VSCO-2-CE",
+  "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+  "modifications": "One-second excerpts, stereo averaged to mono, converted to 16-bit PCM",
+  "samples": [
+    {
+      "instrument": "piano",
+      "file": "piano.wav",
+      "nominal_midi_root": 53,
+      "original_path": "Keys/Upright Piano/Player_dyn2_rr1_016.wav",
+      "original_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Keys/Upright%20Piano/Player_dyn2_rr1_016.wav",
+      "original_sha256": "87b90b8161b5ddac5f1e81cce7895c726aff220e735586059c7ed684a5ae82dc",
+      "excerpt_start_seconds": 0.12,
+      "excerpt_seconds": 1,
+      "sample_rate_hz": 44100,
+      "channels": 1,
+      "pcm_bits": 16,
+      "sha256": "a209a18f6bb7ead70305dc33ec194dbf36f807f2ae6b1dc68883cf4673b23ca3"
+    },
+    {
+      "instrument": "violin",
+      "file": "violin.wav",
+      "nominal_midi_root": 69,
+      "original_path": "Strings/Violin Section/susVib/VlnEns_susVib_A3_v2.wav",
+      "original_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A3_v2.wav",
+      "original_sha256": "3fc4a9e22037643fce11e755da72c61c664893f83e637c24a7b5c2d3824ab986",
+      "excerpt_start_seconds": 0.55,
+      "excerpt_seconds": 1,
+      "sample_rate_hz": 44100,
+      "channels": 1,
+      "pcm_bits": 16,
+      "sha256": "ca68d4f96a5a6cd80b3e5b33ec5139ffa920e1d80df21d2c22e1aa3cf47b3196"
+    },
+    {
+      "instrument": "cello",
+      "file": "cello.wav",
+      "nominal_midi_root": 60,
+      "original_path": "Strings/Cello Section/susvib/susvib_C3_v3_1.wav",
+      "original_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_C3_v3_1.wav",
+      "original_sha256": "51e884d54eea3bf4ba7ee35289a09f15ddb6a52cd849248d01bf18477ccbd07b",
+      "excerpt_start_seconds": 0.55,
+      "excerpt_seconds": 1,
+      "sample_rate_hz": 44100,
+      "channels": 1,
+      "pcm_bits": 16,
+      "sha256": "cd74865d6f8048c5e7c0342e1f01f01cd89bc63fb74696da26b8fe7246ebb9c1"
+    }
+  ]
+}

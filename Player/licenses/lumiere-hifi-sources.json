@@ -1,0 +1,55 @@
+{
+  "library": "VSCO 2 Community Edition",
+  "authors": "Versilian Studios / Sam Gossner and contributors",
+  "license": "CC0-1.0",
+  "project_url": "https://github.com/sgossner/VSCO-2-CE",
+  "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+  "modifications": "First 1.65 seconds including attack; mono 16-bit PCM",
+  "samples": [
+    {
+      "instrument": "piano",
+      "file": "piano.wav",
+      "nominal_midi_root": 53,
+      "original_path": "Keys/Upright Piano/Player_dyn2_rr1_016.wav",
+      "original_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Keys/Upright%20Piano/Player_dyn2_rr1_016.wav",
+      "original_sha256": "87b90b8161b5ddac5f1e81cce7895c726aff220e735586059c7ed684a5ae82dc",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 1.65,
+      "sample_rate_hz": 44100,
+      "channels": 1,
+      "pcm_bits": 16,
+      "sha256": "81b5546726d4f60c7529a6d696af23ce44bee556bee0d47579b668d750a7d7d4",
+      "onset_seconds": 0.0
+    },
+    {
+      "instrument": "violin",
+      "file": "violin.wav",
+      "nominal_midi_root": 69,
+      "original_path": "Strings/Violin Section/susVib/VlnEns_susVib_A3_v2.wav",
+      "original_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A3_v2.wav",
+      "original_sha256": "3fc4a9e22037643fce11e755da72c61c664893f83e637c24a7b5c2d3824ab986",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 1.65,
+      "sample_rate_hz": 44100,
+      "channels": 1,
+      "pcm_bits": 16,
+      "sha256": "89704f76b3efa66a4e52e5e749310394aea48b13a45d37a906ac6f0e99a005eb",
+      "onset_seconds": 0.03
+    },
+    {
+      "instrument": "cello",
+      "file": "cello.wav",
+      "nominal_midi_root": 60,
+      "original_path": "Strings/Cello Section/susvib/susvib_C3_v3_1.wav",
+      "original_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_C3_v3_1.wav",
+      "original_sha256": "51e884d54eea3bf4ba7ee35289a09f15ddb6a52cd849248d01bf18477ccbd07b",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 1.65,
+      "sample_rate_hz": 44100,
+      "channels": 1,
+      "pcm_bits": 16,
+      "sha256": "c4576457ac17e325b467bfb497c0e0cf1538ab52e1986ba8988d70b1c9f01ee3",
+      "onset_seconds": 0.0
+    }
+  ]
+}

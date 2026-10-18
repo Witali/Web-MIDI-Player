@@ -1,0 +1,26 @@
+{
+  "library": "FreePats Electric Guitar FSBS (clean)",
+  "authors": "FreePats project",
+  "license": "CC0-1.0",
+  "license_sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+  "project_url": "https://github.com/freepats/electric-guitar-FSBS-clean",
+  "revision": "192cf0d9bf2c4ba6ead8e3524ba3f78818e4fe91",
+  "sound_bank_version": "2026-08-07",
+  "modifications": "First second; stereo arithmetic mean; rounded to mono 16-bit PCM at the original 48 kHz rate",
+  "samples": [
+    {
+      "instrument": "electric_guitar",
+      "file": "electric-guitar.wav",
+      "nominal_midi_root": 59,
+      "original_path": "samples/bridge/B3_s5_01.flac",
+      "original_url": "https://raw.githubusercontent.com/freepats/electric-guitar-FSBS-clean/192cf0d9bf2c4ba6ead8e3524ba3f78818e4fe91/samples/bridge/B3_s5_01.flac",
+      "original_sha256": "047f86b03f6cdc6313299a77ac66ac3b36d41bcf89b6063203f86ae8dcef87da",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 1,
+      "sample_rate_hz": 48000,
+      "channels": 1,
+      "pcm_bits": 16,
+      "sha256": "ddc80eca316a10dee623bcbdcda0256f2a5e2b4005da68009e746eb3890ba075"
+    }
+  ]
+}

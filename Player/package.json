@@ -1,0 +1,9 @@
+{
+  "name": "z80-midi-player",
+  "version": "1.0.0",
+  "description": "Portable browser MIDI player using the Z80 Lab sample preview engine",
+  "type": "module",
+  "exports": { ".": "./index.js" },
+  "files": ["*.js", "engine", "vendor", "soundfonts", "licenses", "tools", "example", "README.md", "PROVENANCE.json"],
+  "scripts": { "test": "node --test tests/*.test.mjs", "assets": "node tools/fetch-assets.mjs" }
+}
