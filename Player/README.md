@@ -99,10 +99,15 @@ the exact boundary between the C audio core and JavaScript control logic.
 ## Assets and deployment
 
 The unmodified FluidR3 bank is about **142 MiB**, loaded on first use and kept
-in the Worker for subsequent tracks. It is deliberately outside Git. Restore
-it after cloning with `node Player/tools/fetch-assets.mjs` (Node.js 22+, `tar`).
-The script verifies the Debian package and extracted bank SHA-256. Other SF2
-banks can be selected with `{ soundfontUrl: './banks/other.sf2' }`.
+in the Worker for subsequent tracks. It is tracked with **Git LFS** under the
+MIT license; retain `licenses/FluidR3-MIT.txt` when redistributing it. Install
+Git LFS and run `git lfs install` before cloning, or `git lfs pull` from an
+existing clone, to retrieve the actual SoundFont instead of its pointer file.
+
+If Git LFS is unavailable, restore the identical bank with
+`node Player/tools/fetch-assets.mjs` from the repository root (Node.js 22+,
+`tar`). The script verifies the Debian package and extracted bank SHA-256.
+Other SF2 banks can be selected with `{ soundfontUrl: './banks/other.sf2' }`.
 
 Serve `.js` as JavaScript, `.json` as JSON, `.wasm` as `application/wasm`, and
 `.sf2` as `application/octet-stream`. Keep relative file paths intact. All

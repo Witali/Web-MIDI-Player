@@ -9,9 +9,10 @@
 *.midi
 *.rmi
 *.kar
-# Large sample banks are restored with Player/tools/fetch-assets.mjs
+# SoundFonts and download archives; FluidR3 GM is tracked with Git LFS
 *.sf2
 *.sf3
+!/Player/soundfonts/FluidR3_GM.sf2
 *.deb
 *.tgz
 # The scraper stays available locally, outside version control
