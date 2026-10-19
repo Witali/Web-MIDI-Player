@@ -54,8 +54,8 @@ test('unsupported pedals are distinguished from implemented relative entry and b
   const report = await audit([[0, 0xb0, 68, 127], [0, 0xb0, 68, 0], [0, 0xb0, 68, 127], [0, 0xb0, 69, 127],
     [0, 0xb0, 96, 0], [0, 0xb0, 97, 0], [0, 0xb0, 22, 127], [0, 0xa0, 60, 100],
     [0, 0x80, 60, 64], [0, 0xb0, 7, 80], [0, 0xb0, 10, 0], [0, 0xb0, 64, 127], [0, 0xb0, 64, 0]]);
-  assert.equal(report.entries.find(e => e.controller === 68).count, 3);
-  assert.equal(report.summary.partial, 5);
+  assert.equal(report.entries.find(e => e.controller === 69).count, 1);
+  assert.equal(report.summary.partial, 2);
   assert.equal(report.summary.unsupported, 0);
   assert.equal(report.summary.bankDependent, 2);
   assert.equal(report.entries.find(e => e.controller === 22).status, 'bankDependent');
@@ -103,13 +103,13 @@ test('same channels on different MIDI ports retain independent program, controll
 });
 
 test('large files aggregate repetitions, bound report size and restore hooks across asynchronous yields', async () => {
-  const events = Array.from({ length: 4200 }, () => [0, 0xb0, 68, 127]);
+  const events = Array.from({ length: 4200 }, () => [0, 0xb0, 22, 127]);
   const source = parse(midi([...events, ...Array.from({ length: 10 }, (_, i) => sysex([1, 0x7f, i, 0, 0xf7])), ...ending]));
   const [large, clean] = await Promise.all([diagnoseMidi(source, bank, { maxEntries: 3 }), audit([])]);
   assert.equal(large.entries.length, 3);
   assert.equal(large.entries[0].count, 4200);
   assert.equal(large.omitted, 8);
-  assert.equal(large.summary.partial, 4200);
+  assert.equal(large.summary.bankDependent, 4200);
   assert.equal(large.summary.unsupported, 10);
   assert.equal(large.eventsScanned, source.timeline.length);
   assert.deepEqual(clean.entries, []);

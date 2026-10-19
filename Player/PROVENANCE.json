@@ -22,7 +22,8 @@
       "Sequencer executes controller-only tracks and zero-duration setup files, applies timed port markers in event order, and initializes new-port channels with the same controller/preset defaults as port 0",
       "SMF parser/writer preserve timed F0/F7 SysEx packets, escape bytes and End Of Track duration; bounded VLQs/chunks, correct running-status cancellation, extended headers and unknown chunks; per-port byte-stream decoder dispatches escaped channel/system messages and complete SysEx at final-byte time",
       "MIDI 1.0/RP-018 Data Increment/Decrement with complete RPN/NRPN selection, per-parameter values and snapshots; RPN pitch sensitivity uses cents, MSBs clear old LSBs, live bend/modulation ranges update active voices, and RP-015 resets NRPN selectors and poly pressure without erasing parameter values",
-      "CC66 sostenuto captures per-voice key-down state only on pedal-on, preserves independent repeated notes, combines with CC64 and respects All Notes Off, reset and exact seeking"
+      "CC66 sostenuto captures per-voice key-down state only on pedal-on, preserves independent repeated notes, combines with CC64 and respects All Notes Off, reset and exact seeking",
+      "CC68 monophonic legato overlays channel mode, retunes existing sample layers without restarting DSP/envelopes, uses an independent portamento clock, and preserves per-key Note On/Off identities and sostenuto capture during fallback"
     ]
   },
   "soundfont": {

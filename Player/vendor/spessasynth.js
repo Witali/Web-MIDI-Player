@@ -5274,6 +5274,7 @@ function resetChannelInternal(sendCCEvents = true) {
 	this.dynamicModulators.resetModulators();
 	this.sf2NRPNGeneratorLSB = 0;
 	this.playingNotes.fill(false);
+	this.keyPresses = []; this.legatoState = null; this.lastMonoNote = -1;
 	this.lastParameterIsRegistered = true;
 	this.parameterSelection = { rpn: 0, nrpn: 0 };
 	this.parameterValues.clear();
@@ -5296,6 +5297,7 @@ const RP_15_RESET_CC_NUMS = [
 	MIDIControllers.portamentoOnOff,
 	MIDIControllers.sostenutoPedal,
 	MIDIControllers.softPedal,
+	MIDIControllers.legatoFootswitch,
 	MIDIControllers.nonRegisteredParameterMSB,
 	MIDIControllers.nonRegisteredParameterLSB,
 	MIDIControllers.registeredParameterMSB,
@@ -6775,7 +6777,7 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		semitones += tuning - targetKey;
 	}
 	if (voice.portamentoFromKey > -1) {
-		const elapsed = Math.min((timeNow - voice.startTime) / voice.portamentoDuration, 1);
+		const elapsed = Math.min((timeNow - voice.portamentoStartTime) / voice.portamentoDuration, 1);
 		const diff = targetKey - voice.portamentoFromKey;
 		semitones -= diff * (1 - elapsed);
 	}
@@ -7058,11 +7060,20 @@ function controllerChange(controller, value, sendEvent = true) {
 				}
 			}
 			break;
+		case MIDIControllers.legatoFootswitch:
+			setLegato(this, value >= 64);
+			this.computeModulatorsAll(1, controller);
+			break;
 		case MIDIControllers.sostenutoPedal:
 			if (value >= 64 && previousValue < 8192) {
 				// Capture key-down voices, not later notes or sustain-only tails.
-				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.keyDown && v.releaseStartTime === Infinity) v.isSostenuto = true;
+				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.keyDown && v.releaseStartTime === Infinity) {
+					v.isSostenuto = true;
+					const key = this.keyPresses.find(k => k.midiNote === v.midiNote && k.noteID === v.noteID);
+					if (key) key.sostenuto = true;
+				}
 			} else if (value < 64) {
+				for (const key of this.keyPresses) key.sostenuto = false;
 				const sustain = this._midiControllers[MIDIControllers.sustainPedal] >= 8192;
 				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.isSostenuto) {
 					v.isSostenuto = false;
@@ -7882,7 +7893,42 @@ const clamp = (num, min, max) => Math.max(min, Math.min(max, num));
 * @param velocity The velocity of the note (0-127). If less than 1, it will send a note off instead.
 * @param emit If the note on should be updated and emitted (non-internal)
 */
-function noteOn(midiNote, velocity, emit = true) {
+// CC68 is a temporary performance overlay; the underlying CC126/127 mode
+// remains available when the footswitch is released. Last held key wins.
+function retuneLegato(channel, key) {
+	const state = channel.legatoState, now = channel.synthCore.currentTime;
+	const oldKey = state.active?.midiNote ?? key.midiNote;
+	const portamento = channel.portamentoForce || channel._midiControllers[MIDIControllers.portamentoOnOff] >= 8192;
+	const time = channel._midiControllers[MIDIControllers.portamentoTime] >> 7;
+	for (const v of state.voices) if (v.isActive) {
+		const previousTarget = v.targetKey;
+		v.targetKey += key.midiNote - v.midiNote;
+		v.midiNote = key.midiNote; v.noteID = key.noteID; v.keyDown = true;
+		v.isHeld = false; v.isSostenuto = !!key.sostenuto;
+		v.releaseStartTime = Infinity;
+		v.portamentoFromKey = portamento && time > 0 && !channel._drumChannel ? previousTarget : -1;
+		v.portamentoStartTime = now;
+		v.portamentoDuration = portamentoTimeToSeconds(time, Math.abs(oldKey - key.midiNote));
+		channel.computeModulators(v);
+	}
+	state.active = key;
+	channel.portamentoForce = false;
+	channel.lastPortamentoNote = channel.lastMonoNote = key.midiNote;
+	channel.lastMonoVelocity = key.velocity;
+}
+function setLegato(channel, enabled) {
+	if (enabled === !!channel.legatoState) return;
+	if (!enabled) { channel.legatoState = null; return; }
+	const all = channel.synthCore.voices.filter(v => v.isActive && v.channel === channel.channel);
+	const active = channel.keyPresses.findLast(key => all.some(v => v.midiNote === key.midiNote && v.noteID === key.noteID && v.keyDown && !v.isInRelease));
+	const voices = active ? all.filter(v => v.midiNote === active.midiNote && v.noteID === active.noteID && !v.isInRelease) : [];
+	channel.legatoState = { active, voices };
+	// Entering mono keeps the most recent held group and releases other groups.
+	for (const v of all) if (!voices.includes(v) && v.keyDown && !v.isInRelease) {
+		v.keyDown = false; v.releaseVoice(channel.synthCore.currentTime);
+	}
+}
+function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 	if (velocity < 1) {
 		this.noteOff(midiNote);
 		return;
@@ -7895,7 +7941,16 @@ function noteOn(midiNote, velocity, emit = true) {
 	const program = this.preset.program;
 	const tune = this.synthCore.tunings[program * 128 + midiNote];
 	if (tune >= 0) soundBankNote = Math.trunc(tune);
-	if ((this._systemParameters.monophonicRetrigger ?? this.synthCore.systemParameters.monophonicRetrigger) || this._midiParameters.assignMode === 0) this.killNote(midiNote);
+	if (emit && this.legatoState) {
+		logicalNote = { midiNote, velocity, noteID: this.noteOnID[midiNote]++ };
+		this.keyPresses.push(logicalNote); this.playingNotes[midiNote] = true;
+		if (this.legatoState.voices.some(v => v.isActive && v.keyDown && !v.isInRelease && v.releaseStartTime === Infinity)) {
+			retuneLegato(this, logicalNote);
+			this.synthCore.callEvent("noteOn", { midiNote, channel: this.channel, velocity });
+			return;
+		}
+	}
+	if (!this.legatoState && !logicalNote && ((this._systemParameters.monophonicRetrigger ?? this.synthCore.systemParameters.monophonicRetrigger) || this._midiParameters.assignMode === 0)) this.killNote(midiNote);
 	const keyVel = this.synthCore.keyModifierManager.getVelocity(this.channel, midiNote);
 	if (keyVel > -1) realVelocity = keyVel;
 	let voiceGain = this.synthCore.keyModifierManager.getGain(this.channel, midiNote);
@@ -7913,8 +7968,9 @@ function noteOn(midiNote, velocity, emit = true) {
 	}
 	this.lastPortamentoNote = midiNote;
 	this.playingNotes[midiNote] = true;
-	if (!this._midiParameters.polyMode) {
-		if (this.lastMonoNote >= 0 && this.lastMonoNote !== midiNote) this.killNote(this.lastMonoNote);
+	if (!this._midiParameters.polyMode && !this.legatoState) {
+		// Changing a mono voice must not erase still-owed Note Off identities.
+		for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.keyDown && !v.isInRelease) { v.keyDown = false; v.releaseVoice(this.synthCore.currentTime); }
 		this.lastMonoNote = midiNote;
 		this.lastMonoVelocity = velocity;
 	}
@@ -7942,11 +7998,14 @@ function noteOn(midiNote, velocity, emit = true) {
 		delaySend = p.delayGain;
 		if (voiceGain === 1) voiceGain = p.gain;
 	}
-	const noteID = emit ? this.noteOnID[midiNote]++ : this.noteOnID[midiNote];
+	const noteID = logicalNote?.noteID ?? (emit ? this.noteOnID[midiNote]++ : this.noteOnID[midiNote]);
+	if (emit && !logicalNote) { logicalNote = { midiNote, velocity, noteID }; this.keyPresses.push(logicalNote); }
+	const assigned = this.legatoState ? [] : null;
 	for (const cached of voices) {
 		const voice = this.synthCore.assignVoice();
 		const now = this.synthCore.currentTime;
 		voice.setup(now, this.channel, midiNote, noteID);
+		assigned?.push(voice);
 		voice.wavetable = voice.oscillators[this._systemParameters.interpolationType ?? this.synthCore.systemParameters.interpolationType];
 		voice.targetKey = cached.targetKey;
 		voice.velocity = cached.velocity;
@@ -8019,6 +8078,10 @@ function noteOn(midiNote, velocity, emit = true) {
 		voice.currentPan = Math.max(-500, Math.min(500, panOverride || voice.modulatedGenerators[GeneratorTypes.pan]));
 	}
 	this._voiceCount += voices.length;
+	if (this.legatoState) {
+		this.legatoState.active = logicalNote; this.legatoState.voices = assigned;
+		this.lastMonoNote = midiNote; this.lastMonoVelocity = velocity;
+	}
 	if (emit) this.synthCore.callEvent("noteOn", {
 		midiNote,
 		channel: this.channel,
@@ -8035,6 +8098,11 @@ function noteOn(midiNote, velocity, emit = true) {
 */
 function noteOff(midiNote) {
 	if (midiNote > 127 || midiNote < 0) return;
+	const noteID = this.noteOffID[midiNote];
+	if (noteID < this.noteOnID[midiNote]) this.noteOffID[midiNote]++;
+	this.playingNotes[midiNote] = this.noteOffID[midiNote] < this.noteOnID[midiNote];
+	const index = this.keyPresses.findIndex(k => k.midiNote === midiNote && k.noteID === noteID);
+	if (index >= 0) this.keyPresses.splice(index, 1);
 	if (this.synthCore.systemParameters.blackMIDIMode && !this._drumChannel || this._drumChannel && this.drumParams[midiNote].rxNoteOff) {
 		this.killNote(midiNote);
 		this.synthCore.callEvent("noteOff", {
@@ -8043,13 +8111,16 @@ function noteOff(midiNote) {
 		});
 		return;
 	}
-	this.playingNotes[midiNote] = false;
-	const mono = !this._midiParameters.polyMode;
+	const mono = !this._midiParameters.polyMode || !!this.legatoState;
 	const sustain = this._midiControllers[MIDIControllers.sustainPedal] >= 8192;
 	let vc = 0;
-	const noteID = this.noteOffID[midiNote];
-	if (noteID < this.noteOnID[midiNote]) this.noteOffID[midiNote]++;
-	if (this._voiceCount > 0) {
+	const legato = this.legatoState, nextKey = this.keyPresses.at(-1);
+	const returnToKey = legato && legato.active?.midiNote === midiNote && legato.active?.noteID === noteID && nextKey;
+	if (returnToKey) {
+		if (legato.voices.some(v => v.isActive && !v.isInRelease)) retuneLegato(this, nextKey);
+		else this.noteOn(nextKey.midiNote, nextKey.velocity, false, nextKey);
+	}
+	if (this._voiceCount > 0 && !returnToKey) {
 		for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && v.noteID === noteID && !v.isInRelease) {
 			v.keyDown = false;
 			if (sustain || v.isSostenuto) v.isHeld = true;
@@ -8061,10 +8132,13 @@ function noteOff(midiNote) {
 		midiNote,
 		channel: this.channel
 	});
-	if (mono) {
+	if (mono && !legato) {
 		const highest = this.playingNotes.lastIndexOf(true);
 		if (highest === -1) this.lastMonoNote = -1;
-		else if (this.lastMonoNote === midiNote) this.noteOn(highest, this.lastMonoVelocity, false);
+		else if (this.lastMonoNote === midiNote) {
+			const key = this.keyPresses.findLast(k => k.midiNote === highest);
+			this.noteOn(highest, key?.velocity ?? this.lastMonoVelocity, false, key);
+		}
 	}
 }
 //#endregion
@@ -12482,6 +12556,7 @@ function getChannelSnapshot() {
 function applySnapshot(snapshot) {
 	this.setDrums(snapshot.drumChannel);
 	this._midiControllers.set(snapshot.midiControllers);
+	setLegato(this, this._midiControllers[MIDIControllers.legatoFootswitch] >= 8192);
 	this.parameterSelection = { ...(snapshot.parameterSelection ?? { rpn: 0, nrpn: 0 }) };
 	this.parameterValues = new Map(snapshot.parameterValues ?? []);
 	this.lastParameterIsRegistered = snapshot.lastParameterIsRegistered ?? true;
@@ -12856,6 +12931,8 @@ var MIDIChannel = class {
 	* @protected
 	*/
 	playingNotes = new Array(128).fill(false);
+	keyPresses = [];
+	legatoState = null;
 	generators = {
 		offsets: new Int16Array(GENERATORS_AMOUNT),
 		offsetsEnabled: false,
@@ -12971,6 +13048,8 @@ var MIDIChannel = class {
 		this.noteOnID.fill(0);
 		this.noteOffID.fill(0);
 		this.playingNotes.fill(false);
+		this.keyPresses = []; this.lastMonoNote = -1;
+		if (this.legatoState) this.legatoState = { active: undefined, voices: [] };
 		if (force) {
 			let vc = 0;
 			if (this._voiceCount > 0) {
@@ -13096,10 +13175,10 @@ var MIDIChannel = class {
 	*/
 	killNote(midiNote, releaseTime = -12e3) {
 		let vc = 0;
-		this.noteOffID[midiNote] = 0;
-		this.noteOnID[midiNote] = 0;
+		// A fast release does not cancel the sender's still-owed Note Offs.
 		if (this._voiceCount > 0) {
 			for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote) {
+				v.keyDown = false;
 				v.overrideReleaseVolEnv = releaseTime;
 				v.isInRelease = false;
 				v.releaseVoice(this.synthCore.currentTime);
@@ -15175,6 +15254,7 @@ var Voice = class {
 	* Duration of the linear glide, in seconds.
 	*/
 	portamentoDuration = 0;
+	portamentoStartTime = 0;
 	/**
 	* From -500 to 500, where zero means disabled (use the channel pan). Used for random pan.
 	*/
@@ -15246,6 +15326,7 @@ var Voice = class {
 		this.vibLfoPhase = .25;
 		this.modLfoPhase = .25;
 		this.startTime = currentTime;
+		this.portamentoStartTime = currentTime;
 		this.channel = channel;
 		this.midiNote = midiNote;
 		this.noteID = noteID;

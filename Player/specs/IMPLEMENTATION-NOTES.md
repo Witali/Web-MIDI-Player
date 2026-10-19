@@ -136,7 +136,8 @@ This mapping is not a claim of complete GM2 conformance.
 RP-015 resets expression, modulation, the four listed pedals, pitch bend and
 channel/poly pressure, and nulls both parameter-number families. It preserves
 program/bank, volume/pan, effects, sound controllers, channel mode and actual
-parameter values. Other controllers retain their current values in this receiver.
+parameter values. CC68 is also reset to OFF; other unlisted controllers retain
+their current values in this receiver.
 A full synth reset instead restores parameter defaults. Snapshots include
 selector completeness, active family, remembered values and SF2 generator index.
 
@@ -162,5 +163,36 @@ pedals; CC120 remains immediate silence. Channel/port scope is preserved.
 Evidence: Player/tests/pedals.test.mjs covers threshold edges, late/repeated
 notes, both pedal-release orders, sustain-tail exclusion, All Notes/Sound Off,
 reset, separate output ports and bit-identical PCM versus delayed Note Offs
-including exact seeks on JS, scalar WASM and SIMD. CC68 and CC69 remain separate
-unimplemented plan items.
+including exact seeks on JS, scalar WASM and SIMD. Subsequent CC68/69 work is
+recorded below.
+
+## Legato Footswitch CC68 (2026-10-19)
+
+MIDI 1.0 p. 14 (PDF 19) requires temporary monophonic legato: an overlapping
+Note On changes pitch without reattacking envelopes or, where possible, the
+sample attack. OFF restores the previous mono/poly voice-assignment behavior.
+This is a performance switch, separate from proper channel-mode messages.
+
+This receiver preserves the channel's underlying CC126/127 mode while CC68
+overlays monophonic allocation; explicit mode changes still update that mode.
+The most recent held key wins. Releasing it returns to the last still-held key
+without an attack while its voice remains available. Enabling during a chord
+keeps the most recent held group and releases other groups through envelopes.
+
+A legato transition retains the original sample, phase, root, velocity, timbre,
+filter state, envelope clocks and LFO phase while retuning the existing layers.
+Portamento has a separate glide start time; it does not rewind the envelopes.
+After a gap the next Note On starts a normal attack using the current program.
+Logical Note On/Off IDs remain distinct for repeated keys, silent mono keys and
+fast retrigger releases. Sostenuto membership follows the logical captured key
+when returning to a held key. CC121 turns CC68 off without changing channel mode.
+
+Evidence: Player/tests/pedals.test.mjs checks actual retained oscillator/envelope
+state, audible octave retuning, repeated-key pairing, fallback, chord entry,
+mode restoration, new attacks after gaps, program changes, portamento timing,
+ports, pedals and fast-release progress. Real legato PCM is identical to an
+independent semitone change via RPN Fine Tuning, including exact seeks on JS,
+scalar WASM and SIMD. The reference uses exact Fine Tuning units; SoundFont
+2.04 section 8.4.10 instead specifies a 127/128 normalization for its default
+pitch-wheel-sensitivity modulator, so a nominal bend range is not an exact
+semitone PCM reference. [SoundFont specification](https://www.synthfont.com/sfspec24.pdf).
