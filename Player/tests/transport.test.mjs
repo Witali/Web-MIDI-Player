@@ -130,3 +130,20 @@ test('a superseded long Worker seek cancels and cannot leak old-epoch PCM during
     assert.ok(audio.every(block=>block.epoch===3),'Reconstruction must never answer an old stream read');
   } finally { channel.port1.close(); await worker.terminate(); }
 });
+
+test('Worker defaults to selected samples and preserves the explicit full SF2 option', async () => {
+  const worker = new Worker(new URL('./worker-fixture.mjs', import.meta.url));
+  try {
+    const load = async (id, options) => {
+      const reply = once(worker, 'message');
+      worker.postMessage({ type: 'load', id, bytes: panned(), epoch: id, effects: false, ...options });
+      const result = (await reply)[0]; assert.equal(result.error, undefined); return result.result;
+    };
+    const lazy = await load(1);
+    assert.equal(lazy.sampleBank.mode, 'samples'); assert.ok(lazy.sampleBank.samples > 0 && lazy.sampleBank.samples < 10);
+    assert.ok(lazy.sampleBank.downloadedBytes > 0);
+    const cached = await load(2); assert.equal(cached.sampleBank.downloadedBytes, 0);
+    const full = await load(3, { soundfontUrl: new URL('../soundfonts/FluidR3_GM.sf2', import.meta.url).href });
+    assert.equal(full.sampleBank.mode, 'full'); assert.equal(full.sourceDuration, lazy.sourceDuration);
+  } finally { await worker.terminate(); }
+});

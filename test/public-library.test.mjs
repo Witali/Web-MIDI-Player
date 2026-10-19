@@ -5,7 +5,8 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { buildPublicLibrary, publicLibraryCsv } from '../src/public-library.mjs';
-import { renderCatalog } from '../src/catalog-output.mjs';
+import { verifyBrowserBank } from '../Player/tools/verify-browser-bank.mjs';
+import { renderCatalog, writeCatalog } from '../src/catalog-output.mjs';
 
 const source = fileURLToPath(new URL('../public-library/', import.meta.url));
 const manifest = JSON.parse(fs.readFileSync(path.join(source, 'manifest.json'), 'utf8'));
@@ -89,4 +90,14 @@ test('public and local catalog HTML has valid inline JavaScript and safe embedde
     assert.ok(html.includes(mode === 'public' ? 'PUBLIC DOMAIN' : 'OFFLINE LIBRARY'));
     assert.ok(!html.includes('/* CATALOG_'));
   }
+});
+
+test('public export includes verified standalone sample files and omits the full SF2', t => {
+  const f = fixture(t), output = path.join(f.directory, 'export');
+  writeCatalog(output, buildPublicLibrary(f.directory));
+  assert.ok(fs.existsSync(path.join(output, 'player/lazy-bank.js')));
+  assert.ok(!fs.existsSync(path.join(output, 'player/soundfonts/FluidR3_GM.sf2')));
+  const bank = verifyBrowserBank(path.join(output, 'player/soundfonts/fluidr3-gm'));
+  assert.equal(bank.total.unique_files, 1418);
+  assert.ok(fs.existsSync(path.join(output, 'player/licenses/FluidR3-MIT.txt')));
 });

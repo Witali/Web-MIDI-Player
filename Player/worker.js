@@ -1,12 +1,14 @@
 // The source project renders PCM in C/WASM. Keep it off the website's UI thread.
 import { createStereoPreview } from './stereo-preview.js';
+import { BrowserSoundBank } from './lazy-bank.js';
 let enginePromise, preview, port, epoch = 0, queue = Promise.resolve();
 let latestSeek = 0, changing = false;
-const soundfonts = new Map();
-async function soundfont(url) {
+const soundfonts = new Map(), browserBanks = new Map();
+let loadAbort;
+async function soundfont(url, signal) {
   const location = url || new URL('./soundfonts/FluidR3_GM.sf2', import.meta.url).href;
   if (!soundfonts.has(location)) soundfonts.set(location, (async () => {
-    const [{ SoundBankLoader, SpessaLog }, response] = await Promise.all([import('./vendor/spessasynth.js'), fetch(location)]);
+    const [{ SoundBankLoader, SpessaLog }, response] = await Promise.all([import('./vendor/spessasynth.js'), fetch(location, { signal })]);
     if (!response.ok) throw new Error(`Cannot load SoundFont: HTTP ${response.status}.`);
     SpessaLog.setLogLevel(false, false, false);
     return SoundBankLoader.fromArrayBuffer(await response.arrayBuffer());
@@ -50,9 +52,19 @@ function render(data) {
 }
 async function command(data) {
   if (data.type === 'load' && data.engine !== 'z80') {
-    const [{ createSoundFontPreview }, bank] = await Promise.all([import('./soundfont-preview.js'), soundfont(data.soundfontUrl)]);
+    data.signal?.throwIfAborted();
     preview?.close(); preview = null;
-    preview = await createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp });
+    const { createSoundFontPreview } = await import('./soundfont-preview.js');
+    let prepared, bank;
+    if (data.soundfontUrl) bank = await soundfont(data.soundfontUrl, data.signal);
+    else {
+      const url = data.sampleManifestUrl || new URL('./soundfonts/fluidr3-gm/manifest.json', import.meta.url).href;
+      if (!browserBanks.has(url)) browserBanks.set(url, new BrowserSoundBank(url));
+      prepared = await browserBanks.get(url).load(data.bytes, { effects: data.effects, signal: data.signal });
+      bank = prepared.bank;
+    }
+    data.signal?.throwIfAborted();
+    preview = await createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared });
     epoch = data.epoch; return preview.stats;
   }
   if (data.type === 'seek') {
@@ -78,6 +90,7 @@ async function command(data) {
   }
   const { engine, bank, players } = await resources();
   if (data.type === 'load') {
+    data.signal?.throwIfAborted();
     const score = engine.parseMidi(unwrapMidi(data.bytes));
     if (!score.notes.length) throw new Error('No supported notes in this MIDI.');
     const parts = score.parts.map(part => ({ ...part, sample: engine.suggestedSample(part.program, part), enabled: true, volume: 1 }));
@@ -92,6 +105,10 @@ async function command(data) {
   throw new Error('Unknown player command.');
 }
 self.onmessage = ({ data }) => {
+  if (data.type === 'cancelLoad') { loadAbort?.abort(); return; }
+  if (data.type === 'load') {
+    loadAbort?.abort(); loadAbort = new AbortController(); data.signal = loadAbort.signal;
+  }
   if (data.type === 'seek' || data.type === 'load') latestSeek = data.epoch;
   if (data.type === 'connect') {
     port?.close(); port = data.port; port.onmessage = ({ data }) => render(data); port.start(); return;

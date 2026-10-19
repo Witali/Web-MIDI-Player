@@ -79,6 +79,11 @@ test('local catalog server serves MIDI and rejects filesystem traversal and writ
   fs.mkdirSync(path.join(directory, 'player'));
   fs.writeFileSync(path.join(directory, 'player/index.js'), 'export const player = true;');
   fs.writeFileSync(path.join(directory, 'player/bank.sf2'), new Uint8Array([82, 73, 70, 70]));
+  const sampleDir = path.join(directory, 'player/soundfonts/fluidr3-gm/samples');
+  fs.mkdirSync(sampleDir, { recursive: true });
+  fs.writeFileSync(path.join(sampleDir, 'a'.repeat(64) + '.ogg'), 'OggS');
+  fs.writeFileSync(path.join(sampleDir, 'b'.repeat(64) + '.pcm'), new Uint8Array([0, 0]));
+  fs.writeFileSync(path.join(directory, 'player/soundfonts/fluidr3-gm/bank.sf3'), 'RIFF');
   fs.mkdirSync(path.join(directory, 'sources'));
   fs.writeFileSync(path.join(directory, 'sources/score.ly'), 'Public Domain score');
   fs.writeFileSync(path.join(directory, 'sources/private.json'), 'private metadata');
@@ -91,6 +96,12 @@ test('local catalog server serves MIDI and rejects filesystem traversal and writ
   assert.equal((await fetch(`${base}/manifest.json`)).status, 404);
   assert.match((await fetch(`${base}/player/index.js`)).headers.get('content-type'), /javascript/);
   assert.equal((await fetch(`${base}/player/bank.sf2`)).status, 200);
+  const ogg = await fetch(`${base}/player/soundfonts/fluidr3-gm/samples/${'a'.repeat(64)}.ogg`);
+  assert.equal(ogg.status, 200); assert.equal(ogg.headers.get('content-type'), 'audio/ogg');
+  assert.match(ogg.headers.get('cache-control'), /immutable/);
+  assert.equal((await fetch(`${base}/player/soundfonts/fluidr3-gm/samples/${'b'.repeat(64)}.pcm`)).status, 200);
+  const meta = await fetch(`${base}/player/soundfonts/fluidr3-gm/bank.sf3`);
+  assert.equal(meta.status, 200); assert.equal(meta.headers.get('cache-control'), 'no-cache');
   assert.equal(await (await fetch(`${base}/sources/score.ly`)).text(), 'Public Domain score');
   assert.equal((await fetch(`${base}/sources/private.json`)).status, 404);
   assert.equal((await fetch(`${base}/sources/%2e%2e%2fmanifest.json`)).status, 404);

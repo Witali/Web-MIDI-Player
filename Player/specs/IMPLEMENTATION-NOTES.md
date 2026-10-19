@@ -242,3 +242,30 @@ Evidence: Player/tests/hold2.test.mjs covers both envelope clocks, audible
 modulation, later notes, repeated ON, live volume, pending and ongoing release,
 pedal/reset/choke priorities, ports, actual PCM and exact seeking on JS, scalar
 WASM and SIMD with effects.
+
+## Separately loaded recordings (2026-10-19)
+
+Sample transport is a host policy, separate from MIDI command semantics. MIDI
+1.0 pp. 10, 13 (PDF 15, 18) identifies Note On key/velocity and bank/program
+selection; SMF RP-001 pp. 6-7 (PDF 8-9) permits packetized F0/F7 messages. A
+program-number-only scan would miss region dependencies selected by these
+commands, timed ports, tuning and part key/velocity parameters.
+
+The preparation pass executes the same ordered command handlers as playback,
+intercepting voice construction to collect selected regions and stereo links.
+No PCM voices are allocated in that pass. Original MIDI events are retained;
+playback uses a separate synth and re-executes every command in sequence. All
+required recordings are downloaded and verified before synthesis, so network
+waits cannot drop a note or reorder a MIDI message. The approximate upstream
+preload scan is disabled; an unprepared sample throws instead of losing a note
+silently. Mono/legato analysis without active PCM voices can conservatively
+include extra regions; it does not intentionally exclude a potential attack.
+
+Evidence: Player/tests/lazy-bank.test.mjs compares selective playback with an
+independently filled complete compressed bank for program/bank changes, F7,
+drums, timed ports, legato, reset, tempo and exact seeks on JS, scalar WASM and
+SIMD; it also covers all 128 GM programs and 47 standard drum keys, integrity,
+cache bounds, deduplication, cancellation, retry and browser fetch invocation.
+Browser Worker verification rendered real PCM, sought to 20.13 seconds and
+reloaded Mozart without downloading its 26 recordings again. The Vorbis bank
+is lossy relative to original SF2; the full SF2 path remains available.

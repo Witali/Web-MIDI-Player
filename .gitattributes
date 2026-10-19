@@ -1,3 +1,10 @@
 Player/soundfonts/FluidR3_GM.sf2 filter=lfs diff=lfs merge=lfs -text
 # Preserve original third-party notation source bytes.
 public-library/sources/** -text -diff
+
+Player/soundfonts/fluidr3-gm/bank.sf3 filter=lfs diff=lfs merge=lfs -text
+Player/soundfonts/fluidr3-gm/samples/*.ogg filter=lfs diff=lfs merge=lfs -text
+Player/soundfonts/fluidr3-gm/samples/*.pcm filter=lfs diff=lfs merge=lfs -text
+
+# Preserve upstream SoundFont license bytes.
+Player/soundfonts/fluidr3-gm/LICENSE.txt -text -diff

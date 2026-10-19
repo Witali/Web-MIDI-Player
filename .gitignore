@@ -29,3 +29,6 @@
 
 # Generated static public catalog
 /dist/
+
+# Selectively loaded browser SoundFont metadata
+!/Player/soundfonts/fluidr3-gm/bank.sf3

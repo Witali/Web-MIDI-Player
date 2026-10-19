@@ -72,5 +72,35 @@
       "integrity": "sha512-CyvjJEGROIdnuZknwFvdOfMIO1ssUxO2OawsXCR3IlbJ8z2IMBjDe8FDxFJqBfLgf1ZOdqvoHAYx3Xk8q9rbbg==",
       "license": "Apache-2.0"
     }
-  ]
+  ],
+  "browserSoundfont": {
+    "manifest": "soundfonts/fluidr3-gm/manifest.json",
+    "sourceProject": "Z80 tester",
+    "sourceCommit": "14af6bd49a781ddc70cec3d926170f478bfaeddd",
+    "implementationCommit": "767cddc",
+    "copied": [
+      "audio/assets/samples/fluidr3-gm/browser",
+      "audio/lib/soundfont-player/build-browser-bank.mjs"
+    ],
+    "changes": [
+      "Paths adapted to standalone Player; ordered real MIDI dispatch selects key/velocity regions, linked samples, timed ports and F7 messages",
+      "Verified samples load before playback with cancellation, bounded encoded LRU and independent per-song decoded banks"
+    ],
+    "codec": "Ogg Vorbis",
+    "settings": {
+      "bitrate_bps": 128000,
+      "low_rate_quality": 8,
+      "pcm_below_bytes": 4096,
+      "resampling": "none; original native sample rate"
+    },
+    "license": "MIT",
+    "samples": 1418,
+    "encodedBytes": 31812967,
+    "metadata": {
+      "file": "bank.sf3",
+      "bytes": 202588,
+      "sha256": "0af5bc85e0eb588f5bb87235d014c64fae6e0d57eff413fef886fbb28ed05e05"
+    },
+    "builder": "tools/build-browser-bank.mjs"
+  }
 }

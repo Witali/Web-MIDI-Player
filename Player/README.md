@@ -143,28 +143,51 @@ the exact boundary between the C audio core and JavaScript control logic.
 
 ## Assets and deployment
 
-The unmodified FluidR3 bank is about **142 MiB**, loaded on first use and kept
-in the Worker for subsequent tracks. It is tracked with **Git LFS** under the
-MIT license; retain `licenses/FluidR3-MIT.txt` when redistributing it. Install
-Git LFS and run `git lfs install` before cloning, or `git lfs pull` from an
-existing clone, to retrieve the actual SoundFont instead of its pointer file.
+The default engine loads FluidR3 **as separate recordings** from
+`soundfonts/fluidr3-gm/`: a 198-KiB metadata map, a JSON manifest and
+1,418 independent sample files (30.3 MiB for the entire set). Each MIDI loads
+only its required key/velocity regions and linked stereo recordings, including
+later bank/program changes, drum kits, timed ports and escaped MIDI messages.
+The complete ordered MIDI handlers select the dependencies; playback executes
+the original events again. Required files finish loading before playback starts.
 
-Run `npm run setup` from the repository root to check the bank and download it
-when missing or different from the pinned checksum. The setup script is
-`Player/tools/fetch-assets.mjs`; it also runs as `npm run player:assets` or
-`node Player/tools/fetch-assets.mjs` (Node.js 22+, `tar`).
+Recordings use Ogg Vorbis from the original native-rate PCM; very short samples
+remain PCM16. This is the same encoding as the Z80 tester's browser bank.
+Vorbis is lossy; sample rates, original frame counts, loops, preset maps,
+modulators and envelopes are retained. It is not bit-identical to the original
+SF2. Exact original PCM remains available by explicitly choosing
+`{ soundfontUrl: './banks/FluidR3_GM.sf2' }`; other full SF2 banks still work.
+A relocated copy of the sample bank can use
+`{ sampleManifestUrl: './banks/fluidr3-gm/manifest.json' }`.
+Choose one of these URL options or omit both for the default sample bank.
 
-The download source is the
+Downloads are limited to four at once and verified by SHA-256 before decoding.
+A new track cancels obsolete sample downloads. Each Worker's encoded LRU cache
+is limited to 32 MiB; decoded PCM belongs only to its current track. The server
+may also cache content-addressed sample files. `metadata.sampleBank` reports
+selected sample/file counts, encoded bytes, newly downloaded sample bytes and
+cache hits. `metadata.sampleBank.mode` is `samples` or `full`.
+
+The original 142-MiB SF2 and browser recordings are tracked with **Git LFS**
+under MIT. Install Git LFS before cloning, or run `git lfs pull` in an existing
+clone. Keep `licenses/FluidR3-MIT.txt` and the sample bank's `LICENSE.txt`.
+`npm run setup` verifies the original bank and every browser asset. It restores
+missing original SF2 from the pinned
 [FluidR3 GM 3.1 Debian package](https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gm_3.1-5.3_all.deb)
-(about 114 MiB compressed, 142 MiB extracted). The script verifies both the
-package and extracted bank SHA-256 and skips downloading a verified bank.
-This setup path works without Git LFS. Other SF2 banks can be selected with
-`{ soundfontUrl: './banks/other.sf2' }`.
+(114 MiB package), checking both archive and extracted-bank SHA-256. If the
+browser assets are missing, setup rebuilds them with FFmpeg/libvorbis; use
+`git lfs pull` to retrieve the ready files without encoding. Node.js 22+ and
+`tar` are required for setup; FFmpeg is needed only for rebuilding samples.
+`npm run player:samples` reproduces the split bank from the verified original;
+see [the sample-bank README](soundfonts/fluidr3-gm/README.md) for encoding details.
 
-Serve `.js` as JavaScript, `.json` as JSON, `.wasm` as `application/wasm`, and
-`.sf2` as `application/octet-stream`. Keep relative file paths intact. All
-assets are local; no CDN or account is required at playback time. A strict CSP
-needs `worker-src 'self'`, `connect-src 'self'`, and
+Static sites need the sample-bank directory, its license and player runtime;
+the original SF2 is optional. `npm run catalog:public` verifies and exports all
+small files, omitting the original SF2. Serve `.js` as JavaScript, `.json` as
+JSON, `.wasm` as `application/wasm`, `.ogg` as `audio/ogg`, and `.sf3`,
+`.pcm` and optional `.sf2` as `application/octet-stream`. Keep relative paths
+intact. All assets are local; no CDN or account is required at playback time.
+A strict CSP needs `worker-src 'self'`, `connect-src 'self'`, and
 `script-src 'self' 'wasm-unsafe-eval'`. Cross-origin hosting also needs CORS.
 
 Keep the complete `licenses/` folder when redistributing the player and banks.

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { verifyBrowserBank } from './Player/tools/verify-browser-bank.mjs';
 import { fileURLToPath } from 'node:url';
 import { buildPublicLibrary, publicLibraryCsv } from './src/public-library.mjs';
 import { writeCatalog } from './src/catalog-output.mjs';
@@ -9,11 +9,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const source = path.join(root, 'public-library'), dist = path.join(root, 'dist');
 const directory = path.join(dist, 'public-library');
 const library = buildPublicLibrary(source);
-const bank = JSON.parse(fs.readFileSync(path.join(root, 'Player/PROVENANCE.json'), 'utf8')).soundfont;
-const bankFile = path.join(root, 'Player', bank.file);
-if (!fs.existsSync(bankFile) || crypto.createHash('sha256').update(fs.readFileSync(bankFile)).digest('hex') !== bank.sha256) {
-  throw new Error('Restore the verified SoundFont first: npm run setup');
-}
+await verifyBrowserBank();
 fs.mkdirSync(dist, { recursive: true });
 if (fs.realpathSync(dist) !== path.join(fs.realpathSync(root), 'dist')) throw new Error('Public output directory must stay inside this project');
 if (path.dirname(path.resolve(directory)) !== fs.realpathSync(dist) || path.basename(directory) !== 'public-library') throw new Error('Unexpected public output path');
