@@ -259,7 +259,7 @@ function splitmix32(a) {
 		return ((t ^ t >>> 15) >>> 0) / 4294967296;
 	};
 }
-const randomGenerator = splitmix32(81572);
+// Random pan belongs to each synthesizer, so replay/seek is deterministic.
 /**
 * Formats the given seconds to nice readable time
 * @param totalSeconds time in seconds
@@ -7792,12 +7792,12 @@ function noteOn(midiNote, velocity, emit = true) {
 	let reverbSend = 1;
 	let chorusSend = 1;
 	let delaySend = 1;
-	if (this._midiParameters.randomPan) panOverride = Math.round(randomGenerator() * 1e3 - 500);
+	if (this._midiParameters.randomPan) panOverride = Math.round(this.synthCore.randomGenerator() * 1e3 - 500);
 	if (this._drumChannel) {
 		const p = this.drumParams[midiNote];
 		if (!p.rxNoteOn) return;
 		const drumPan = p.pan - 64;
-		if (drumPan !== 0) if (drumPan === -64) panOverride = Math.round(randomGenerator() * 1e3 - 500);
+		if (drumPan !== 0) if (drumPan === -64) panOverride = Math.round(this.synthCore.randomGenerator() * 1e3 - 500);
 		else {
 			const channelPan = (this._midiControllers[MIDIControllers.pan] >> 7) - 64;
 			panOverride = Math.max(-63, Math.min(drumPan + channelPan, 63)) / 63 * 500 || 1;
@@ -19597,6 +19597,7 @@ var SynthesizerCore = class {
 	* The current time of the synthesizer, in seconds.
 	*/
 	currentTime = 0;
+	randomGenerator = splitmix32(81572);
 	/**
 	* Synth's default (reset) preset.
 	*/

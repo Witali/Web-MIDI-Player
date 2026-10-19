@@ -1,5 +1,4 @@
 import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from './vendor/spessasynth.js';
-import { parseMidi } from './engine/src/midi.js';
 import { normalizeSmpteTiming } from './midi-timing.js';
 import { installVoiceDSP } from './voice-dsp.js';
 import { diagnoseMidi } from './midi-diagnostics.js';
@@ -11,12 +10,13 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   SpessaLog.setLogLevel(false, false, false);
   const midi = normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
   const diagnostics = await diagnoseMidi(midi, bank, { effects });
-  let heldNotes = [];
-  try { heldNotes = parseMidi(new Uint8Array(midi.writeMIDI())).notes; } catch { /* Extended multi-port files still play through the native sequencer. */ }
-  let synth, sequence, frames = 0, quietTailFrames = 0;
+  let synth, sequence, frames = 0, renderedFrames = 0, quietTailFrames = 0;
+  let pending = [new Float32Array(128), new Float32Array(128)], pendingAt = 128;
+  let closed = false;
   const warnings = new Set();
   let duration = midi.duration + 2;
   async function reset() {
+    if (closed) throw new Error('Preview has been closed.');
     synth?.stopAllChannels(true);
     synth = new SpessaSynthProcessor(48000, { effectsEnabled: effects, eventsEnabled: false, maxBufferSize: 128 });
     synth.onMissingPreset = (patch, system) => {
@@ -46,44 +46,61 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     }
     sequence = new SpessaSynthSequencer(synth);
     sequence.skipToFirstNoteOn = false; sequence.loopCount = 0;
-    sequence.loadNewSongList([midi]); sequence.play(); frames = quietTailFrames = 0;
+    sequence.loadNewSongList([midi]); sequence.play();
+    frames = renderedFrames = quietTailFrames = 0; pendingAt = 128;
+  }
+  function renderQuantum() {
+    pending[0].fill(0); pending[1].fill(0);
+    sequence.processTick(); synth.process(pending[0], pending[1], 0, 128);
+    renderedFrames += 128; pendingAt = 0;
+    if (renderedFrames >= Math.ceil(midi.duration * 48000)) {
+      let peak = 0;
+      for (let i = 0; i < 128; i++) peak = Math.max(peak, Math.abs(pending[0][i]), Math.abs(pending[1][i]));
+      quietTailFrames = synth.voiceCount || peak > 1e-6 ? 0 : quietTailFrames + 128;
+      if (renderedFrames >= Math.ceil(duration * 48000) && quietTailFrames < 12000) duration = renderedFrames / 48000 + 1;
+    }
+  }
+  function read(capacity = 2048) {
+    if (closed) throw new Error('Preview has been closed.');
+    if (!Number.isSafeInteger(capacity) || capacity < 0) throw new RangeError('Read capacity must be a nonnegative integer.');
+    const count = Math.max(0, Math.min(capacity, Math.ceil(duration * 48000) - frames));
+    const channels = [new Float32Array(count), new Float32Array(count)];
+    for (let at = 0; at < count;) {
+      // Fixed synthesis quanta make state and PCM independent of consumer
+      // reads and non-aligned seeks. Preserve the unconsumed part of a quantum.
+      if (pendingAt === 128) renderQuantum();
+      const take = Math.min(count - at, 128 - pendingAt);
+      for (let c = 0; c < 2; c++) channels[c].set(pending[c].subarray(pendingAt, pendingAt + take), at);
+      pendingAt += take; at += take; frames += take;
+    }
+    return channels;
   }
   await reset();
   return {
     get stats() { return { duration, sourceDuration: midi.duration, position: frames / 48000, channels: 2,
       sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, warnings: [...warnings], diagnostics, parts: [], title: midi.getName() }; },
-    read(capacity = 2048) {
-      const count = Math.max(0, Math.min(capacity, Math.ceil(duration * 48000) - frames));
-      const channels = [new Float32Array(count), new Float32Array(count)];
-      for (let at = 0; at < count; at += 128) {
-        const size = Math.min(128, count - at);
-        sequence.processTick(); synth.process(channels[0], channels[1], at, size);
-        const endFrame = frames + at + size;
-        if (endFrame >= Math.ceil(midi.duration * 48000)) {
-          let peak = 0;
-          for (let i = at; i < at + size; i++) peak = Math.max(peak, Math.abs(channels[0][i]), Math.abs(channels[1][i]));
-          quietTailFrames = synth.voiceCount || peak > 1e-6 ? 0 : quietTailFrames + size;
-          // A two-second estimate must never truncate a real voice or wet tail.
-          // Wait for 250 ms of quiet and grow the advertised duration as needed.
-          if (endFrame >= Math.ceil(duration * 48000) && quietTailFrames < 12000) duration = endFrame / 48000 + 1;
+    read,
+    reset,
+    async seek(seconds, { isCurrent = () => true } = {}) {
+      if (!Number.isFinite(seconds)) throw new TypeError('Seek position must be finite.');
+      const target = Math.round(Math.max(0, Math.min(seconds, duration)) * 48000);
+      if (!isCurrent()) return { cancelled: true };
+      // MIDI specifies event/gate/controller semantics, not a seek algorithm.
+      // Replay the same synthesis path: current channel state alone cannot
+      // reconstruct an earlier preset, envelope, sample cursor or wet effect.
+      if (target < frames) await reset();
+      let lastYield = performance.now();
+      while (frames < target) {
+        if (!isCurrent()) return { cancelled: true };
+        const channels = read(Math.min(2048, target - frames));
+        if (!channels[0].length) break;
+        if (performance.now() - lastYield >= 12) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+          lastYield = performance.now();
         }
       }
-      frames += count; return channels;
+      return isCurrent() ? { seconds: frames / 48000 } : { cancelled: true };
     },
-    reset,
-    async seek(seconds) {
-      await reset();
-      sequence.currentTime = Math.min(seconds, midi.duration); sequence.play();
-      // The sequencer restores bank/program/controller/pitch state without
-      // rendering all preceding PCM. Retrigger notes whose effective gate is
-      // still open, including notes held by the sustain pedal.
-      for (const note of heldNotes) if (!note.percussion && note.start < seconds && note.end > seconds) {
-        synth.noteOn(note.channel, note.pitch, note.velocity);
-        if (note.keyOff < seconds) synth.noteOff(note.channel, note.pitch);
-      }
-      frames = Math.round(seconds * 48000); quietTailFrames = 0;
-      return { seconds: frames / 48000 };
-    },
-    close() { synth?.stopAllChannels(true); synth = sequence = null; }
+    close() { synth?.stopAllChannels(true); synth = sequence = null; closed = true; }
   };
 }

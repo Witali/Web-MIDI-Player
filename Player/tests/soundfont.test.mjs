@@ -43,7 +43,7 @@ test('SoundFont playback preserves stereo pan and its changes during a held note
     await preview.reset(); assert.equal(preview.stats.position,0);
   } finally { preview.close(); }
 });
-test('fast seeking restores CC10 and retriggers a held note without rendering the prefix', async () => {
+test('exact seeking restores CC10 and preserves a held note', async () => {
   const bytes = panned(0,true); bytes[28] = 81;
   const preview = await createSoundFontPreview(bytes,bank,{effects:false});
   try {
@@ -61,9 +61,10 @@ test('SMPTE SoundFont playback keeps absolute note and pan times despite tempo c
     const preview = await createSoundFontPreview(smptePanned(frameCode), bank, { effects: false });
     try {
       assert.ok(Math.abs(preview.stats.sourceDuration - 1.25 * factor) < 1e-9, `Wrong duration: ${preview.stats.sourceDuration}`);
-      const silence = [0, 0], left = [0, 0], right = [0, 0], released = [0, 0];
+      const silence = [0, 0], left = [0, 0], right = [0, 0], released = [0, 0], continuous = [[], []];
       while (preview.stats.position < 1.8) {
         const time = preview.stats.position, channels = preview.read(128);
+        channels.forEach((samples, c) => continuous[c].push(...samples));
         const window = time < .2 ? silence : time > .35 && time < .5 ? left :
           time > 1.1 && time < 1.2 ? right : time > 1.6 ? released : null;
         if (window) channels.forEach((samples, i) => window[i] += energy(samples));
@@ -73,9 +74,9 @@ test('SMPTE SoundFont playback keeps absolute note and pan times despite tempo c
       assert.ok(right[1] > .001 && right[1] > right[0] * 1000, JSON.stringify({ right }));
       assert.ok(released[0] + released[1] < 1e-8, JSON.stringify({ released }));
       await preview.seek(.95 * factor);
-      const held = [0, 0];
-      for (let i = 0; i < 30; i++) preview.read(128).forEach((samples, j) => held[j] += energy(samples));
-      assert.ok(held[1] > .001 && held[1] > held[0] * 1000, 'Seek must restore the held note and right pan');
+      const held = preview.read(3840), start = Math.round(.95 * factor * 48000);
+      held.forEach((samples, c) => assert.deepEqual(samples, Float32Array.from(continuous[c].slice(start, start + 3840)), 'Seek must preserve the actual phase and pan smoothing'));
+      assert.ok(energy(held[1]) > .001 && energy(held[1]) > energy(held[0]), 'The held note must remain panned right');
       await preview.seek(.1);
       const beforeNote = preview.read(4096);
       assert.equal(energy(beforeNote[0]) + energy(beforeNote[1]), 0, 'Seek before the first note must stay silent');

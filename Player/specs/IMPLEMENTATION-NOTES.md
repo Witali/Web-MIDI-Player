@@ -1,0 +1,41 @@
+# MIDI behavior and verification
+
+The primary references are the unmodified PDFs in this folder, identified by
+[their recorded hashes](README.md). Page references below use the printed page
+number; the PDF page index is supplied when different. These are paraphrases,
+not replacements for the normative documents.
+
+## Exact seeking (2026-10-19)
+
+- MIDI 1.0 Detailed Specification 4.2.1, pp. 10-11 (PDF 15-16): a receiver must
+  accept both Note Off and Note On with zero velocity. The latter represents a
+  release velocity of 64. Gate release and the instrument's release envelope
+  are different operations.
+- p. 13 (PDF 18), Bank Select: remember both bank bytes; Bank Select alone must
+  not change the preset. Program Change chooses the new preset. Notes already
+  sounding need not change their original timbre.
+- Appendix A-4 (PDF 67): repeated Note Ons on the same channel/key require
+  corresponding Note Offs. The receiver chooses its voice assignment policy.
+  This player retains all polyphonic voices and pairs releases in order.
+- Appendix A-5 (PDF 68): CC64 delays both Note Off and All Notes Off until pedal
+  release. Release must enter the envelope's release stage rather than cut PCM.
+- Standard MIDI Files 1.0, pp. 4-5 (PDF 6-7): format 1 combines simultaneous
+  tracks/outputs; format 2 contains independent patterns. PPQN uses the tempo
+  map, while SMPTE division defines an absolute clock. Missing initial tempo
+  means 120 BPM.
+
+MIDI does not prescribe an offline seek algorithm or demand identical DSP
+rounding across synths. This player's stronger seek contract is that its own
+continuous PCM and its own PCM following seek are identical at the selected
+48 kHz sample. Replaying all earlier events through the same synth path restores
+per-note presets, pedals, oscillator/filter/envelope state, MIDI ports and wet
+FX. Fixed 128-frame synthesis quanta with retained unread samples make this
+contract independent of consumer read sizes. Random pan has a per-synth seed.
+Backward seeking is proportional to the prefix duration; forward seeking can
+reuse current state. Worker reads are suspended during reconstruction, and old
+seek requests yield and cancel when superseded.
+
+Evidence: `Player/tests/seeking.test.mjs` compares continuous/seek PCM on JS,
+scalar WASM and SIMD, with/without effects, at forward/backward and non-aligned
+positions. `soundfont.test.mjs` checks SMPTE clocks and >512 held notes;
+`transport.test.mjs` compares the real Worker stream before/after seeking.

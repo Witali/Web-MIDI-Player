@@ -1,7 +1,7 @@
 // The source project renders PCM in C/WASM. Keep it off the website's UI thread.
 import { createStereoPreview } from './stereo-preview.js';
 let enginePromise, preview, port, epoch = 0, queue = Promise.resolve();
-let latestSeek = 0;
+let latestSeek = 0, changing = false;
 const soundfonts = new Map();
 async function soundfont(url) {
   const location = url || new URL('./soundfonts/FluidR3_GM.sf2', import.meta.url).href;
@@ -41,7 +41,7 @@ export function unwrapMidi(bytes) {
   throw new Error('RMID has no MIDI data.');
 }
 function render(data) {
-  if (data.epoch !== epoch || !preview) return;
+  if (changing || data.epoch !== epoch || !preview) return;
   try {
     const channels = preview.read(2048);
     const stats = preview.stats;
@@ -58,7 +58,11 @@ async function command(data) {
   if (data.type === 'seek') {
     if (data.epoch !== latestSeek) return { cancelled: true };
     if (!preview) throw new Error('No MIDI loaded.');
-    if (preview.seek) { const result = await preview.seek(data.seconds); epoch = data.epoch; return result; }
+    if (preview.seek) {
+      const result = await preview.seek(data.seconds, { isCurrent: () => data.epoch === latestSeek });
+      if (!result.cancelled) epoch = data.epoch;
+      return result;
+    }
     await preview.reset(); epoch = data.epoch;
     let remaining = Math.round(Math.min(data.seconds, preview.stats.duration) * 48000), blocks = 0;
     while (remaining > 0) {
@@ -88,13 +92,15 @@ async function command(data) {
   throw new Error('Unknown player command.');
 }
 self.onmessage = ({ data }) => {
-  if (data.type === 'seek') latestSeek = data.epoch;
+  if (data.type === 'seek' || data.type === 'load') latestSeek = data.epoch;
   if (data.type === 'connect') {
     port?.close(); port = data.port; port.onmessage = ({ data }) => render(data); port.start(); return;
   }
   // Serialize score replacement/seeking while audio uses its own MessagePort.
   queue = queue.then(async () => {
+    changing = true;
     try { self.postMessage({ id: data.id, result: await command(data) }); }
     catch (error) { self.postMessage({ id: data.id, error: error.message }); }
+    finally { changing = false; }
   });
 };

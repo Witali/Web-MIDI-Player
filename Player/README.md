@@ -67,10 +67,16 @@ reproduce every manufacturer's proprietary patches.
 
 All synthesis runs in a Worker. An AudioWorklet drains bounded stereo blocks;
 the UI never mixes a full song. Pausing suspends the output without restarting
-notes. SoundFont seeking restores the channel/controller state immediately and
-retriggers held notes; their attack/phase restarts at the seek position. The Z80
-backend reconstructs PCM from the beginning to retain phase and envelopes.
-New seek requests cancel obsolete requests.
+notes. SoundFont seeking reconstructs the actual synth state by rendering the prefix
+without output. Old presets, pedals, repeated notes, sample phases, percussion
+and wet effects match uninterrupted playback, including a seek inside an audio
+quantum or beyond the MIDI events into a release tail. Forward seeks reuse the
+current state; backward seeks replay from the beginning. Random pan is seeded
+per synth so it also survives replay. The Z80 backend reconstructs its PCM from
+the beginning. Requests yield during long reconstruction; a newer seek or load
+cancels obsolete work. Reverse seeking costs CPU proportional to the prefix.
+The MIDI specification does not prescribe a seek algorithm; exact reconstruction
+is this player's policy. See [specification notes](specs/IMPLEMENTATION-NOTES.md).
 
 ## Playback compatibility report
 
