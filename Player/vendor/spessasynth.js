@@ -6970,6 +6970,7 @@ function controllerChange(controller, value, sendEvent = true) {
 		this._midiControllers[actualCCNum] = this._midiControllers[actualCCNum] & 16256 | value & 127;
 		this.computeModulatorsAll(1, actualCCNum);
 	}
+	const previousValue = this._midiControllers[controller];
 	// MIDI 1.0 p. 12: an MSB replaces its old LSB rather than retaining it.
 	this._midiControllers[controller] = value << 7;
 	if (controller < 32 && !this.lockedControllers[controller + 32]) this._midiControllers[controller + 32] = 0;
@@ -7049,11 +7050,23 @@ function controllerChange(controller, value, sendEvent = true) {
 			if (value < 64) {
 				let vc = 0;
 				if (this._voiceCount > 0) {
-					for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.isHeld) {
+					for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.isHeld && !v.isSostenuto) {
 						v.isHeld = false;
 						v.releaseVoice(this.synthCore.currentTime);
 						if (++vc >= this._voiceCount) break;
 					}
+				}
+			}
+			break;
+		case MIDIControllers.sostenutoPedal:
+			if (value >= 64 && previousValue < 8192) {
+				// Capture key-down voices, not later notes or sustain-only tails.
+				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.keyDown && v.releaseStartTime === Infinity) v.isSostenuto = true;
+			} else if (value < 64) {
+				const sustain = this._midiControllers[MIDIControllers.sustainPedal] >= 8192;
+				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.isSostenuto) {
+					v.isSostenuto = false;
+					if (v.isHeld && !sustain) { v.isHeld = false; v.releaseVoice(this.synthCore.currentTime); }
 				}
 			}
 			break;
@@ -8032,13 +8045,14 @@ function noteOff(midiNote) {
 	}
 	this.playingNotes[midiNote] = false;
 	const mono = !this._midiParameters.polyMode;
-	const sustain = this._midiControllers[MIDIControllers.sustainPedal] >= 8192 && !mono;
+	const sustain = this._midiControllers[MIDIControllers.sustainPedal] >= 8192;
 	let vc = 0;
 	const noteID = this.noteOffID[midiNote];
 	if (noteID < this.noteOnID[midiNote]) this.noteOffID[midiNote]++;
 	if (this._voiceCount > 0) {
 		for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && v.noteID === noteID && !v.isInRelease) {
-			if (sustain) v.isHeld = true;
+			v.keyDown = false;
+			if (sustain || v.isSostenuto) v.isHeld = true;
 			else v.releaseVoice(this.synthCore.currentTime);
 			if (++vc >= this._voiceCount) break;
 		}
@@ -15081,6 +15095,8 @@ var Voice = class {
 	* Indicates if the voice is currently held by the sustain pedal.
 	*/
 	isHeld = false;
+	keyDown = false;
+	isSostenuto = false;
 	/**
 	* MIDI channel number of the voice.
 	*/
@@ -15218,6 +15234,8 @@ var Voice = class {
 		this.isInRelease = false;
 		this.hasRendered = false;
 		this.isHeld = false;
+		this.keyDown = true;
+		this.isSostenuto = false;
 		this.releaseStartTime = Infinity;
 		this.pressure = 0;
 		this.overrideReleaseVolEnv = 0;

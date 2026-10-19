@@ -51,10 +51,10 @@ test('metadata reports late preset substitutions before playback, with the actua
 });
 
 test('unsupported pedals are distinguished from implemented relative entry and bank-dependent CCs', async () => {
-  const report = await audit([[0, 0xb0, 66, 127], [0, 0xb0, 66, 0], [0, 0xb0, 68, 127], [0, 0xb0, 69, 127],
+  const report = await audit([[0, 0xb0, 68, 127], [0, 0xb0, 68, 0], [0, 0xb0, 68, 127], [0, 0xb0, 69, 127],
     [0, 0xb0, 96, 0], [0, 0xb0, 97, 0], [0, 0xb0, 22, 127], [0, 0xa0, 60, 100],
     [0, 0x80, 60, 64], [0, 0xb0, 7, 80], [0, 0xb0, 10, 0], [0, 0xb0, 64, 127], [0, 0xb0, 64, 0]]);
-  assert.equal(report.entries.find(e => e.controller === 66).count, 2);
+  assert.equal(report.entries.find(e => e.controller === 68).count, 3);
   assert.equal(report.summary.partial, 5);
   assert.equal(report.summary.unsupported, 0);
   assert.equal(report.summary.bankDependent, 2);
@@ -88,22 +88,22 @@ test('unsupported RPN and NRPN values are reported; implemented and null RPN are
 test('same channels on different MIDI ports retain independent program, controller and timing context', async () => {
   const source = parse(midiTracks([
     [[0, 255, 81, 3, 7, 161, 32], [...vlq(480), 255, 81, 3, 15, 66, 64], [0, 255, 47, 0]],
-    [[0, 255, 33, 1, 10], [0, 0xc0, 81], [0, 0x90, 60, 100], [...vlq(960), 0xb0, 66, 127], ...ending],
-    [[0, 255, 33, 1, 20], [0, 0xb0, 0, 119], [0, 0xc0, 81], [0, 0x90, 67, 100], [...vlq(960), 0xb0, 69, 127], ...ending]
+    [[0, 255, 33, 1, 10], [0, 0xc0, 81], [0, 0x90, 60, 100], [...vlq(960), 0xb0, 22, 127], ...ending],
+    [[0, 255, 33, 1, 20], [0, 0xb0, 0, 119], [0, 0xc0, 81], [0, 0x90, 67, 100], [...vlq(960), 0xb0, 23, 127], ...ending]
   ]));
   const report = await diagnoseMidi(source, bank);
-  assert.equal(report.entries.find(e => e.controller === 66).first.port, 10);
-  assert.equal(report.entries.find(e => e.controller === 69).first.port, 20);
-  assert.equal(report.entries.find(e => e.controller === 69).first.channel, 1);
-  assert.equal(report.entries.find(e => e.controller === 69).first.seconds, 1.5);
+  assert.equal(report.entries.find(e => e.controller === 22).first.port, 10);
+  assert.equal(report.entries.find(e => e.controller === 23).first.port, 20);
+  assert.equal(report.entries.find(e => e.controller === 23).first.channel, 1);
+  assert.equal(report.entries.find(e => e.controller === 23).first.seconds, 1.5);
   assert.equal(report.entries.filter(e => e.code === 'preset-substitution').length, 1);
   assert.equal(report.entries.find(e => e.code === 'preset-substitution').first.port, 20);
-  const smpte = parse(midi([[...vlq(1000), 0xb0, 66, 127], ...ending], (231 << 8) | 40));
+  const smpte = parse(midi([[...vlq(1000), 0xb0, 22, 127], ...ending], (231 << 8) | 40));
   assert.equal((await diagnoseMidi(smpte, bank)).entries[0].first.seconds, 1);
 });
 
 test('large files aggregate repetitions, bound report size and restore hooks across asynchronous yields', async () => {
-  const events = Array.from({ length: 4200 }, () => [0, 0xb0, 66, 127]);
+  const events = Array.from({ length: 4200 }, () => [0, 0xb0, 68, 127]);
   const source = parse(midi([...events, ...Array.from({ length: 10 }, (_, i) => sysex([1, 0x7f, i, 0, 0xf7])), ...ending]));
   const [large, clean] = await Promise.all([diagnoseMidi(source, bank, { maxEntries: 3 }), audit([])]);
   assert.equal(large.entries.length, 3);

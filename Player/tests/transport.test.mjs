@@ -87,12 +87,12 @@ test('Worker returns the full compatibility report on load and clears it for the
     const response = (await reply)[0]; assert.equal(response.error, undefined); return response.result;
   };
   try {
-    const source = midi([[0, 0xc0, 81], [0, 0x90, 60, 100], [...vlq(960), 0xb0, 66, 127],
+    const source = midi([[0, 0xc0, 81], [0, 0x90, 60, 100], [...vlq(960), 0xb0, 22, 127],
       [0, 0x80, 60, 0], [0, 255, 47, 0]]);
     const loaded = await call('load', { bytes: source, epoch: 1, effects: false });
     assert.equal(loaded.position, 0);
     assert.equal(loaded.diagnostics.entries[0].first.seconds, 1);
-    assert.equal(loaded.diagnostics.summary.partial, 1);
+    assert.equal(loaded.diagnostics.summary.bankDependent, 1);
     await call('seek', { seconds: .5, epoch: 2 });
     const next = await call('load', { bytes: panned(), epoch: 3, effects: false });
     assert.deepEqual(next.diagnostics.entries, []);

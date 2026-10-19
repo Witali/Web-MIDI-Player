@@ -1,11 +1,11 @@
 import { SpessaLog, SpessaSynthProcessor, SpessaSynthSequencer } from './vendor/spessasynth.js';
 
-const pedals = new Map([[66, 'Sostenuto'], [68, 'Legato Footswitch'], [69, 'Hold 2']]);
+const pedals = new Map([[68, 'Legato Footswitch'], [69, 'Hold 2']]);
 // These controllers have transport/parameter behavior or standard synth routing.
 // Other CCs are retained for SoundFont modulators; absence of a dedicated handler
 // alone is not evidence that the selected bank ignores the value.
 const handledCCs = new Set([0, 1, 5, 6, 7, 10, 11, 32, 33, 37, 38, 39, 42, 43,
-  64, 65, 71, 72, 73, 74, 75, 76, 77, 78, 84, 91, 92, 93, 94, 96, 97, 98, 99, 100, 101,
+  64, 65, 66, 71, 72, 73, 74, 75, 76, 77, 78, 84, 91, 92, 93, 94, 96, 97, 98, 99, 100, 101,
   120, 121, 123, 124, 125, 126, 127]);
 const ignoredSystem = new Set([0xf1, 0xf2, 0xf3, 0xf6, 0xf8, 0xfa, 0xfb, 0xfc, 0xfe]);
 const hex = bytes => bytes.map(n => n.toString(16).toUpperCase().padStart(2, '0')).join(' ');

@@ -92,10 +92,10 @@ test('multipart SysEx applies at final-packet time and produces identical contin
 });
 
 test('diagnostics inspect escaped controllers and completed SysEx and report incomplete streams explicitly',async()=>{
- const data=parse(midi([name,[0,0xf7,3,0xb2,66,127],[0,0xf0,2,1,0x7f],
+ const data=parse(midi([name,[0,0xf7,3,0xb2,22,127],[0,0xf0,2,1,0x7f],
   [...vlq(480),0xf7,3,0,0,0xf7],[0,0xf0,2,0x43,0x10],end]));
  const report=await diagnoseMidi(data,bank);
- assert.ok(report.entries.some(e=>e.controller===66&&e.first.channel===3));
+ assert.ok(report.entries.some(e=>e.controller===22&&e.first.channel===3));
  assert.ok(report.entries.some(e=>e.feature==='System Exclusive'&&e.first.tick===480&&e.reason.includes('manufacturer')));
  assert.ok(report.entries.some(e=>e.feature==='Incomplete SysEx'&&e.reason.includes('End of sequence')));
  assert.ok(!report.entries.some(e=>e.code==='unverified-sysex'));

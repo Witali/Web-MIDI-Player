@@ -145,3 +145,22 @@ order, null and incomplete selection, base-100 carry, endpoint saturation,
 independent parameters, all controller LSB ranges, locks, NRPN steps, repeated
 absolute values, RP-015, snapshots, actual held-note pitch changes and exact
 seek/absolute-versus-relative PCM on JS, scalar WASM and SIMD.
+
+## Sostenuto CC66 (2026-10-19)
+
+MIDI 1.0 p. 12 and Appendix A-5 (PDF 17, 68) define switch thresholds and
+Chord Hold/Sostenuto: hold the keys already down at pedal-on; later notes play
+normally. Each voice retains its own key-down/captured flags, so a later repeat
+of the same key does not inherit the earlier voice's capture. Repeated ON
+values do not recapture additional notes, and sustain-only tails are excluded.
+
+Note Off and All Notes Off register key release while either pedal may still
+hold the voice. Releasing CC64 or CC66 releases only voices no longer protected
+by the other pedal, through their ordinary envelope release. CC121 clears both
+pedals; CC120 remains immediate silence. Channel/port scope is preserved.
+
+Evidence: Player/tests/pedals.test.mjs covers threshold edges, late/repeated
+notes, both pedal-release orders, sustain-tail exclusion, All Notes/Sound Off,
+reset, separate output ports and bit-identical PCM versus delayed Note Offs
+including exact seeks on JS, scalar WASM and SIMD. CC68 and CC69 remain separate
+unimplemented plan items.
