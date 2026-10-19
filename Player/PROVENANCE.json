@@ -17,7 +17,8 @@
       "Copied MIDI parser: no fixed per-channel or total note-count polyphony limit",
       "Optional local voice DSP hooks: Hermite, filter, envelope gain, stereo/effect sends; scalar JS path retained",
       "Structured scoped diagnostics for preset substitutions and unsupported MIDI/RPN/NRPN/GS/XG commands, independent of console logging; no DSP changes",
-      "Random pan RNG isolated per synthesizer for deterministic exact replay/seek; fixed 128-frame host quanta preserve partial-read state"
+      "Random pan RNG isolated per synthesizer for deterministic exact replay/seek; fixed 128-frame host quanta preserve partial-read state",
+      "Sequencer processes ordered trailing controllers and metadata instead of finishing at the last Note Off tick; PPQN tempo audio regressions cover acceleration, slowdown and seeking"
     ]
   },
   "soundfont": {

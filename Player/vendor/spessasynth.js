@@ -5077,7 +5077,7 @@ function processTick() {
 	if (this.paused || !this._midiData) return;
 	const currentTime = this.currentTime;
 	while (this.playedTime < currentTime) {
-		const { timeline, tracks, lastVoiceEventTick, loop } = this._midiData;
+		const { timeline, tracks, loop } = this._midiData;
 		const e = timeline[this.index++];
 		const event = tracks[e.tr].events[e.ev];
 		this.processEvent(event, e.tr);
@@ -5090,7 +5090,9 @@ function processTick() {
 			else this.setTimeTicks(loop.start);
 			return;
 		}
-		if (this.index >= timeline.length || event.ticks >= lastVoiceEventTick) {
+		// Last Note Off is not End Of Track: controllers at that tick or
+		// later still belong to the sequence (SMF 1.0 Track Chunks).
+		if (this.index >= timeline.length) {
 			this.songIsFinished();
 			return;
 		}

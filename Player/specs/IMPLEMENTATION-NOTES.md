@@ -39,3 +39,21 @@ Evidence: `Player/tests/seeking.test.mjs` compares continuous/seek PCM on JS,
 scalar WASM and SIMD, with/without effects, at forward/backward and non-aligned
 positions. `soundfont.test.mjs` checks SMPTE clocks and >512 held notes;
 `transport.test.mjs` compares the real Worker stream before/after seeking.
+
+## Embedded tempo changes (2026-10-19)
+
+SMF 1.0 pp. 4-5 defines PPQN ticks relative to the quarter-note tempo map;
+format 1 tracks share the same timeline and missing initial tempo means 120 BPM.
+Set Tempo events are applied by the sequencer during playback, not only when
+calculating file duration. SMPTE division instead keeps its absolute clock.
+
+Evidence: Player/tests/tempo-playback.test.mjs measures PCM note and silence
+windows at 120, 240 and 60 BPM on JS, scalar WASM and SIMD and compares seeks
+on both sides of the tempo changes with continuous PCM. The public Mutopia
+Rondo Alla Turca file currently has only one Set Tempo event at tick zero:
+1,000,000 microseconds per quarter note (60 BPM); it contains no accelerando.
+
+The tempo audio fixture also ends with Note Off followed by All Sound Off on
+the same tick. These are separate ordered events: finishing on the first final
+Note Off would drop All Sound Off. The sequencer now processes the timeline
+through its end rather than using the last voice-message tick as an early exit.
