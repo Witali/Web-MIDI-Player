@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker, MessageChannel } from 'node:worker_threads';
 import { once } from 'node:events';
-import { panned, smptePanned } from './fixtures.mjs';
+import { panned, smptePanned, midi, vlq } from './fixtures.mjs';
 
 test('portable Worker loads, streams stereo, seeks, rejects stale reads and reports invalid input', async () => {
   const worker = new Worker(new URL('./worker-fixture.mjs', import.meta.url)), channel = new MessageChannel();
@@ -70,4 +70,25 @@ test('the public Worker SoundFont path loads SMPTE timing and seeks to the held 
     const energy = samples => samples.reduce((sum, n) => sum + n * n, 0);
     assert.ok(energy(audio.channels[1]) > energy(audio.channels[0]) * 1000);
   } finally { channel.port1.close(); await worker.terminate(); }
+});
+
+
+test('Worker returns the full compatibility report on load and clears it for the next song', async () => {
+  const worker = new Worker(new URL('./worker-fixture.mjs', import.meta.url));
+  let id = 0;
+  const call = async (type, values) => {
+    const reply = once(worker, 'message'); worker.postMessage({ type, id: ++id, ...values });
+    const response = (await reply)[0]; assert.equal(response.error, undefined); return response.result;
+  };
+  try {
+    const source = midi([[0, 0xc0, 81], [0, 0x90, 60, 100], [...vlq(960), 0xb0, 66, 127],
+      [0, 0x80, 60, 0], [0, 255, 47, 0]]);
+    const loaded = await call('load', { bytes: source, epoch: 1, effects: false });
+    assert.equal(loaded.position, 0);
+    assert.equal(loaded.diagnostics.entries[0].first.seconds, 1);
+    assert.equal(loaded.diagnostics.summary.partial, 1);
+    await call('seek', { seconds: .5, epoch: 2 });
+    const next = await call('load', { bytes: panned(), epoch: 3, effects: false });
+    assert.deepEqual(next.diagnostics.entries, []);
+  } finally { await worker.terminate(); }
 });

@@ -144,7 +144,8 @@
     constructor() { this.item = null; this.song = null; this.playing = false; this.position = 0; this.token = 0; }
     async initialize() {
       if (this.engine) return this.engine;
-      const { MidiPlayer: SamplePlayer } = await sampleModule;
+      const { MidiPlayer: SamplePlayer, renderMidiDiagnostics } = await sampleModule;
+      this.renderDiagnostics = renderMidiDiagnostics;
       const engine = this.engine = new SamplePlayer({ volume: Number($('volume').value) });
       engine.addEventListener('statechange', () => {
         if (this.engine !== engine) return;
@@ -174,6 +175,7 @@
         if (token !== this.token) return;
         this.song = song; this.display();
         if (song.warnings?.length) toast(song.warnings.join(' '));
+        else if (song.diagnostics && ['substituted', 'unsupported', 'partial'].some(key => song.diagnostics.summary[key])) toast('Есть особенности звучания. Подробности — в отчёте «Совместимость».');
         await engine.play();
       } catch (error) { if (token === this.token && error.name !== 'AbortError') { toast(error.message); this.display(); } }
     }
@@ -184,6 +186,9 @@
     }
     display() {
       $('player').hidden = !this.item;
+      $('player-diagnostics').disabled = !this.song?.diagnostics;
+      const count = this.song?.diagnostics?.entries.length || 0;
+      $('player-diagnostics').textContent = count ? `Совместимость · ${count}` : 'Совместимость';
       if (this.item) {
         $('player-title').textContent = this.item.title; $('player-artist').textContent = this.item.artist;
         $('total-time').textContent = time(this.song?.duration ?? this.item.duration);
@@ -222,6 +227,13 @@
   document.querySelector('.brand').onclick = event => { event.preventDefault(); reset(); };
   $('close-details').onclick = () => $('details').close();
   $('details').onclick = event => { if (event.target === $('details') && (event.offsetX < 0 || event.offsetX > $('details').clientWidth || event.offsetY < 0 || event.offsetY > $('details').clientHeight)) $('details').close(); };
+  $('player-diagnostics').onclick = () => {
+    if (!player.song?.diagnostics) return;
+    player.renderDiagnostics($('diagnostics-body'), player.song.diagnostics);
+    $('diagnostics-title').textContent = `Совместимость · ${player.item.title}`;
+    $('diagnostics').showModal();
+  };
+  $('close-diagnostics').onclick = () => $('diagnostics').close();
   $('player-toggle').onclick = () => player.toggle(); $('player-close').onclick = () => player.close();
   $('seek').onchange = () => { const position = Number($('seek').value); if (player.song) { player.seek(position); } };
   $('volume').oninput = () => { if (player.engine) player.engine.volume = Number($('volume').value); };
@@ -234,8 +246,8 @@
   };
   document.addEventListener('keydown', event => {
     const editing = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.target.isContentEditable;
-    if (event.key === '/' && !editing && !$('details').open) { event.preventDefault(); $('search').focus(); }
-    if (event.code === 'Space' && !editing && !$('details').open && player.item) { event.preventDefault(); player.toggle(); }
+    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open) { event.preventDefault(); $('search').focus(); }
+    if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && player.item) { event.preventDefault(); player.toggle(); }
   });
   window.addEventListener('beforeunload', () => { player.clearVoices(); clearInterval(player.timer); });
   update();

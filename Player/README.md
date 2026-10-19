@@ -72,6 +72,45 @@ retriggers held notes; their attack/phase restarts at the seek position. The Z80
 backend reconstructs PCM from the beginning to retain phase and envelopes.
 New seek requests cancel obsolete requests.
 
+## Playback compatibility report
+
+SoundFont `load()` returns `metadata.diagnostics` before playback begins. The
+Worker inspects the entire sorted MIDI timeline with the pinned engine's bank,
+controller, RPN/NRPN, SysEx and port handlers, without rendering the audio prefix
+or allocating notes. The inspection synth is separate from the playback synth.
+The catalog's **Совместимость** button and the sample page display the report;
+its JSON export is available in the same view.
+
+The report distinguishes actual preset substitutions (requested and selected
+bank/program/name), unsupported commands, partial pedal/Note Off velocity
+handling, bank-dependent CC/poly pressure and SysEx whose execution could not
+be confirmed. Recognizing a message is not treated as implementing it. Standard
+GM commands do not receive speculative warnings. Missing dedicated CC behavior
+does not imply silence: SoundFont modulators may still use that controller.
+
+Each entry contains `code`, `status`, `feature`, `message`, `count`, and
+`first`/`last` positions with seconds, ticks, one-based track/channel and the
+original MIDI port number. Program numbers in structured patches are zero-based;
+the displayed program is one-based. `summary` counts notice occurrences by
+status. Repeated notices are grouped; at most 200 distinct entries and 64 bytes
+per message are retained. `omitted` reports suppressed occurrences, which remain
+in the summary. `complete` is false if a command failed during analysis. The
+report covers the file once; playing/seeking does not append duplicate notices,
+and a new load replaces it. Compact Z80 metadata does not include this report.
+
+The report verifies command handling and preset selection. It does not certify
+audible modulation, sample coverage for each key, or exact reproduction of any
+hardware synthesizer. An empty report means no known processing limitations
+were detected in this file, not full implementation of every MIDI extension.
+
+```js
+const metadata = await player.load('./music/song.mid');
+console.log(metadata.diagnostics.summary, metadata.diagnostics.entries);
+// Optional shared, text-only UI:
+const { renderMidiDiagnostics } = await import('./Player/index.js');
+renderMidiDiagnostics(document.querySelector('#report'), metadata.diagnostics);
+```
+
 ## WASM voice DSP
 
 The default `dsp: 'auto'` selects the measured faster scalar C/WASM kernel,

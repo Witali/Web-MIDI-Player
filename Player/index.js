@@ -1,3 +1,4 @@
+export { renderMidiDiagnostics } from './diagnostics-view.js';
 // Public transport API. PCM synthesis remains in the Worker/WASM engine.
 export class MidiPlayer extends EventTarget {
   constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, dsp = 'auto' } = {}) {

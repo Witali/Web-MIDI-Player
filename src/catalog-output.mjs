@@ -33,7 +33,7 @@ export function writeCatalog(directory, library) {
     return;
   }
   const runtime = ['index.js', 'worker.js', 'worklet.js', 'audio-queue.js', 'midi-timing.js',
-    'soundfont-preview.js', 'stereo-preview.js', 'voice-dsp-state.js', 'voice-dsp.js',
+    'soundfont-preview.js', 'midi-diagnostics.js', 'diagnostics-view.js', 'stereo-preview.js', 'voice-dsp-state.js', 'voice-dsp.js',
     'engine', 'vendor', 'dsp/voice-mixer.wasm', 'dsp/voice-mixer-simd.wasm',
     'soundfonts/FluidR3_GM.sf2', 'licenses', 'PROVENANCE.json'];
   for (const asset of runtime) {

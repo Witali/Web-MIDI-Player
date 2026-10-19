@@ -879,6 +879,9 @@ function audioToWav(audioData, sampleRate, options = DEFAULT_WAV_WRITE_OPTIONS) 
 * Manage the log level of `spessasynth_core`.
 */
 var SpessaLog = class SpessaLog {
+	// Local adapter hook: structured, synchronous diagnostics without console output.
+	// The host installs it only while auditing one MIDI event, then restores it.
+	static onDiagnostic = null;
 	/**
 	* The most verbose log level, prints out a lot of small details.
 	*/
@@ -934,6 +937,7 @@ var SpessaLog = class SpessaLog {
 	* @internal
 	*/
 	static unsupported(what, syx, reason = "") {
+		this.onDiagnostic?.({ kind: "unsupported", feature: what, data: Array.from(syx.slice(0, 64)), reason });
 		if (this.infoEnabled) this.info(`%cUnsupported %c${what}%c message: %c${arrayToHexString(syx)}%c. ${reason}`, ConsoleColors.warn, ConsoleColors.recognized, ConsoleColors.warn, ConsoleColors.unrecognized, ConsoleColors.warn);
 	}
 	/**
@@ -946,7 +950,7 @@ var SpessaLog = class SpessaLog {
 	* @internal
 	*/
 	static gmFail(what, syx) {
-		if (this.infoEnabled) this.unsupported(`General MIDI ${what}`, syx);
+		this.unsupported(`General MIDI ${what}`, syx);
 	}
 	/**
 	* @internal
@@ -958,7 +962,7 @@ var SpessaLog = class SpessaLog {
 	* @internal
 	*/
 	static gsFail(what, syx, reason = "") {
-		if (this.infoEnabled) this.unsupported(`Roland GS ${what}`, syx, reason);
+		this.unsupported(`Roland GS ${what}`, syx, reason);
 	}
 	/**
 	* @internal
@@ -970,12 +974,13 @@ var SpessaLog = class SpessaLog {
 	* @internal
 	*/
 	static xgFail(what, syx, reason = "") {
-		if (this.infoEnabled) this.unsupported(`Yamaha XG ${what}`, syx, reason);
+		this.unsupported(`Yamaha XG ${what}`, syx, reason);
 	}
 	/**
 	* @internal
 	*/
 	static coolInfo(what, value, unit = "") {
+		this.onDiagnostic?.({ kind: "implemented", feature: what });
 		if (!this.infoEnabled) return;
 		if (unit) SpessaLog.info(`%c${what}%c is now set to %c${value}%c ${unit}.`, ConsoleColors.recognized, ConsoleColors.info, ConsoleColors.value, ConsoleColors.info);
 		else SpessaLog.info(`%c${what}%c is now set to %c${value}%c.`, ConsoleColors.recognized, ConsoleColors.info, ConsoleColors.value, ConsoleColors.info);
@@ -1543,6 +1548,10 @@ var MIDIPatchTools = class MIDIPatchTools {
 		let p = patches.find((p) => this.matches(p, patch));
 		if (p && (!xgDrums || xgDrums && this.isXGDrum(p))) return p;
 		const returnReplacement = (pres) => {
+			if (SpessaLog.onDiagnostic) {
+				const describe = p => ({ bankMSB: p.bankMSB, bankLSB: p.bankLSB, program: p.program, isGMGSDrum: p.isGMGSDrum, name: p.name });
+				SpessaLog.onDiagnostic({ kind: "substituted", feature: "preset", requested: describe(patch), actual: describe(pres), system });
+			}
 			SpessaLog.info(`%cPreset %c${MIDIPatchTools.toMIDIString(patch)}%c not found. (${system}) Replaced with %c${this.toFullMIDIString(pres)}`, ConsoleColors.warn, ConsoleColors.unrecognized, ConsoleColors.warn, ConsoleColors.value);
 		};
 		if (isGMGSDrum) {
@@ -5050,7 +5059,7 @@ function processEventInternal(event, trackIndex) {
 			this.synth.reset();
 			break;
 		default:
-			SpessaLog.info(`%cUnrecognized Event: %c${event.statusByte}%c status byte: %c${Object.keys(MIDIMessageTypes).find((k) => MIDIMessageTypes[k] === status)}`, ConsoleColors.warn, ConsoleColors.unrecognized, ConsoleColors.warn, ConsoleColors.value);
+			SpessaLog.unsupported("MIDI event", [event.statusByte, ...event.data.slice(0, 63)]);
 			break;
 	}
 	if (status >= 0 && status < 128) this.callEvent("metaEvent", {
@@ -7142,7 +7151,7 @@ function dataEntry() {
 		const rpnValue = this._midiControllers[MIDIControllers.registeredParameterMSB] | this._midiControllers[MIDIControllers.registeredParameterLSB] >> 7;
 		switch (rpnValue) {
 			default:
-				SpessaLog.info(`%cUnrecognized RPN for %c${this.channel}%c: %c(0x${rpnValue.toString(16)})%c data value: %c${dataValue}`, ConsoleColors.warn, ConsoleColors.recognized, ConsoleColors.warn, ConsoleColors.unrecognized, ConsoleColors.warn, ConsoleColors.value);
+				SpessaLog.unsupported("RPN", [rpnValue >> 7, rpnValue & 127], `channel ${this.channel}`);
 				break;
 			case RegisteredParameterTypes.pitchWheelRange: {
 				const range = dataValue / 128;
@@ -7178,13 +7187,13 @@ function dataEntry() {
 	if (this.synthCore.systemParameters.drumLock && paramCoarse >= NonRegisteredMSB.drumPitch && paramCoarse <= NonRegisteredMSB.drumDelay) return;
 	switch (paramCoarse) {
 		default:
-			SpessaLog.info(`%cUnrecognized NRPN for %c${this.channel}%c: %c(0x${paramCoarse.toString(16).toUpperCase()} 0x${paramFine.toString(16).toUpperCase()})%c data value: %c${dataCoarse}`, ConsoleColors.warn, ConsoleColors.recognized, ConsoleColors.warn, ConsoleColors.unrecognized, ConsoleColors.warn, ConsoleColors.value);
+			SpessaLog.unsupported("NRPN", [paramCoarse, paramFine], `channel ${this.channel}`);
 			break;
 		case NonRegisteredMSB.partParameter: {
 			const paramLock = this._systemParameters.nrpnParamLock ?? this.synthCore.systemParameters.nrpnParamLock;
 			switch (paramFine) {
 				default:
-					SpessaLog.info(`%cUnrecognized NRPN for %c${this.channel}%c: %c(0x${paramCoarse.toString(16)} 0x${paramFine.toString(16)})%c data value: %c${dataCoarse}`, ConsoleColors.warn, ConsoleColors.recognized, ConsoleColors.warn, ConsoleColors.unrecognized, ConsoleColors.warn, ConsoleColors.value);
+					SpessaLog.unsupported("NRPN", [paramCoarse, paramFine], `channel ${this.channel}`);
 					break;
 				case NonRegisteredLSB.vibratoRate:
 					this.controllerChange(MIDIControllers.vibratoRate, dataCoarse);

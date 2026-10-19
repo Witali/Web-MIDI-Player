@@ -2,6 +2,7 @@ import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from
 import { parseMidi } from './engine/src/midi.js';
 import { normalizeSmpteTiming } from './midi-timing.js';
 import { installVoiceDSP } from './voice-dsp.js';
+import { diagnoseMidi } from './midi-diagnostics.js';
 
 // The portable transport also accepts a complete SF2 bank when all GM timbres
 // are required. Stereo, controllers and SoundFont modulators stay in the synth.
@@ -9,6 +10,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
   SpessaLog.setLogLevel(false, false, false);
   const midi = normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
+  const diagnostics = await diagnoseMidi(midi, bank, { effects });
   let heldNotes = [];
   try { heldNotes = parseMidi(new Uint8Array(midi.writeMIDI())).notes; } catch { /* Extended multi-port files still play through the native sequencer. */ }
   let synth, sequence, frames = 0, quietTailFrames = 0;
@@ -49,7 +51,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   await reset();
   return {
     get stats() { return { duration, sourceDuration: midi.duration, position: frames / 48000, channels: 2,
-      sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, warnings: [...warnings], parts: [], title: midi.getName() }; },
+      sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, warnings: [...warnings], diagnostics, parts: [], title: midi.getName() }; },
     read(capacity = 2048) {
       const count = Math.max(0, Math.min(capacity, Math.ceil(duration * 48000) - frames));
       const channels = [new Float32Array(count), new Float32Array(count)];

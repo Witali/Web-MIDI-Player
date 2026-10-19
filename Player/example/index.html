@@ -3,6 +3,7 @@
 <title>Web-MIDI-Player</title>
 <style>
 body{font:16px system-ui;background:#11161d;color:#edf0f3;max-width:720px;margin:60px auto;padding:0 24px}h1{font-size:32px}p{color:#b1bdcb;line-height:1.6}button,input{font:inherit}button{background:#88dfbd;color:#123c2c;border:0;border-radius:8px;padding:12px 18px;cursor:pointer}button:disabled{opacity:.4;cursor:default}.buttons{display:flex;gap:10px;margin:24px 0;flex-wrap:wrap}input[type=range]{width:100%;accent-color:#88dfbd}label{display:block;margin:22px 0}#status{min-height:3em}small{color:#9da8b7}a{color:#88dfbd}
+details{margin:24px 0;padding:16px;border:1px solid #3a4858;border-radius:8px;font-size:13px;line-height:1.6}summary{cursor:pointer}details li{padding:10px 0;border-bottom:1px solid #3a4858}details pre{white-space:pre-wrap;overflow-wrap:anywhere}
 </style>
 <h1>Web-MIDI-Player</h1>
 <p>Самостоятельный стереоплеер. Тестовая мелодия перемещается слева в центр и вправо. Все MIDI в примере создаются на странице.</p>
@@ -11,9 +12,10 @@ body{font:16px system-ui;background:#11161d;color:#edf0f3;max-width:720px;margin
 <label>Позиция <output id="time">0.0 / 0.0 с</output><input id="seek" type="range" min="0" max="1" step="0.1" value="0"></label>
 <label>Громкость<input id="volume" type="range" min="0" max="1" step="0.01" value="0.55"></label>
 <label>Свой MIDI-файл<input id="file" type="file" accept=".mid,.midi,.kar,.rmi"></label>
+<details id="diagnostics" hidden><summary>Совместимость воспроизведения</summary><div id="diagnostics-body"></div></details>
 <small>FluidR3 GM · 128 инструментов · стереопанорама CC10 · <span id="backend">DSP выбирается при загрузке</span><br><a href="../README.md">API и установка</a> · <a href="./benchmark.html">Сравнить скорость JS / WASM / SIMD</a></small>
 <script type="module">
-import { MidiPlayer } from '../index.js';
+import { MidiPlayer, renderMidiDiagnostics } from '../index.js';
 const $=id=>document.getElementById(id),player=new MidiPlayer({effects:false});
 const vlq=n=>{const a=[n&127];while(n=Math.floor(n/128))a.unshift((n&127)|128);return a;};
 function score(all=false){
@@ -25,6 +27,8 @@ let source=score(),busy=false;
 function update(){const state={empty:'Готов',loading:'Загрузка инструментов…',seeking:'Перемотка…',ready:'Готов к воспроизведению',playing:'Воспроизводится · стерео',paused:'Пауза',ended:'Воспроизведение завершено',error:'Ошибка'};if(!busy)$('status').textContent=state[player.state]||player.state;$('play').textContent=player.state==='playing'?'Ⅱ Пауза':'▶ Воспроизвести';$('seek').max=player.duration||1;$('seek').value=player.currentTime;$('time').textContent=`${player.currentTime.toFixed(1)} / ${player.duration.toFixed(1)} с`;}
 async function action(fn){try{busy=true;$('status').textContent='Подготовка…';await fn();}catch(e){$('status').textContent=e.message;return;}finally{busy=false;}update();}
 player.addEventListener('statechange',update);player.addEventListener('timeupdate',update);player.addEventListener('error',e=>$('status').textContent=e.detail.message);
+player.addEventListener('loaded',event=>{ $('diagnostics').hidden=!event.detail.diagnostics; renderMidiDiagnostics($('diagnostics-body'),event.detail.diagnostics); });
+player.addEventListener('statechange',()=>{if(player.state==='loading')$('diagnostics').hidden=true;});
 player.addEventListener('loaded',event=>$('backend').textContent=`DSP: ${event.detail.dspCore==='c'?'C / ':''}${event.detail.dsp==='wasm-simd'?'WASM SIMD128':event.detail.dsp==='wasm'?'WASM':'JavaScript'}`);
 $('play').onclick=()=>action(async()=>{if(player.state==='playing')return player.pause();await player.unlock();if(!player.metadata)await player.load(source);await player.play();});
 $('stop').onclick=()=>action(()=>player.stop());

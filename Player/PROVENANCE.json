@@ -15,7 +15,8 @@
       "SpessaSynth import rewritten to local pinned stb-vorbis.js",
       "SpessaSynth CC123 releases keys through Note Off to respect the sustain pedal (MIDI 1.0 Appendix A-5)",
       "Copied MIDI parser: no fixed per-channel or total note-count polyphony limit",
-      "Optional local voice DSP hooks: Hermite, filter, envelope gain, stereo/effect sends; scalar JS path retained"
+      "Optional local voice DSP hooks: Hermite, filter, envelope gain, stereo/effect sends; scalar JS path retained",
+      "Structured scoped diagnostics for preset substitutions and unsupported MIDI/RPN/NRPN/GS/XG commands, independent of console logging; no DSP changes"
     ]
   },
   "soundfont": {
