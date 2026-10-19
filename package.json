@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "setup": "node Player/tools/fetch-assets.mjs",
     "start": "node catalog-server.mjs --open",
     "test": "node --test test/catalog.test.mjs Player/tests/*.test.mjs",
     "catalog": "node catalog.mjs",

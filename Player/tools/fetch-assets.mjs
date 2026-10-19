@@ -16,6 +16,7 @@ try {
   if (hash(await fs.readFile(destination)) === expectedFont) { console.log('FluidR3 GM is already present and verified.'); process.exit(0); }
 } catch (error) { if (error.code !== 'ENOENT') throw error; }
 console.log('Downloading the MIT-licensed FluidR3 GM bank (114 MiB package)…');
+console.log(`Source: ${url}`);
 const response = await fetch(url);
 if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
 const archive = Buffer.from(await response.arrayBuffer());

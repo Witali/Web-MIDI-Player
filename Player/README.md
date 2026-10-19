@@ -104,10 +104,17 @@ MIT license; retain `licenses/FluidR3-MIT.txt` when redistributing it. Install
 Git LFS and run `git lfs install` before cloning, or `git lfs pull` from an
 existing clone, to retrieve the actual SoundFont instead of its pointer file.
 
-If Git LFS is unavailable, restore the identical bank with
-`node Player/tools/fetch-assets.mjs` from the repository root (Node.js 22+,
-`tar`). The script verifies the Debian package and extracted bank SHA-256.
-Other SF2 banks can be selected with `{ soundfontUrl: './banks/other.sf2' }`.
+Run `npm run setup` from the repository root to check the bank and download it
+when missing or different from the pinned checksum. The setup script is
+`Player/tools/fetch-assets.mjs`; it also runs as `npm run player:assets` or
+`node Player/tools/fetch-assets.mjs` (Node.js 22+, `tar`).
+
+The download source is the
+[FluidR3 GM 3.1 Debian package](https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gm_3.1-5.3_all.deb)
+(about 114 MiB compressed, 142 MiB extracted). The script verifies both the
+package and extracted bank SHA-256 and skips downloading a verified bank.
+This setup path works without Git LFS. Other SF2 banks can be selected with
+`{ soundfontUrl: './banks/other.sf2' }`.
 
 Serve `.js` as JavaScript, `.json` as JSON, `.wasm` as `application/wasm`, and
 `.sf2` as `application/octet-stream`. Keep relative file paths intact. All
