@@ -1,7 +1,7 @@
 {
-  "name": "z80-midi-player",
+  "name": "web-midi-player",
   "version": "1.0.0",
-  "description": "Portable browser MIDI player using the Z80 Lab sample preview engine",
+  "description": "Web-MIDI-Player: portable browser MIDI playback with SoundFont and Z80 preview engines",
   "type": "module",
   "exports": { ".": "./index.js" },
   "files": ["*.js", "native", "dsp", "engine", "vendor", "soundfonts", "licenses", "tools", "example", "README.md", "PROVENANCE.json"],

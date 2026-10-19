@@ -18,7 +18,13 @@
   const filename = item => `${item.artist} - ${item.title}.${item.versions[0].file.endsWith('.rmi') ? 'rmi' : 'mid'}`.replace(/[<>:"/\\|?*]/g, '_');
   const state = { view: 'all', category: '', query: '', artist: '', instrument: '', duration: '', sort: 'artist', page: 1, pageSize: 50, family: null };
   let favorites = new Set(), storageAvailable = true, filtered = [], toastTimer;
-  try { favorites = new Set(JSON.parse(localStorage.getItem('midi-library-favorites-v1') || '[]').filter(id => byId.has(id))); }
+  const favoritesKey = 'web-midi-player-favorites-v1';
+  try {
+    // Keep existing favorites when upgrading from MIDI Library.
+    const saved = localStorage.getItem(favoritesKey) ?? localStorage.getItem('midi-library-favorites-v1');
+    favorites = new Set(JSON.parse(saved || '[]').filter(id => byId.has(id)));
+    if (saved !== null) localStorage.setItem(favoritesKey, JSON.stringify([...favorites]));
+  }
   catch { storageAvailable = false; }
   for (const item of items) item.searchIndex = normalize([item.title, item.artist, item.searchExtra, ...item.aliases].join(' '));
   const artistCounts = new Map(), categoryCounts = new Map(), instrumentCounts = new Map();
@@ -38,7 +44,7 @@
   if (location.protocol === 'file:') $('file-notice').hidden = false;
   function toast(message) { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6500); }
   function saveFavorites() {
-    try { localStorage.setItem('midi-library-favorites-v1', JSON.stringify([...favorites])); }
+    try { localStorage.setItem(favoritesKey, JSON.stringify([...favorites])); }
     catch { storageAvailable = false; toast('Избранное доступно до закрытия каталога: браузер запретил локальное сохранение.'); }
     $('count-favorites').textContent = number(favorites.size);
   }

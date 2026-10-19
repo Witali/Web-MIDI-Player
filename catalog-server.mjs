@@ -16,7 +16,7 @@ export function createCatalogServer(directory) {
     try { pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname); } catch { fail(400); return; }
     if (pathname === '/api/health') {
       response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      response.end(JSON.stringify({ application: 'midiworld-local-catalog', identity })); return;
+      response.end(JSON.stringify({ application: 'web-midi-player', identity })); return;
     }
     let absolute, type;
     if (['/', '/index.html'].includes(pathname)) { absolute = path.join(root, 'index.html'); type = 'text/html; charset=utf-8'; }
@@ -65,13 +65,13 @@ async function main() {
     if (error.code === 'EADDRINUSE' && values.open) {
       try {
         const existing = await fetch(`${url}api/health`, { signal: AbortSignal.timeout(2000) }).then(r => r.json());
-        if (existing.application === 'midiworld-local-catalog' && existing.identity === identity) { openBrowser(url); return; }
+        if (existing.application === 'web-midi-player' && existing.identity === identity) { openBrowser(url); return; }
       } catch {}
     }
     console.error(error.message); process.exitCode = 1;
   });
   server.listen(port, '127.0.0.1', () => {
-    console.log(`MIDI Library: ${url}\nOnly local connections are accepted. Ctrl+C stops the catalog.`);
+    console.log(`Web-MIDI-Player: ${url}\nOnly local connections are accepted. Ctrl+C stops the catalog.`);
     if (values.open) openBrowser(url);
   });
   const stop = () => server.close(() => process.exit(0));

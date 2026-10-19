@@ -1,4 +1,4 @@
-Portable MIDI Player C DSP
+Web-MIDI-Player C DSP
 
 Audio algorithms adapted from SpessaSynth core 4.3.22 by spessasus and
 contributors, licensed under Apache License 2.0. The local changes translate

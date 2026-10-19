@@ -1,4 +1,4 @@
-# Player — portable MIDI playback
+# Web-MIDI-Player — portable MIDI playback
 
 Copy the complete `Player/` folder to a static website and import `index.js`.
 The library needs no application framework, package install, external service

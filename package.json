@@ -1,9 +1,9 @@
 {
-  "name": "midi-library",
+  "name": "web-midi-player",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Local MIDI collection catalog and portable sample player",
+  "description": "Web-MIDI-Player: local MIDI collection catalog and portable sample player",
   "engines": {
     "node": ">=22"
   },
