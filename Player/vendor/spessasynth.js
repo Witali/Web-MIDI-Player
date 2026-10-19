@@ -5269,7 +5269,7 @@ function resetChannelInternal(sendCCEvents = true) {
 	this.dynamicModulators.resetModulators();
 	this.sf2NRPNGeneratorLSB = 0;
 	this.playingNotes.fill(false);
-	this.keyPresses = []; this.legatoState = null; this.lastMonoNote = -1;
+	this.keyPresses = []; this.legatoState = null; this.hold2Active = false; this.lastMonoNote = -1;
 	this.lastParameterIsRegistered = true;
 	this.parameterSelection = { rpn: 0, nrpn: 0 };
 	this.parameterValues.clear();
@@ -5293,6 +5293,7 @@ const RP_15_RESET_CC_NUMS = [
 	MIDIControllers.sostenutoPedal,
 	MIDIControllers.softPedal,
 	MIDIControllers.legatoFootswitch,
+	MIDIControllers.hold2Pedal,
 	MIDIControllers.nonRegisteredParameterMSB,
 	MIDIControllers.nonRegisteredParameterLSB,
 	MIDIControllers.registeredParameterMSB,
@@ -6752,7 +6753,8 @@ for (let pan = MIN_PAN$1; pan <= MAX_PAN$1; pan++) {
 * @param sampleCount
 */
 function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) {
-	if (!voice.isInRelease && timeNow >= voice.releaseStartTime) {
+	const hold2 = voice.hold2FreezeTime !== null;
+	if (!hold2 && !voice.isInRelease && timeNow >= voice.releaseStartTime) {
 		voice.isInRelease = true;
 		voice.volEnv.startRelease(voice);
 		voice.modEnv.startRelease(voice);
@@ -6811,7 +6813,7 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	const modEnvPitchDepth = modulated[GeneratorTypes.modEnvToPitch];
 	const modEnvFilterDepth = modulated[GeneratorTypes.modEnvToFilterFc];
 	if (modEnvFilterDepth !== 0 || modEnvPitchDepth !== 0) {
-		const modEnv = voice.modEnv.process(voice, timeNow);
+		const modEnv = hold2 ? voice.hold2ModValue : voice.modEnv.process(voice, timeNow);
 		lowpassExcursion += modEnv * modEnvFilterDepth;
 		cents += modEnv * modEnvPitchDepth;
 	}
@@ -6823,8 +6825,9 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		voice.tuningRatio = Math.pow(2, centsTotal / 1200);
 	}
 	const gainTarget = cbAttenuationToGain(modulated[GeneratorTypes.initialAttenuation]) * cbAttenuationToGain(volumeExcursionCentibels);
+	voice.envelopeTarget = gainTarget;
 	if (voice.loopingMode === 2 && !voice.isInRelease) {
-		voice.isActive = voice.volEnv.process(sampleCount, gainTarget);
+		if (!hold2) voice.isActive = voice.volEnv.process(sampleCount, gainTarget);
 		return;
 	}
 	const buffer = core.voiceBuffer;
@@ -6832,8 +6835,9 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	const deferredOscillator = dsp && voice.wavetable === voice.oscillators[2];
 	voice.isActive = deferredOscillator || voice.wavetable.process(sampleCount, voice.tuningRatio, buffer);
 	let gain = voice.volEnv.outputGain;
-	const deferredEnvelope = dsp?.stateful && voice.volEnv._cState;
-	const envActive = deferredEnvelope ? true : voice.volEnv.process(sampleCount, gainTarget);
+	if (hold2) voice.volEnv.outputGain = gainTarget === voice.hold2Target ? voice.hold2OutputGain : voice.hold2EnvelopeGain * gainTarget;
+	const deferredEnvelope = !hold2 && dsp?.stateful && voice.volEnv._cState;
+	const envActive = hold2 || deferredEnvelope ? true : voice.volEnv.process(sampleCount, gainTarget);
 	const gainInc = (voice.volEnv.outputGain - gain) / sampleCount;
 	let filterEnabled = false;
 	{
@@ -7054,6 +7058,10 @@ function controllerChange(controller, value, sendEvent = true) {
 					}
 				}
 			}
+			break;
+		case MIDIControllers.hold2Pedal:
+			setHold2(this, value >= 64);
+			this.computeModulatorsAll(1, controller);
 			break;
 		case MIDIControllers.legatoFootswitch:
 			setLegato(this, value >= 64);
@@ -7890,6 +7898,33 @@ const clamp = (num, min, max) => Math.max(min, Math.min(max, num));
 */
 // CC68 is a temporary performance overlay; the underlying CC126/127 mode
 // remains available when the footswitch is released. Last held key wins.
+// Hold 2 policy: freeze the volume/modulation envelopes of voices already
+// active at ON. New notes are not captured; oscillators, LFOs and controls run.
+function resumeHold2(voice, now) {
+	if (voice.hold2FreezeTime === null) return;
+	const elapsed = now - voice.hold2FreezeTime;
+	voice.hold2FreezeTime = null;
+	for (const field of ["delayEnd", "attackEnd", "holdEnd", "decayEnd"]) voice.modEnv[field] += elapsed;
+	if (Number.isFinite(voice.releaseStartTime)) {
+		voice.releaseStartTime = voice.isInRelease ? voice.releaseStartTime + elapsed : now;
+	}
+	voice.modEnv._cCommit?.();
+	voice.volEnv._cCommit?.();
+}
+function setHold2(channel, enabled) {
+	if (channel.hold2Active === enabled) return;
+	channel.hold2Active = enabled;
+	const now = channel.synthCore.currentTime;
+	for (const v of channel.synthCore.voices) if (v.isActive && v.channel === channel.channel) {
+		if (!enabled) { resumeHold2(v, now); continue; }
+		v.hold2FreezeTime = now;
+		v.hold2OutputGain = v.volEnv.outputGain;
+		v.hold2Target = v.envelopeTarget;
+		v.hold2EnvelopeGain = v.envelopeTarget ? v.volEnv.outputGain / v.envelopeTarget : cbAttenuationToGain(v.volEnv.attenuationCb);
+		v.hold2ModValue = v.modEnv.process(v, now);
+		v.modEnv.currentValue = v.hold2ModValue;
+	}
+}
 function retuneLegato(channel, key) {
 	const state = channel.legatoState, now = channel.synthCore.currentTime;
 	const oldKey = state.active?.midiNote ?? key.midiNote;
@@ -12552,6 +12587,7 @@ function applySnapshot(snapshot) {
 	this.setDrums(snapshot.drumChannel);
 	this._midiControllers.set(snapshot.midiControllers);
 	setLegato(this, this._midiControllers[MIDIControllers.legatoFootswitch] >= 8192);
+	setHold2(this, this._midiControllers[MIDIControllers.hold2Pedal] >= 8192);
 	this.parameterSelection = { ...(snapshot.parameterSelection ?? { rpn: 0, nrpn: 0 }) };
 	this.parameterValues = new Map(snapshot.parameterValues ?? []);
 	this.lastParameterIsRegistered = snapshot.lastParameterIsRegistered ?? true;
@@ -12928,6 +12964,7 @@ var MIDIChannel = class {
 	playingNotes = new Array(128).fill(false);
 	keyPresses = [];
 	legatoState = null;
+	hold2Active = false;
 	generators = {
 		offsets: new Int16Array(GENERATORS_AMOUNT),
 		offsetsEnabled: false,
@@ -13176,6 +13213,7 @@ var MIDIChannel = class {
 		// A fast release does not cancel the sender's still-owed Note Offs.
 		if (this._voiceCount > 0) {
 			for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote) {
+				resumeHold2(v, this.synthCore.currentTime);
 				v.keyDown = false;
 				v.overrideReleaseVolEnv = releaseTime;
 				v.isInRelease = false;
@@ -15174,6 +15212,12 @@ var Voice = class {
 	isHeld = false;
 	keyDown = false;
 	isSostenuto = false;
+	hold2FreezeTime = null;
+	hold2OutputGain = 0;
+	hold2EnvelopeGain = 0;
+	hold2Target = 1;
+	hold2ModValue = 0;
+	envelopeTarget = 1;
 	/**
 	* MIDI channel number of the voice.
 	*/
@@ -15294,6 +15338,7 @@ var Voice = class {
 	* Releases the voice as exclusiveClass.
 	*/
 	exclusiveRelease(currentTime, minExclusiveLength = MIN_EXCLUSIVE_LENGTH) {
+		resumeHold2(this, currentTime);
 		this.overrideReleaseVolEnv = EXCLUSIVE_CUTOFF_TIME;
 		this.isInRelease = false;
 		this.releaseVoice(currentTime, minExclusiveLength);
@@ -15314,6 +15359,8 @@ var Voice = class {
 		this.isHeld = false;
 		this.keyDown = true;
 		this.isSostenuto = false;
+		this.hold2FreezeTime = null;
+		this.envelopeTarget = 1;
 		this.releaseStartTime = Infinity;
 		this.pressure = 0;
 		this.overrideReleaseVolEnv = 0;

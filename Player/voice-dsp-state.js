@@ -22,6 +22,7 @@ export function installCStateDSP(core, api, arena) {
       env._cSync = () => { const view = data.holder.data;
         env.outputGain = view[0]; env.attenuationCb = view[1]; env.state = view[2]; env.sampleTime = view[3]; };
     }
+    env._cCommit = data.copy; // Resume a host-frozen envelope with its retained clocks/gain.
     env.init = function(voice) { init.call(this, voice); data.copy(); };
     env.startRelease = function(voice) { release.call(this, voice); data.copy(); };
     if (volume) env.process = function(count, target) {

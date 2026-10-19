@@ -136,7 +136,7 @@ This mapping is not a claim of complete GM2 conformance.
 RP-015 resets expression, modulation, the four listed pedals, pitch bend and
 channel/poly pressure, and nulls both parameter-number families. It preserves
 program/bank, volume/pan, effects, sound controllers, channel mode and actual
-parameter values. CC68 is also reset to OFF; other unlisted controllers retain
+parameter values. CC68 and CC69 are also reset to OFF; other unlisted controllers retain
 their current values in this receiver.
 A full synth reset instead restores parameter defaults. Snapshots include
 selector completeness, active family, remembered values and SF2 generator index.
@@ -221,3 +221,24 @@ Evidence: Player/tests/gate-release.test.mjs checks short explicit/zero-velocity
 release timestamps, real release PCM, immediate hi-hat choke scheduling,
 independent CC120/pedal/Note Off behavior, and short-gate PCM/seek on JS, scalar
 WASM and SIMD.
+
+## Hold 2 CC69 (2026-10-19)
+
+MIDI 1.0 Appendix A-5 (PDF 68) leaves the other-hold function to the receiver;
+freezing the envelope at its current point is an explicit example. This
+receiver freezes volume and modulation envelopes of voices active on the
+OFF-to-ON transition (threshold 64). Later notes are not captured; repeated
+ON values do not recapture. Oscillators, LFOs, filters, effects and controllers
+continue. One-shot samples may still reach their natural end.
+
+Note Off records key release while frozen. OFF begins any pending release
+immediately, or resumes an already running release at its saved point. CC64
+and CC66 retain their independent hold logic. CC121 clears CC69; CC120 and
+exclusive-class choke override the freeze. JS and native envelope states stay
+synchronized without rewinding oscillators. A file leaving the switch ON can
+retain a live envelope until explicit stop.
+
+Evidence: Player/tests/hold2.test.mjs covers both envelope clocks, audible
+modulation, later notes, repeated ON, live volume, pending and ongoing release,
+pedal/reset/choke priorities, ports, actual PCM and exact seeking on JS, scalar
+WASM and SIMD with effects.
