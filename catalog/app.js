@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const library = JSON.parse(document.getElementById('library-data').textContent);
+  const isPublic = library.mode === 'public';
   const items = library.items, byId = new Map(items.map(item => [item.id, item]));
   const $ = id => document.getElementById(id);
   const escape = text => String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -18,10 +19,10 @@
   const filename = item => `${item.artist} - ${item.title}.${item.versions[0].file.endsWith('.rmi') ? 'rmi' : 'mid'}`.replace(/[<>:"/\\|?*]/g, '_');
   const state = { view: 'all', category: '', query: '', artist: '', instrument: '', duration: '', sort: 'artist', page: 1, pageSize: 50, family: null };
   let favorites = new Set(), storageAvailable = true, filtered = [], toastTimer;
-  const favoritesKey = 'web-midi-player-favorites-v1';
+  const favoritesKey = isPublic ? 'web-midi-player-public-favorites-v1' : 'web-midi-player-favorites-v1';
   try {
     // Keep existing favorites when upgrading from MIDI Library.
-    const saved = localStorage.getItem(favoritesKey) ?? localStorage.getItem('midi-library-favorites-v1');
+    const saved = localStorage.getItem(favoritesKey) ?? (isPublic ? null : localStorage.getItem('midi-library-favorites-v1'));
     favorites = new Set(JSON.parse(saved || '[]').filter(id => byId.has(id)));
     if (saved !== null) localStorage.setItem(favoritesKey, JSON.stringify([...favorites]));
   }
@@ -37,7 +38,8 @@
   $('count-issues').textContent = number(library.stats.issues);
   $('library-summary').textContent = `${number(library.stats.unique)} уникальных MIDI · ${number(library.stats.artists)} исполнителей и композиторов · ${number(library.stats.files)} файлов`;
   $('count-favorites').textContent = number(favorites.size);
-  $('categories').innerHTML = ['Классика', 'Песни и исполнители', 'Кино и ТВ', 'Игры', 'Гимны', 'Праздники', 'Разное'].map(category =>
+  const categories = isPublic ? [...categoryCounts.keys()] : ['Классика', 'Песни и исполнители', 'Кино и ТВ', 'Игры', 'Гимны', 'Праздники', 'Разное'];
+  $('categories').innerHTML = categories.map(category =>
     `<button class="nav-item category-item" data-category="${escape(category)}"><span>${escape(category)}</span><span>${number(categoryCounts.get(category) || 0)}</span></button>`).join('');
   $('artist-list').innerHTML = [...artistCounts.keys()].sort(compare).map(artist => `<option value="${escape(artist)}">${number(artistCounts.get(artist))} MIDI</option>`).join('');
   $('instrument').insertAdjacentHTML('beforeend', [...instrumentCounts.keys()].sort(compare).map(name => `<option value="${escape(name)}">${escape(name)} (${number(instrumentCounts.get(name))})</option>`).join(''));
@@ -100,7 +102,7 @@
     $('empty').hidden = filtered.length > 0;
     $('empty-title').textContent = state.view === 'favorites' && !favorites.size ? 'Здесь будет ваша подборка' : 'Ничего не найдено';
     $('empty-description').textContent = state.view === 'favorites' && !favorites.size ? 'Нажмите ☆ рядом с мелодией, чтобы сохранить её в избранное.' : 'Попробуйте другой запрос или сбросьте фильтры.';
-    $('page-title').textContent = state.category || (state.view === 'favorites' ? 'Избранное' : state.view === 'issues' ? 'С пометками' : 'Вся коллекция');
+    $('page-title').textContent = state.category || (state.view === 'favorites' ? 'Избранное' : state.view === 'issues' ? 'С пометками' : isPublic ? 'Публичная библиотека' : 'Вся коллекция');
     for (const button of $('views').querySelectorAll('button')) { const active = !state.category && button.dataset.view === state.view; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); }
     for (const button of $('categories').querySelectorAll('button')) { const active = button.dataset.category === state.category; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); }
     $('active-filter').hidden = !state.family;
@@ -120,6 +122,11 @@
       <div class="detail-actions"><button class="primary-button" id="detail-play" ${!item.playable ? 'disabled' : ''}>▶ Прослушать</button><a class="secondary-button" href="${href(item.versions[0].file)}" download="${escape(filename(item))}">Скачать MIDI ↓</a><button class="secondary-button" id="detail-favorite">${favorites.has(item.id) ? '★ В избранном' : '☆ В избранное'}</button></div>
       <dl class="metadata-grid"><div><dt>Длительность звучания</dt><dd>${time(item.duration)}</dd></div><div><dt>Темп</dt><dd>${tempo}</dd></div><div><dt>Размер файла</dt><dd>${size(item.bytes)}</dd></div><div><dt>Дорожки</dt><dd>${item.tracks ?? '—'}</dd></div><div><dt>Ноты</dt><dd>${item.noteCount == null ? '—' : number(item.noteCount)}</dd></div><div><dt>Раздел</dt><dd>${escape(item.category)}</dd></div></dl>
       <h3 class="detail-section">Инструменты</h3><div class="instrument-tags">${item.instruments.map(name => `<span class="instrument-tag">${escape(name)}</span>`).join('') || '<span class="detail-note">Не определены</span>'}</div>
+      ${item.rights ? `<h3 class="detail-section">Права и происхождение</h3>
+      <p class="detail-note"><strong>${escape(item.rights.label)}</strong> · Редакция отмечена источником как общественное достояние.<br>Композитор: ${escape(item.artist)} (${escape(item.composerDates)}) · ${escape(item.compositionYear)}</p>
+      <dl class="metadata-grid"><div><dt>Автор набора</dt><dd>${escape(item.rights.contributor)}</dd></div><div><dt>Издание</dt><dd>${escape(item.rights.edition)}</dd></div><div><dt>Проверено</dt><dd>${escape(item.rights.checkedOn)}</dd></div></dl>
+      <p class="detail-note"><a href="${escape(item.rights.sourcePage)}" target="_blank" rel="noopener noreferrer">Подтверждение на Mutopia ↗</a> · <a href="${escape(item.rights.declarationUrl)}" target="_blank" rel="noopener noreferrer">Условия Public Domain ↗</a> · <a href="${href(item.rights.sourceFile)}" download>Исходные ноты ↓</a></p>
+      ` : ''}
       ${item.metadataInferred ? '<p class="detail-note">Название и исполнитель восстановлены из имени файла в сборнике.</p>' : ''}
       ${item.issues.length ? `<div class="issue-box"><strong>Пометки об исходнике</strong><br>${item.issues.map(message => escape(translated(message))).join('<br>')}<br>Оригинальный файл сохранён без изменений.</div>` : ''}
       ${related.length > 1 ? `<h3 class="detail-section">Другие версии</h3><p class="detail-note">Есть ${related.length} разных MIDI с этим названием и исполнителем.</p><button class="secondary-button" id="related">Показать все версии</button>` : ''}
@@ -220,7 +227,7 @@
   $('volume').oninput = () => { if (player.engine) player.engine.volume = Number($('volume').value); };
   $('export').onclick = () => {
     const cell = value => { let text = String(value ?? ''); if (/^[=+@-]/.test(text)) text = "'" + text; return `"${text.replaceAll('"', '""')}"`; };
-    const rows = [['Название', 'Исполнитель', 'Раздел', 'Время', 'BPM', 'Инструменты', 'Источники', 'Файл'], ...filtered.map(item => [item.title, item.artist, item.category, time(item.duration), item.tempo, item.instruments.join('; '), item.versions.length, item.versions[0].file])];
+    const rows = [['Название', 'Исполнитель', 'Раздел', 'Время', 'BPM', 'Инструменты', 'Источники', 'Файл', ...(isPublic ? ['Статус прав', 'Автор набора', 'Подтверждение'] : [])], ...filtered.map(item => [item.title, item.artist, item.category, time(item.duration), item.tempo, item.instruments.join('; '), item.versions.length, item.versions[0].file, ...(isPublic ? [item.rights.label, item.rights.contributor, item.rights.sourcePage] : [])])];
     const url = URL.createObjectURL(new Blob(['\ufeff' + rows.map(row => row.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'MIDI — выбранные мелодии.csv'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast(`Экспортировано: ${number(filtered.length)} MIDI`);

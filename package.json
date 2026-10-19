@@ -10,13 +10,15 @@
   "scripts": {
     "setup": "node Player/tools/fetch-assets.mjs",
     "start": "node catalog-server.mjs --open",
-    "test": "node --test test/catalog.test.mjs Player/tests/*.test.mjs",
+    "test": "node --test test/catalog.test.mjs test/public-library.test.mjs Player/tests/*.test.mjs",
     "catalog": "node catalog.mjs",
     "catalog:serve": "node catalog-server.mjs --open",
     "player:assets": "node Player/tools/fetch-assets.mjs",
     "test:core": "node Player/tools/test-core.mjs",
     "test:wasm": "node --test Player/tests/dsp.test.mjs",
     "test:all": "npm run test:core && npm test",
-    "player:build": "node Player/tools/build-core.mjs"
+    "player:build": "node Player/tools/build-core.mjs",
+    "catalog:public": "node public-catalog.mjs",
+    "start:public": "node public-catalog.mjs && node catalog-server.mjs --output dist/public-library --port 8766 --open"
   }
 }

@@ -79,6 +79,9 @@ test('local catalog server serves MIDI and rejects filesystem traversal and writ
   fs.mkdirSync(path.join(directory, 'player'));
   fs.writeFileSync(path.join(directory, 'player/index.js'), 'export const player = true;');
   fs.writeFileSync(path.join(directory, 'player/bank.sf2'), new Uint8Array([82, 73, 70, 70]));
+  fs.mkdirSync(path.join(directory, 'sources'));
+  fs.writeFileSync(path.join(directory, 'sources/score.ly'), 'Public Domain score');
+  fs.writeFileSync(path.join(directory, 'sources/private.json'), 'private metadata');
   const { server } = createCatalogServer(directory);
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   t.after(() => new Promise(resolve => server.close(resolve)));
@@ -88,6 +91,9 @@ test('local catalog server serves MIDI and rejects filesystem traversal and writ
   assert.equal((await fetch(`${base}/manifest.json`)).status, 404);
   assert.match((await fetch(`${base}/player/index.js`)).headers.get('content-type'), /javascript/);
   assert.equal((await fetch(`${base}/player/bank.sf2`)).status, 200);
+  assert.equal(await (await fetch(`${base}/sources/score.ly`)).text(), 'Public Domain score');
+  assert.equal((await fetch(`${base}/sources/private.json`)).status, 404);
+  assert.equal((await fetch(`${base}/sources/%2e%2e%2fmanifest.json`)).status, 404);
   assert.equal((await fetch(`${base}/player/%2e%2e%2fmanifest.json`)).status, 404);
   assert.match((await fetch(base)).headers.get('content-security-policy'), /wasm-unsafe-eval/);
   assert.equal((await fetch(`${base}/midi/%2e%2e%2fmanifest.json`)).status, 404);

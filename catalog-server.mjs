@@ -31,12 +31,18 @@ export function createCatalogServer(directory) {
       type = playerTypes[path.extname(pathname).toLowerCase()];
       absolute = path.resolve(root, `.${pathname}`);
       if (!type || !absolute.startsWith(`${path.join(root, 'player')}${path.sep}`)) { fail(404); return; }
+    } else if (pathname.startsWith('/sources/')) {
+      const sourceTypes = { '.ly': 'text/plain; charset=utf-8', '.zip': 'application/zip' };
+      type = sourceTypes[path.extname(pathname).toLowerCase()];
+      absolute = path.resolve(root, '.' + pathname);
+      if (!type || !absolute.startsWith(path.join(root, 'sources') + path.sep)) { fail(404); return; }
     } else { fail(404); return; }
     try {
       const real = fs.realpathSync(absolute), stat = fs.statSync(real);
       if (!real.startsWith(`${root}${path.sep}`) || !stat.isFile()) { fail(404); return; }
       if (type === 'audio/midi' && !real.startsWith(`${midiRoot}${path.sep}`)) { fail(404); return; }
       if (pathname.startsWith('/player/') && !real.startsWith(`${path.join(root, 'player')}${path.sep}`)) { fail(404); return; }
+      if (pathname.startsWith('/sources/') && !real.startsWith(`${path.join(root, 'sources')}${path.sep}`)) { fail(404); return; }
       response.writeHead(200, { 'Content-Type': type, 'Content-Length': stat.size, 'Cache-Control': 'no-cache',
         'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
         'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" });
