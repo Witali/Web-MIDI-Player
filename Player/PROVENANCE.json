@@ -19,7 +19,8 @@
       "Structured scoped diagnostics for preset substitutions and unsupported MIDI/RPN/NRPN/GS/XG commands, independent of console logging; no DSP changes",
       "Random pan RNG isolated per synthesizer for deterministic exact replay/seek; fixed 128-frame host quanta preserve partial-read state",
       "Sequencer processes ordered trailing controllers and metadata instead of finishing at the last Note Off tick; PPQN tempo audio regressions cover acceleration, slowdown and seeking",
-      "Sequencer executes controller-only tracks and zero-duration setup files, applies timed port markers in event order, and initializes new-port channels with the same controller/preset defaults as port 0"
+      "Sequencer executes controller-only tracks and zero-duration setup files, applies timed port markers in event order, and initializes new-port channels with the same controller/preset defaults as port 0",
+      "SMF parser/writer preserve timed F0/F7 SysEx packets, escape bytes and End Of Track duration; bounded VLQs/chunks, correct running-status cancellation, extended headers and unknown chunks; per-port byte-stream decoder dispatches escaped channel/system messages and complete SysEx at final-byte time"
     ]
   },
   "soundfont": {

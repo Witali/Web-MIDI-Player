@@ -77,3 +77,31 @@ Evidence: Player/tests/event-order.test.mjs records every dispatched event,
 checks delayed final commands and zero-duration setup, compares multi-port PCM
 bit for bit with equivalent port-zero playback, and checks timed port switches
 while earlier notes continue on the previous output.
+
+## SMF event syntax and byte streams (2026-10-19)
+
+- SMF 1.0 pp. 2-3 (PDF 4-5): VLQs have at most four bytes; unknown chunks are
+  skipped using their declared length. Chunk/event bounds are checked before
+  reading or allocating their payload.
+- p. 5 (PDF 7): honor header length even when it exceeds six bytes.
+- pp. 6-7 (PDF 8-9): F0 and F7 both carry a VLQ payload length. F7 continues
+  an unfinished SysEx or escapes arbitrary MIDI bytes when no SysEx is pending.
+  Preserve packet boundaries and ticks; a complete SysEx is interpreted when
+  EOX arrives, without applying an unfinished packet early. Meta and SysEx cancel
+  SMF running status; explicit channel status is required for the next event.
+- pp. 7-9 (PDF 9-11): retain unknown meta payloads while ignoring their semantics.
+  End Of Track must be last and determines exact track length, including a
+  silent suffix. Writing preserves its delta rather than moving it to the last
+  preceding event. Invalid/truncated track syntax fails explicitly.
+- MIDI 1.0 pp. 29 (PDF 34), A-1/A-2 (PDF 64-65): wire running status is separate
+  from SMF running status. System Common/Exclusive clear it; System Real-Time
+  can interrupt a partially received channel, common or SysEx message without
+  corrupting that message. Each output has its own byte-stream state.
+
+Evidence: Player/tests/smf-events.test.mjs checks event/payload round trips,
+header/chunk forward compatibility, invalid bounds/status/VLQs, real-time
+interrupts, independent ports, 180 kB SysEx, actual escaped controller/note
+playback, complete-stream diagnostics, trailing events, and continuous/seek PCM
+for timed multipart Master Volume on JS, scalar WASM and SIMD. This establishes
+correct delivery of the parsed messages; manufacturer-specific command coverage
+and external synchronization are separate plan items.

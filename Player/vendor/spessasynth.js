@@ -944,7 +944,7 @@ var SpessaLog = class SpessaLog {
 	* @internal
 	*/
 	static gmInfo(what, value, unit = "") {
-		if (this.infoEnabled) this.coolInfo(`General MIDI ${what}`, value, unit);
+		this.coolInfo(`General MIDI ${what}`, value, unit);
 	}
 	/**
 	* @internal
@@ -956,7 +956,7 @@ var SpessaLog = class SpessaLog {
 	* @internal
 	*/
 	static gsInfo(what, value, unit = "") {
-		if (this.infoEnabled) this.coolInfo(`Roland GS ${what}`, value, unit);
+		this.coolInfo(`Roland GS ${what}`, value, unit);
 	}
 	/**
 	* @internal
@@ -968,7 +968,7 @@ var SpessaLog = class SpessaLog {
 	* @internal
 	*/
 	static xgInfo(what, value, unit = "") {
-		if (this.infoEnabled) this.coolInfo(`Yamaha XG ${what}`, value, unit);
+		this.coolInfo(`Yamaha XG ${what}`, value, unit);
 	}
 	/**
 	* @internal
@@ -1009,6 +1009,7 @@ const MIDIMessageTypes = {
 	channelPressure: 208,
 	pitchWheel: 224,
 	systemExclusive: 240,
+	systemExclusiveEscape: 247,
 	timecode: 241,
 	songPosition: 242,
 	songSelect: 243,
@@ -1312,10 +1313,6 @@ function writeMIDIInternal(midi) {
 		let runningByte = void 0;
 		for (const event of track.events) {
 			const deltaTicks = Math.max(0, event.ticks - currentTick);
-			if (event.statusByte === MIDIMessageTypes.endOfTrack) {
-				currentTick += deltaTicks;
-				continue;
-			}
 			let messageData;
 			if (event.statusByte <= MIDIMessageTypes.sequenceSpecific) {
 				messageData = [
@@ -1325,9 +1322,9 @@ function writeMIDIInternal(midi) {
 					...event.data
 				];
 				runningByte = void 0;
-			} else if (event.statusByte === MIDIMessageTypes.systemExclusive) {
+			} else if (event.statusByte === MIDIMessageTypes.systemExclusive || event.statusByte === MIDIMessageTypes.systemExclusiveEscape) {
 				messageData = [
-					240,
+					event.statusByte,
 					...writeVariableLengthQuantity(event.data.length),
 					...event.data
 				];
@@ -1340,10 +1337,11 @@ function writeMIDIInternal(midi) {
 				}
 				messageData.push(...event.data);
 			}
-			binaryTrack.push(...writeVariableLengthQuantity(deltaTicks), ...messageData);
+			for (const byte of writeVariableLengthQuantity(deltaTicks)) binaryTrack.push(byte);
+			for (const byte of messageData) binaryTrack.push(byte);
 			currentTick += deltaTicks;
 		}
-		binaryTrack.push(0, 255, MIDIMessageTypes.endOfTrack, 0);
+		if (track.events.at(-1)?.statusByte !== MIDIMessageTypes.endOfTrack) binaryTrack.push(0, 255, MIDIMessageTypes.endOfTrack, 0);
 		binaryTrackData.push(binaryTrack);
 	}
 	let binaryData = [];
@@ -3580,77 +3578,80 @@ const DataBytesAmount = {
 function parseSMFInternal(outputMIDI, smfFileBinary, fileName) {
 	SpessaLog.groupCollapsed(`%cParsing MIDI File...`, ConsoleColors.info);
 	outputMIDI.fileName = fileName;
-	const readMIDIChunk = (fileByteArray) => {
-		const type = readBinaryStringIndexed(fileByteArray, 4);
-		const size = readBigEndianIndexed(fileByteArray, 4);
-		const chunk = {
-			type,
-			size,
-			data: new IndexedByteArray(size)
+	try {
+		const requireBytes = (data, count, what) => {
+			if (count > data.length - data.currentIndex) throw new SyntaxError(`Truncated MIDI ${what} at byte ${data.currentIndex}`);
 		};
-		const dataSlice = fileByteArray.slice(fileByteArray.currentIndex, fileByteArray.currentIndex + chunk.size);
-		chunk.data.set(dataSlice, 0);
-		fileByteArray.currentIndex += chunk.size;
-		return chunk;
-	};
-	const headerChunk = readMIDIChunk(smfFileBinary);
-	if (headerChunk.type !== "MThd") {
-		SpessaLog.groupEnd();
-		throw new SyntaxError(`Invalid MIDI Header! Expected "MThd", got "${headerChunk.type}"`);
-	}
-	if (headerChunk.size !== 6) {
-		SpessaLog.groupEnd();
-		throw new RangeError(`Invalid MIDI header chunk size! Expected 6, got ${headerChunk.size}`);
-	}
-	outputMIDI.format = readBigEndianIndexed(headerChunk.data, 2);
-	const trackCount = readBigEndianIndexed(headerChunk.data, 2);
-	outputMIDI.timeDivision = readBigEndianIndexed(headerChunk.data, 2);
-	for (let i = 0; i < trackCount; i++) {
-		const track = new MIDITrack();
-		const trackChunk = readMIDIChunk(smfFileBinary);
-		if (trackChunk.type !== "MTrk") {
-			SpessaLog.groupEnd();
-			throw new SyntaxError(`Invalid track header! Expected "MTrk" got "${trackChunk.type}"`);
-		}
-		/**
-		* MIDI running byte
-		*/
-		let runningByte;
-		let totalTicks = 0;
-		if (outputMIDI.format === 2 && i > 0) totalTicks += outputMIDI.tracks[i - 1].events[outputMIDI.tracks[i - 1].events.length - 1].ticks;
-		const trackData = trackChunk.data;
-		while (trackData.currentIndex < trackChunk.size) {
-			totalTicks += readVariableLengthQuantity(trackData);
-			const statusByteCheck = trackData[trackData.currentIndex];
-			let statusByte;
-			if (runningByte !== void 0 && statusByteCheck < 128) statusByte = runningByte;
-			else if (statusByteCheck < 128) {
-				SpessaLog.groupEnd();
-				throw new SyntaxError(`Unexpected byte with no running byte. (${statusByteCheck})`);
-			} else {
-				statusByte = statusByteCheck;
-				trackData.currentIndex++;
+		const readVLQ = data => {
+			let value = 0;
+			for (let n = 0; n < 4; n++) {
+				requireBytes(data, 1, "variable-length quantity");
+				const byte = data[data.currentIndex++];
+				value = value * 128 + (byte & 127);
+				if (!(byte & 128)) return value;
 			}
-			let dataSize;
-			if (statusByte >= MIDIMessageTypes.noteOff && statusByte < MIDIMessageTypes.systemExclusive) {
-				dataSize = DataBytesAmount[statusByte >> 4];
-				runningByte = statusByte;
-			} else if (statusByte === MIDIMessageTypes.systemExclusive) dataSize = readVariableLengthQuantity(trackData);
-			else if (statusByte === 255) {
-				statusByte = trackData[trackData.currentIndex++];
-				dataSize = readVariableLengthQuantity(trackData);
-			} else dataSize = 0;
-			const eventData = new IndexedByteArray(dataSize);
-			eventData.set(trackData.slice(trackData.currentIndex, trackData.currentIndex + dataSize));
-			track.pushEvent(new MIDIMessage(totalTicks, statusByte, eventData));
-			trackData.currentIndex += dataSize;
+			throw new SyntaxError("MIDI variable-length quantity exceeds four bytes");
+		};
+		const readChunk = () => {
+			requireBytes(smfFileBinary, 8, "chunk header");
+			const type = readBinaryStringIndexed(smfFileBinary, 4);
+			const size = readBigEndianIndexed(smfFileBinary, 4);
+			requireBytes(smfFileBinary, size, `${type} chunk`);
+			const data = new IndexedByteArray(smfFileBinary.slice(smfFileBinary.currentIndex, smfFileBinary.currentIndex + size));
+			smfFileBinary.currentIndex += size;
+			return { type, data };
+		};
+		const header = readChunk();
+		if (header.type !== "MThd") throw new SyntaxError(`Invalid MIDI header: expected MThd, got ${header.type}`);
+		if (header.data.length < 6) throw new SyntaxError("MIDI header must contain at least six bytes");
+		outputMIDI.format = readBigEndianIndexed(header.data, 2);
+		const trackCount = readBigEndianIndexed(header.data, 2);
+		outputMIDI.timeDivision = readBigEndianIndexed(header.data, 2);
+		if (outputMIDI.format > 2) throw new SyntaxError(`Unsupported SMF format ${outputMIDI.format}`);
+		if (!trackCount || (outputMIDI.format === 0 && trackCount !== 1)) throw new SyntaxError("Invalid MIDI track count");
+		for (let i = 0; i < trackCount;) {
+			const chunk = readChunk();
+			// SMF 1.0 p. 3: unknown chunk types must be skipped by their length.
+			if (chunk.type !== "MTrk") continue;
+			const track = new MIDITrack(), data = chunk.data;
+			let runningByte, totalTicks = 0;
+			if (outputMIDI.format === 2 && i > 0) totalTicks += outputMIDI.tracks[i - 1].events.at(-1).ticks;
+			while (data.currentIndex < data.length) {
+				totalTicks += readVLQ(data);
+				requireBytes(data, 1, "event status");
+				let status = data[data.currentIndex];
+				if (status < 128) {
+					if (runningByte === undefined) throw new SyntaxError("MIDI data byte with no running status");
+					status = runningByte;
+				} else data.currentIndex++;
+				let size;
+				const isChannel = status >= 128 && status < 240;
+				if (isChannel) {
+					runningByte = status;
+					size = DataBytesAmount[status >> 4];
+				} else {
+					// SMF 1.0 p. 7: both SysEx and meta cancel file running status.
+					runningByte = undefined;
+					if (status === 255) {
+						requireBytes(data, 1, "meta-event type");
+						status = data[data.currentIndex++];
+						if (status >= 128) throw new SyntaxError("MIDI meta-event type must be below 128");
+					} else if (status !== 240 && status !== 247) throw new SyntaxError(`Status ${status.toString(16)} must be carried in an SMF F7 escape`);
+					size = readVLQ(data);
+				}
+				requireBytes(data, size, "event data");
+				const bytes = new IndexedByteArray(data.slice(data.currentIndex, data.currentIndex + size));
+				if (isChannel && bytes.some(byte => byte >= 128)) throw new SyntaxError("Status byte inside MIDI channel-event data");
+				data.currentIndex += size;
+				track.pushEvent(new MIDIMessage(totalTicks, status, bytes));
+				if (status === MIDIMessageTypes.endOfTrack && data.currentIndex !== data.length) throw new SyntaxError("MIDI End Of Track must be the final track event");
+			}
+			if (track.events.at(-1)?.statusByte !== MIDIMessageTypes.endOfTrack) throw new SyntaxError("Missing MIDI End Of Track event");
+			outputMIDI.tracks.push(track);
+			i++;
 		}
-		outputMIDI.tracks.push(track);
-		SpessaLog.info(`%cParsed %c${outputMIDI.tracks.length}%c / %c${outputMIDI.tracks.length}`, ConsoleColors.info, ConsoleColors.value, ConsoleColors.info, ConsoleColors.value);
-	}
-	SpessaLog.info(`%cAll tracks parsed correctly!`, ConsoleColors.recognized);
-	outputMIDI.flush(false);
-	SpessaLog.groupEnd();
+		outputMIDI.flush(false);
+	} finally { SpessaLog.groupEnd(); }
 }
 //#endregion
 //#region src/utils/date.ts
@@ -4774,7 +4775,8 @@ var BasicMIDI = class BasicMIDI {
 			if (!b) b = new Uint8Array(0).buffer;
 			track.addEvents(0, new MIDIMessage(0, MIDIMessageTypes.trackName, new IndexedByteArray(b)));
 		}
-		this.duration = this.midiTicksToSeconds(this.lastVoiceEventTick);
+		// End Of Track defines length even when the final events carry no notes.
+		this.duration = this.midiTicksToSeconds(Math.max(0, ...this.tracks.map(t => t.events.at(-1)?.ticks ?? 0)));
 		this.timeline.length = 0;
 		this.iterate((_, tr, eventIndexes) => {
 			this.timeline.push(Object.freeze({
@@ -4958,13 +4960,65 @@ var MIDIBuilder = class extends BasicMIDI {
 	}
 };
 //#endregion
+//#region Local MIDI 1.0 byte-stream decoder (SMF F0/F7 packets and escapes)
+class MIDIByteStream {
+	runningStatus;
+	status;
+	data = [];
+	sysex;
+	write(bytes, emit) {
+		for (const byte of bytes) {
+			if (byte >= 248) { emit(byte, []); continue; }
+			if (this.sysex) {
+				if (byte < 128) { this.sysex.push(byte); continue; }
+				if (byte === 247) {
+					const complete = this.sysex; this.sysex = undefined;
+					complete.push(247); emit(240, complete); continue;
+				}
+				SpessaLog.unsupported("Incomplete SysEx", this.sysex.slice(0, 64), "A new status interrupted the message before EOX");
+				this.sysex = undefined;
+			}
+			if (byte >= 128) {
+				if (this.status !== undefined) SpessaLog.unsupported("Incomplete MIDI message", [this.status, ...this.data]);
+				this.data = []; this.status = byte;
+				this.runningStatus = byte < 240 ? byte : undefined;
+				if (byte === 240) { this.sysex = []; this.status = undefined; }
+				else if (byte >= 244) { emit(byte, []); this.status = undefined; }
+				continue;
+			}
+			this.status ??= this.runningStatus;
+			if (this.status === undefined) { SpessaLog.unsupported("Unrouted MIDI data", [byte], "No running status"); continue; }
+			this.data.push(byte);
+			const count = this.status < 240 ? DataBytesAmount[this.status >> 4] : this.status === 242 ? 2 : 1;
+			if (this.data.length === count) {
+				const status = this.status, data = this.data;
+				this.data = []; this.status = undefined; emit(status, data);
+			}
+		}
+	}
+	finish() {
+		if (this.sysex) SpessaLog.unsupported("Incomplete SysEx", this.sysex.slice(0, 64), "End of sequence before EOX");
+		if (this.status !== undefined) SpessaLog.unsupported("Incomplete MIDI message", [this.status, ...this.data], "End of sequence");
+		this.sysex = undefined; this.status = this.runningStatus = undefined; this.data = [];
+	}
+}
+//#endregion
 //#region src/sequencer/process_event.ts
 /**
 * Processes a MIDI event.
 * @param event The MIDI event to process.
 * @param trackIndex The index of the track the event belongs to.
 */
-function processEventInternal(event, trackIndex) {
+function processEventInternal(event, trackIndex, decoded = false) {
+	if (event.statusByte >= 128 && !decoded) {
+		const port = this.currentMIDIPorts[trackIndex] ?? 0;
+		let stream = this.midiStreams.get(port);
+		if (!stream) this.midiStreams.set(port, stream = new MIDIByteStream());
+		const bytes = event.statusByte === 247 ? event.data : [event.statusByte, ...event.data];
+		stream.write(bytes, (status, data) => processEventInternal.call(this, new MIDIMessage(event.ticks, status, new IndexedByteArray(data)), trackIndex, true));
+		return;
+	}
+	if (decoded) this.callEvent("midiEvent", { event, trackIndex, port: this.currentMIDIPorts[trackIndex] ?? 0 });
 	if (this.externalMIDIPlayback && event.statusByte >= 128) {
 		this.sendMIDIMessage([event.statusByte, ...event.data]);
 		return;
@@ -5056,7 +5110,8 @@ function processEventInternal(event, trackIndex) {
 			this.synth.reset();
 			break;
 		default:
-			SpessaLog.unsupported("MIDI event", [event.statusByte, ...event.data.slice(0, 63)]);
+			// SMF readers retain unknown meta-event payloads and ignore their semantics.
+			if (status >= 128) SpessaLog.unsupported("MIDI event", [event.statusByte, ...event.data.slice(0, 63)]);
 			break;
 	}
 	if (status >= 0 && status < 128) this.callEvent("metaEvent", {
@@ -5280,6 +5335,7 @@ function setTimeToInternal(time, ticks = void 0) {
 	if (!this._midiData) return false;
 	this.oneTickToSeconds = 60 / (120 * this._midiData.timeDivision);
 	this.sendMIDIReset();
+	this.midiStreams.clear();
 	this.playedTime = 0;
 	this.index = 0;
 	const channelsToSave = this.synth.midiChannels.length;
@@ -5424,6 +5480,8 @@ function setTimeToInternal(time, ticks = void 0) {
 //#endregion
 //#region src/sequencer/sequencer.ts
 var SpessaSynthSequencer = class {
+	midiStreams = new Map();
+	finishMIDIStreams() { for (const stream of this.midiStreams.values()) stream.finish(); }
 	/**
 	* Sequencer's song list.
 	*/
@@ -5696,6 +5754,7 @@ var SpessaSynthSequencer = class {
 		if (isFinished) this.callEvent("songEnded", {});
 	}
 	songIsFinished() {
+		this.finishMIDIStreams();
 		this.isFinished = true;
 		if (this.songs.length === 1) {
 			this.pauseInternal(true);
@@ -20796,7 +20855,7 @@ var SpessaSynthProcessor = class {
 	}
 };
 //#endregion
-export { BasicInstrument, BasicInstrumentZone, BasicMIDI, BasicPreset, BasicPresetZone, BasicSample, BasicSoundBank, BasicZone, CONTROLLER_TABLE_SIZE, DEFAULT_CHANNEL_MIDI_PARAMETERS, DEFAULT_CHANNEL_SYSTEM_PARAMETERS, DEFAULT_DRUM_REVERB, DEFAULT_GLOBAL_MIDI_PARAMETERS, DEFAULT_GLOBAL_SYSTEM_PARAMETERS, DEFAULT_MIDI_CONTROLLERS, DEFAULT_PERCUSSION, DEFAULT_SYNTH_MODE, EmptySample, GENERATORS_AMOUNT, Generator, GeneratorLimits, GeneratorTypes, IndexedByteArray, InterpolationTypes, KeyModifier, MAX_GENERATOR, MIDIBuilder, MIDIChannel, MIDIControllers, MIDIMessage, MIDIMessageTypes, MIDIPatchTools, MIDITrack, MIDIUtils, Modulator, ModulatorControllerSources, ModulatorCurveTypes, ModulatorSource, ModulatorTransformTypes, NonRegisteredLSB, NonRegisteredMSB, RegisteredParameterTypes, SPESSASYNTH_GAIN_FACTOR, SPESSA_BUFSIZE, SampleTypes, SoundBankLoader, SpessaLog, SpessaSynthCoreUtils, SpessaSynthProcessor, SpessaSynthSequencer, VOICE_CAP, audioToWav };
+export { MIDIByteStream, BasicInstrument, BasicInstrumentZone, BasicMIDI, BasicPreset, BasicPresetZone, BasicSample, BasicSoundBank, BasicZone, CONTROLLER_TABLE_SIZE, DEFAULT_CHANNEL_MIDI_PARAMETERS, DEFAULT_CHANNEL_SYSTEM_PARAMETERS, DEFAULT_DRUM_REVERB, DEFAULT_GLOBAL_MIDI_PARAMETERS, DEFAULT_GLOBAL_SYSTEM_PARAMETERS, DEFAULT_MIDI_CONTROLLERS, DEFAULT_PERCUSSION, DEFAULT_SYNTH_MODE, EmptySample, GENERATORS_AMOUNT, Generator, GeneratorLimits, GeneratorTypes, IndexedByteArray, InterpolationTypes, KeyModifier, MAX_GENERATOR, MIDIBuilder, MIDIChannel, MIDIControllers, MIDIMessage, MIDIMessageTypes, MIDIPatchTools, MIDITrack, MIDIUtils, Modulator, ModulatorControllerSources, ModulatorCurveTypes, ModulatorSource, ModulatorTransformTypes, NonRegisteredLSB, NonRegisteredMSB, RegisteredParameterTypes, SPESSASYNTH_GAIN_FACTOR, SPESSA_BUFSIZE, SampleTypes, SoundBankLoader, SpessaLog, SpessaSynthCoreUtils, SpessaSynthProcessor, SpessaSynthSequencer, VOICE_CAP, audioToWav };
 
 export { CENTIBEL_LOOKUP_TABLE, CONVEX_ATTACK };
 //# sourceMappingURL=index.js.map

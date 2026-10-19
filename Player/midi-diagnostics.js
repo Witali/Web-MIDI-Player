@@ -37,7 +37,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   let seconds = 0, previousTick = 0;
   try {
     for (const { tr, ev } of midi.timeline) {
-      const event = midi.tracks[tr].events[ev], status = event.statusByte & 0xf0;
+      const event = midi.tracks[tr].events[ev];
       seconds += (event.ticks - previousTick) * sequence.oneTickToSeconds;
       previousTick = event.ticks;
       context = { seconds, tick: event.ticks, track: tr + 1, port: sequence.currentMIDIPorts[tr] ?? 0,
@@ -59,27 +59,42 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
         }
       };
       try {
-        if (status === 0xb0) {
-          const [controller] = event.data;
-          if (pedals.has(controller)) record('partial-pedal', 'partial', `CC${controller} · ${pedals.get(controller)}`,
-            'Значение сохраняется для модуляторов банка; поведение педали движок не реализует.', { controller });
-          else if (controller === 96 || controller === 97) record('relative-data-entry', 'unsupported', `CC${controller}`,
-            'Относительное изменение RPN/NRPN движок не выполняет.', { controller });
-          else if (!handledCCs.has(controller)) record('bank-dependent-controller', 'bankDependent', `CC${controller}`,
-            'Контроллер передаётся модуляторам SoundFont; слышимый результат зависит от выбранного инструмента.', { controller });
-        }
-        if (status === 0xa0) record('bank-dependent-pressure', 'bankDependent', 'Poly Pressure',
-          'Полифонический aftertouch распознаётся; изменение звука зависит от модуляторов инструмента.');
-        if (status === 0x80 && event.data[1] !== 0) record('note-off-velocity', 'partial', 'Note Off velocity',
-          'Нота отпускается, но скорость отпускания не передаётся синтезатору.');
-        if (ignoredSystem.has(event.statusByte)) record('system-synchronization', 'unsupported', `MIDI ${hex([event.statusByte])}`,
-          'Системная синхронизация или команда внешнего устройства не используется файловым плеером.', { statusByte: event.statusByte });
-        // No notes are allocated; bank, RPN/NRPN, SysEx and MIDI ports are still
-        // interpreted in exactly the sequencer's sorted event order.
-        if (!ignoredSystem.has(event.statusByte)) sequence.processEvent(event, tr);
-        if (event.statusByte === 0xf0 && !implemented && !unsupported) record('unverified-sysex', 'unverified', 'SysEx',
-          'SysEx распознан парсером, но выполнение этой команды движком не подтверждено.',
-          { data: Array.from(event.data.subarray(0, 64)), bytes: event.data.length });
+        sequence.onEventCall = ({ type, data }) => {
+          if (type !== 'midiEvent') return;
+          const event = data.event, status = event.statusByte & 0xf0;
+          context.channel = event.statusByte < 0xf0 ? (event.statusByte & 15) + 1 : null;
+          if (status === 0xb0) {
+            const [controller] = event.data;
+            if (pedals.has(controller)) record('partial-pedal', 'partial', `CC${controller} · ${pedals.get(controller)}`,
+              'Значение сохраняется для модуляторов банка; поведение педали движок не реализует.', { controller });
+            else if (controller === 96 || controller === 97) record('relative-data-entry', 'unsupported', `CC${controller}`,
+              'Относительное изменение RPN/NRPN движок не выполняет.', { controller });
+            else if (!handledCCs.has(controller)) record('bank-dependent-controller', 'bankDependent', `CC${controller}`,
+              'Контроллер передаётся модуляторам SoundFont; слышимый результат зависит от выбранного инструмента.', { controller });
+          }
+          if (status === 0xa0) record('bank-dependent-pressure', 'bankDependent', 'Poly Pressure',
+            'Полифонический aftertouch распознаётся; изменение звука зависит от модуляторов инструмента.');
+          if (status === 0x80 && event.data[1] !== 0) record('note-off-velocity', 'partial', 'Note Off velocity',
+            'Нота отпускается, но скорость отпускания не передаётся синтезатору.');
+          if (ignoredSystem.has(event.statusByte)) record('system-synchronization', 'unsupported', `MIDI ${hex([event.statusByte])}`,
+            'Системная синхронизация или команда внешнего устройства не используется файловым плеером.', { statusByte: event.statusByte });
+        };
+        // Dispatch raw packets through the same byte-stream decoder as playback.
+        // Diagnostics therefore include commands inside F7 escapes and completed
+        // multipart SysEx, rather than interpreting an unfinished F0 packet.
+        const systemExclusive = synth.systemExclusive;
+        synth.systemExclusive = (...args) => {
+          implemented = unsupported = false;
+          systemExclusive(...args);
+          const data = args[0];
+          if (!implemented && !unsupported) record('unverified-sysex', 'unverified', 'SysEx',
+            'SysEx прочитан полностью, но выполнение этой команды движком не подтверждено.',
+            { data: Array.from(data.subarray(0, 64)), bytes: data.length });
+        };
+        try {
+          sequence.processEvent(event, tr);
+          if (scanned + 1 === midi.timeline.length) sequence.finishMIDIStreams();
+        } finally { synth.systemExclusive = systemExclusive; }
       } catch (error) {
         complete = false;
         record('analysis-error', 'unverified', 'MIDI', `Проверка команды завершилась ошибкой: ${error.message}`);
