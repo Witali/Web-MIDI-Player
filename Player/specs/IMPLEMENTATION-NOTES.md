@@ -196,3 +196,28 @@ scalar WASM and SIMD. The reference uses exact Fine Tuning units; SoundFont
 2.04 section 8.4.10 instead specifies a 127/128 normalization for its default
 pitch-wheel-sensitivity modulator, so a nominal bend range is not an exact
 semitone PCM reference. [SoundFont specification](https://www.synthfont.com/sfspec24.pdf).
+
+## Gate release timestamps and All Sound Off (2026-10-19)
+
+MIDI 1.0 pp. 10-11 (PDF 15-16) recognizes Note Off and Note On zero as gate
+release; Appendix A-5 permits pedals to defer release. Instrument release
+envelopes determine the tail. The old receiver unconditionally extended gates
+to at least 30 ms, and exclusive-class notes to 70 ms. Both extensions are
+removed: release begins at command dispatch, preserving the bank's release
+shape. The existing 128-frame sequencer scheduling resolution remains.
+
+SoundFont 2.04 section 8.1.2 operator 57 (PDF 36-37) requires a new exclusive
+class note to terminate other sounding members rapidly. An open hi-hat can now
+enter its exclusive release at the incoming closed-hat event, without waiting
+for a minimum gate duration.
+
+MIDI 1.0 p. 25 (PDF 30) explicitly distinguishes CC120 All Sound Off from
+Note Off, All Notes Off, Hold Off and volume changes, and still requires one
+Note Off for every Note On. CC120 therefore silences voices immediately while
+retaining logical pending Note Off identities and controller/pedal state. An
+old key release cannot accidentally release a subsequent press of the same key.
+
+Evidence: Player/tests/gate-release.test.mjs checks short explicit/zero-velocity
+release timestamps, real release PCM, immediate hi-hat choke scheduling,
+independent CC120/pedal/Note Off behavior, and short-gate PCM/seek on JS, scalar
+WASM and SIMD.

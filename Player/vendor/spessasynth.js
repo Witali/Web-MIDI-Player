@@ -1374,15 +1374,10 @@ const DEFAULT_SYNTH_MODE = "gs";
 const EMBEDDED_SOUND_BANK_ID = `SPESSASYNTH_EMBEDDED_BANK_${Math.random()}_DO_NOT_DELETE`;
 const GENERATOR_OVERRIDE_NO_CHANGE_VALUE = 32767;
 const DEFAULT_SYNTH_METHOD_OPTIONS = { time: 0 };
-/**
-* If the note is released faster than that, it forced to last that long
-* This is used mostly for drum channels, where a lot of midis like to send instant note off after a note on
-*/
-const MIN_NOTE_LENGTH = .03;
-/**
-* This sounds way nicer for an instant hi-hat cutoff
-*/
-const MIN_EXCLUSIVE_LENGTH = .07;
+// Gate release starts at command dispatch. The instrument's release envelope
+// determines the tail; no extra 30/70 ms minimum gate is inserted.
+const MIN_NOTE_LENGTH = 0;
+const MIN_EXCLUSIVE_LENGTH = 0;
 /**
 * This panning factor ensures that spessasynth doesn't stay too loud.
 * You can set te `gain` system parameter to an inverse of it to negate the effect.
@@ -6989,7 +6984,7 @@ function controllerChange(controller, value, sendEvent = true) {
 			}
 			break;
 		case MIDIControllers.allSoundOff:
-			this.stopAllNotes(true);
+			this.stopAllNotes(true, true);
 			break;
 		case MIDIControllers.polyModeOn:
 			this.stopAllNotes(true);
@@ -13043,13 +13038,16 @@ var MIDIChannel = class {
 	/**
 	* Stops all notes on the channel.
 	* @param force If true, stops all notes immediately, otherwise applies release time.
+	* @param preserveNoteState All Sound Off preserves key-message bookkeeping.
 	*/
-	stopAllNotes(force = false) {
-		this.noteOnID.fill(0);
-		this.noteOffID.fill(0);
-		this.playingNotes.fill(false);
-		this.keyPresses = []; this.lastMonoNote = -1;
-		if (this.legatoState) this.legatoState = { active: undefined, voices: [] };
+	stopAllNotes(force = false, preserveNoteState = false) {
+		if (!preserveNoteState) {
+			this.noteOnID.fill(0);
+			this.noteOffID.fill(0);
+			this.playingNotes.fill(false);
+			this.keyPresses = []; this.lastMonoNote = -1;
+			if (this.legatoState) this.legatoState = { active: undefined, voices: [] };
+		}
 		if (force) {
 			let vc = 0;
 			if (this._voiceCount > 0) {
