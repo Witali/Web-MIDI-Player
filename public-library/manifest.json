@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "title": "Публичная MIDI-библиотека",
+  "provider": "Mutopia Project",
+  "verifiedOn": "2026-10-19",
+  "tracks": [
+    {
+      "key": "beethoven-fur-elise",
+      "title": "К Элизе",
+      "artist": "Людвиг ван Бетховен",
+      "composerDates": "1770–1827",
+      "compositionYear": 1810,
+      "category": "Классика",
+      "aliases": [
+        "Für Elise",
+        "Fur Elise",
+        "Beethoven",
+        "Бетховен"
+      ],
+      "file": "midi/beethoven-fur-elise.mid",
+      "sha256": "1c12c21c7bbf4cf163896732672648a69d497636059837abd153c71abe50215a",
+      "bytes": 7590,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Stelios Samelis",
+        "edition": "Breitkopf & Härtel, 1888",
+        "reference": "Mutopia-2015/08/18-931",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/BeethovenLv/WoO59/fur_Elise_WoO59/fur_Elise_WoO59.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/BeethovenLv/WoO59/fur_Elise_WoO59/fur_Elise_WoO59.ly",
+        "sourceFile": "sources/beethoven-fur-elise.ly",
+        "sourceSha256": "828a7bd1b42e441fe1b0eb0389ba46f1502dab28bbe488389e635fb446ba7a67",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "mozart-rondo-alla-turca",
+      "title": "Турецкий марш",
+      "artist": "Вольфганг Амадей Моцарт",
+      "composerDates": "1756–1791",
+      "compositionYear": 1783,
+      "category": "Классика",
+      "aliases": [
+        "Rondo alla turca",
+        "Turkish March",
+        "Mozart",
+        "Моцарт"
+      ],
+      "file": "midi/mozart-rondo-alla-turca.mid",
+      "sha256": "c14299cbdd34c8b2081da84dc06519ef8a52a0d589ee53c758d28b8e3d727d1c",
+      "bytes": 13772,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Rune Zedeler and Chris Sawer",
+        "edition": "IMSLP",
+        "reference": "Mutopia-2015/08/13-108",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=108",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/MozartWA/KV331/KV331_3_RondoAllaTurca/KV331_3_RondoAllaTurca.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/MozartWA/KV331/KV331_3_RondoAllaTurca/KV331_3_RondoAllaTurca-lys.zip",
+        "sourceFile": "sources/mozart-rondo-alla-turca.zip",
+        "sourceSha256": "ac2eba084c584b5e820e8a4554efdf630fa63e661b61ad064a85c041ce92fb24",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "joplin-the-entertainer",
+      "title": "The Entertainer",
+      "artist": "Скотт Джоплин",
+      "composerDates": "1868–1917",
+      "compositionYear": 1902,
+      "category": "Регтайм",
+      "aliases": [
+        "Развлекатель",
+        "Джоплин",
+        "Scott Joplin",
+        "ragtime"
+      ],
+      "file": "midi/joplin-the-entertainer.mid",
+      "sha256": "33e4e81ee64ffb2edf90d1c6a1ddee7276507296bfb915c2bb775231a467f066",
+      "bytes": 22084,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Chris Sawer",
+        "edition": "Reproduction of original edition (1902)",
+        "reference": "Mutopia-2016/11/25-263",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=263",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/JoplinS/entertainer/entertainer.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/JoplinS/entertainer/entertainer.ly",
+        "sourceFile": "sources/joplin-the-entertainer.ly",
+        "sourceSha256": "3a07fcf4f47b6000ced3e6579ef74bebb3c15af82d542a3aa42271f797544f7d",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "joplin-maple-leaf-rag",
+      "title": "Maple Leaf Rag",
+      "artist": "Скотт Джоплин",
+      "composerDates": "1868–1917",
+      "compositionYear": 1899,
+      "category": "Регтайм",
+      "aliases": [
+        "Регтайм кленового листа",
+        "Джоплин",
+        "Scott Joplin",
+        "ragtime"
+      ],
+      "file": "midi/joplin-maple-leaf-rag.mid",
+      "sha256": "3dd712a85fabd267f5a2cee5cb23af4683408c2f29b8814721844498f1ee4f66",
+      "bytes": 21518,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Chris Sawer",
+        "edition": "Reproduction of original edition (1899)",
+        "reference": "Mutopia-2011/11/13-23",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=23",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/JoplinS/maple/maple.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/JoplinS/maple/maple.ly",
+        "sourceFile": "sources/joplin-maple-leaf-rag.ly",
+        "sourceSha256": "043e9d9207b771658a9afa51e2aa2537c448ecfd602e78ae50110cf3b12209fd",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "satie-gymnopedie-1",
+      "title": "Гимнопедия №1",
+      "artist": "Эрик Сати",
+      "composerDates": "1866–1925",
+      "compositionYear": 1888,
+      "category": "Классика",
+      "aliases": [
+        "Gymnopédie No. 1",
+        "Gymnopedie",
+        "Erik Satie",
+        "Сати"
+      ],
+      "file": "midi/satie-gymnopedie-1.mid",
+      "sha256": "09ce7337b4bf42ba12e1aa64b4c7dc7fcfa6455f1070cb12f8880a755df97384",
+      "bytes": 2892,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Evin Robertson",
+        "edition": "Dover Edition",
+        "reference": "Mutopia-2014/12/14-37",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_1/gymnopedie_1.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_1/gymnopedie_1.ly",
+        "sourceFile": "sources/satie-gymnopedie-1.ly",
+        "sourceSha256": "420a52244e9fbe106dd33ba2cac84414fd66e0d01c6d472205bad39678d4ce04",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "satie-gymnopedie-2",
+      "title": "Гимнопедия №2",
+      "artist": "Эрик Сати",
+      "composerDates": "1866–1925",
+      "compositionYear": 1888,
+      "category": "Классика",
+      "aliases": [
+        "Gymnopédie No. 2",
+        "Gymnopedie",
+        "Erik Satie",
+        "Сати"
+      ],
+      "file": "midi/satie-gymnopedie-2.mid",
+      "sha256": "02e8ae8d7e1f6073f12f62a61a63cf07b260a1cf49f4a9008ee4e3f8e1934d30",
+      "bytes": 3613,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Evin Robertson",
+        "edition": "Dover Edition",
+        "reference": "Mutopia-2012/12/23-38",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=38",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_2/gymnopedie_2.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_2/gymnopedie_2.ly",
+        "sourceFile": "sources/satie-gymnopedie-2.ly",
+        "sourceSha256": "54182340c4be942ea2ebbe2fcefd0734bfb29d02bd76672fd3751c8600c27d8c",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "satie-gymnopedie-3",
+      "title": "Гимнопедия №3",
+      "artist": "Эрик Сати",
+      "composerDates": "1866–1925",
+      "compositionYear": 1888,
+      "category": "Классика",
+      "aliases": [
+        "Gymnopédie No. 3",
+        "Gymnopedie",
+        "Erik Satie",
+        "Сати"
+      ],
+      "file": "midi/satie-gymnopedie-3.mid",
+      "sha256": "fd1dceff4da08e997b083acc5b571bebe980bc89421b75b052dbb93ecf06ca23",
+      "bytes": 3340,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Evin Robertson",
+        "edition": "Dover Edition",
+        "reference": "Mutopia-2012/12/23-39",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=39",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_3/gymnopedie_3.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_3/gymnopedie_3.ly",
+        "sourceFile": "sources/satie-gymnopedie-3.ly",
+        "sourceSha256": "d0b774aee7df39627d57b66c1269ec3a10e89f9fe3d271df9f4d5e3c082d9001",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "gounod-ave-maria",
+      "title": "Ave Maria",
+      "artist": "Шарль Гуно",
+      "composerDates": "1818–1893",
+      "compositionYear": 1853,
+      "category": "Классика",
+      "aliases": [
+        "Аве Мария",
+        "Charles Gounod",
+        "Иоганн Себастьян Бах",
+        "Bach",
+        "Гуно"
+      ],
+      "file": "midi/gounod-ave-maria.mid",
+      "sha256": "374fa21eccbaad7b994da5b8db779c65cc527a382bf819b82126dfcd678a4297",
+      "bytes": 13695,
+      "rights": {
+        "status": "public-domain",
+        "label": "Public Domain",
+        "contributor": "Yann Leprince",
+        "edition": "Heugel, 1856",
+        "reference": "Mutopia-2017/01/25-2167",
+        "sourcePage": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2167",
+        "midiUrl": "https://www.mutopiaproject.org/ftp/GounodC/AveMaria-PianoViolin/AveMaria-PianoViolin.mid",
+        "sourceUrl": "https://www.mutopiaproject.org/ftp/GounodC/AveMaria-PianoViolin/AveMaria-PianoViolin.ly",
+        "sourceFile": "sources/gounod-ave-maria.ly",
+        "sourceSha256": "aaa7a4cc27e196649569da538c0f1f7383011cd523553ae06b80dc65e7dbf08e",
+        "declarationUrl": "https://www.mutopiaproject.org/legal.html",
+        "checkedOn": "2026-10-19",
+        "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    }
+  ]
+}

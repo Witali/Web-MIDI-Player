@@ -1,0 +1,47 @@
+# Публичная MIDI-подборка
+
+Отдельный список разрешённых файлов для публичного режима Web-MIDI-Player.
+Все восемь MIDI получены непосредственно из Mutopia Project. На страницах
+каждой включённой редакции указан статус **Public Domain**; Mutopia объясняет
+его как передачу автором набора своего вклада в общественное достояние.
+Общие условия: https://www.mutopiaproject.org/legal.html.
+
+Исходная музыка Бетховена, Моцарта, Джоплина, Сати и Гуно написана
+в XVIII — начале XX века; сведения об изданиях и датах композиторов
+сохранены в manifest.json. В Ave Maria Гуно использована прелюдия
+Иоганна Себастьяна Баха (1685–1750).
+
+## Состав и происхождение
+
+| Произведение | Набор нот / подготовка файла | Подтверждение |
+| --- | --- | --- |
+| Людвиг ван Бетховен — К Элизе | Stelios Samelis | [Mutopia-2015/08/18-931](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931) |
+| Вольфганг Амадей Моцарт — Турецкий марш | Rune Zedeler and Chris Sawer | [Mutopia-2015/08/13-108](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=108) |
+| Скотт Джоплин — The Entertainer | Chris Sawer | [Mutopia-2016/11/25-263](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=263) |
+| Скотт Джоплин — Maple Leaf Rag | Chris Sawer | [Mutopia-2011/11/13-23](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=23) |
+| Эрик Сати — Гимнопедия №1 | Evin Robertson | [Mutopia-2014/12/14-37](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37) |
+| Эрик Сати — Гимнопедия №2 | Evin Robertson | [Mutopia-2012/12/23-38](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=38) |
+| Эрик Сати — Гимнопедия №3 | Evin Robertson | [Mutopia-2012/12/23-39](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=39) |
+| Шарль Гуно — Ave Maria | Yann Leprince | [Mutopia-2017/01/25-2167](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2167) |
+
+MIDI и исходники LilyPond в midi/ и sources/ сохранены без изменений,
+с оригинальными уведомлениями авторов. manifest.json содержит исходные
+URL, статус, дату проверки и SHA-256 обоих файлов. Лицензия банка FluidR3
+отдельная: MIT, см. Player/licenses/FluidR3-MIT.txt в корне проекта.
+
+## Добавление музыки
+
+1. Проверить права на само произведение, аранжировку и конкретный MIDI.
+2. Для этой подборки выбирать редакцию с явным Public Domain на странице
+   автора или издателя; одной надписи в чужом MIDI недостаточно.
+3. Сохранить оригинальные MIDI и исходные ноты с уведомлениями.
+4. Добавить в manifest.json автора набора, издание, страницу подтверждения,
+   дату проверки и SHA-256. Только записи этого файла входят в сборку.
+5. Запустить npm run catalog:public и npm test.
+
+Не добавлять сюда файлы из личной коллекции downloads/ автоматически.
+Техническая доступность по URL и наличие CORS не подтверждают права.
+
+Это документированная подборка по заявлениям первоисточника, а не гарантия
+отсутствия любых претензий во всех юрисдикциях. При получении обоснованной
+претензии нужно перепроверить конкретную запись.

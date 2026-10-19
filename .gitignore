@@ -9,6 +9,8 @@
 *.midi
 *.rmi
 *.kar
+# Reviewed public-domain demo MIDI files
+!/public-library/midi/*.mid
 # SoundFonts and download archives; FluidR3 GM is tracked with Git LFS
 *.sf2
 *.sf3
@@ -24,3 +26,6 @@
 /SCRAPER-LOCAL.md
 /catalog-preview.png
 **/.cache/
+
+# Generated static public catalog
+/dist/
