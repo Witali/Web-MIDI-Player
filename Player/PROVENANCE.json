@@ -20,7 +20,8 @@
       "Random pan RNG isolated per synthesizer for deterministic exact replay/seek; fixed 128-frame host quanta preserve partial-read state",
       "Sequencer processes ordered trailing controllers and metadata instead of finishing at the last Note Off tick; PPQN tempo audio regressions cover acceleration, slowdown and seeking",
       "Sequencer executes controller-only tracks and zero-duration setup files, applies timed port markers in event order, and initializes new-port channels with the same controller/preset defaults as port 0",
-      "SMF parser/writer preserve timed F0/F7 SysEx packets, escape bytes and End Of Track duration; bounded VLQs/chunks, correct running-status cancellation, extended headers and unknown chunks; per-port byte-stream decoder dispatches escaped channel/system messages and complete SysEx at final-byte time"
+      "SMF parser/writer preserve timed F0/F7 SysEx packets, escape bytes and End Of Track duration; bounded VLQs/chunks, correct running-status cancellation, extended headers and unknown chunks; per-port byte-stream decoder dispatches escaped channel/system messages and complete SysEx at final-byte time",
+      "MIDI 1.0/RP-018 Data Increment/Decrement with complete RPN/NRPN selection, per-parameter values and snapshots; RPN pitch sensitivity uses cents, MSBs clear old LSBs, live bend/modulation ranges update active voices, and RP-015 resets NRPN selectors and poly pressure without erasing parameter values"
     ]
   },
   "soundfont": {

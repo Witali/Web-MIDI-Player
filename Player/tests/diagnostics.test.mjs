@@ -50,13 +50,13 @@ test('metadata reports late preset substitutions before playback, with the actua
   assert.equal(selectWithoutProgram.summary.substituted, 0, 'Bank Select alone does not choose a new preset');
 });
 
-test('pedals and relative entry are distinguished from bank-dependent CCs and Note Off velocity', async () => {
+test('unsupported pedals are distinguished from implemented relative entry and bank-dependent CCs', async () => {
   const report = await audit([[0, 0xb0, 66, 127], [0, 0xb0, 66, 0], [0, 0xb0, 68, 127], [0, 0xb0, 69, 127],
     [0, 0xb0, 96, 0], [0, 0xb0, 97, 0], [0, 0xb0, 22, 127], [0, 0xa0, 60, 100],
     [0, 0x80, 60, 64], [0, 0xb0, 7, 80], [0, 0xb0, 10, 0], [0, 0xb0, 64, 127], [0, 0xb0, 64, 0]]);
   assert.equal(report.entries.find(e => e.controller === 66).count, 2);
   assert.equal(report.summary.partial, 5);
-  assert.equal(report.summary.unsupported, 2);
+  assert.equal(report.summary.unsupported, 0);
   assert.equal(report.summary.bankDependent, 2);
   assert.equal(report.entries.find(e => e.controller === 22).status, 'bankDependent');
   assert.ok(report.entries.every(e => ![7, 10, 64].includes(e.controller)));

@@ -30,3 +30,17 @@ checking the playback behavior of events stored in a MIDI file. Manufacturer
 extensions and later standards may require their own specifications.
 
 The implementation audit is in [MIDI-SUPPORT.md](../MIDI-SUPPORT.md).
+
+## Controller addenda used in implementation
+
+Read on 2026-10-19 via the public links on the
+[official MIDI 1.0 addenda page](https://midi.org/midi-1-0-addenda). These PDFs
+are not redistributed with the code; their source links and hashes identify
+the exact references used.
+
+- [RP-018: Response to Data Increment/Decrement Controllers](https://drive.google.com/file/d/12BL3AKojiRcFR170CUy_H61RlZO9toYF/view),
+  32,628 bytes; SHA-256: 0b419fefb40d65148a4a5f8385aeaef60e5b16e25b25d226b1b90f140c213810.
+- [RP-015: Response to Reset All Controllers](https://drive.google.com/file/d/1VzU1Bfv8iYLGD23ZfaTJVomEKNTtBh6n/view),
+  33,669 bytes; SHA-256: 0b1b75e84ea9ed7429e81a9101afe33683f53914e8161eb6c3dd637b1542e5c5.
+- [CA-026: Modulation Depth Range RPN](https://drive.google.com/file/d/1V_zUZ7ZNOV_ySDwN6aYOFJipq4Jk0en6/view),
+  48,489 bytes; SHA-256: 49be1c7b497827a889374028e789198649ca8d94ae92afc395c66d3929c3ecba.

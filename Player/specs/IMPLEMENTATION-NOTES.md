@@ -105,3 +105,43 @@ playback, complete-stream diagnostics, trailing events, and continuous/seek PCM
 for timed multipart Master Volume on JS, scalar WASM and SIMD. This establishes
 correct delivery of the parsed messages; manufacturer-specific command coverage
 and external synchronization are separate plan items.
+
+## Relative Data Entry and controller reset (2026-10-19)
+
+MIDI 1.0 pp. 12, 17-18 (PDF 17, 22-23) specifies 14-bit controller pairs,
+waiting for both initial RPN/NRPN selector bytes, retaining a parameter's value
+when selecting it, and semitone/cents units for RPN 0. MSB updates clear the
+previous LSB; all CC32-63 counterparts are handled, with controller locks honored.
+The null number 127:127 disables further Data Entry/Inc/Dec in either family.
+
+[RP-018](README.md#controller-addenda-used-in-implementation) specifies that the
+CC96/97 value byte is ignored. RPN 0/1 step the LSB, RPN 2/3/4 step the MSB, and
+future RPNs default to LSB steps unless otherwise specified. RPN 0 carries at
+100 cents rather than 128. Each supported parameter has its own current value;
+returning to it never reuses a different parameter's last Data Entry. Values
+saturate at representable endpoints, including RPN 0's 127:127 endpoint; at its
+highest MSB the remaining representable cents are retained. RPN 3/4 still report
+unsupported tuning-selection semantics; their documented step width alone does
+not establish tuning-bank support.
+
+RP-018 leaves NRPN steps to the manufacturer. This receiver's policy for its
+existing NRPNs is one MSB unit for part/drum 7-bit parameters and one LSB unit
+for SoundFont/AWE32 generator parameters, using their existing generator scales.
+Unknown parameters are reported explicitly. Absolute drum fine pitch is an
+independent offset, so repeating the same value does not accumulate tuning.
+CA-026 leaves RPN 5 units/defaults to the receiver: the existing mapping remains
+raw 14-bit value / 1.28 cents, default 50 cents, with an LSB relative step.
+This mapping is not a claim of complete GM2 conformance.
+
+RP-015 resets expression, modulation, the four listed pedals, pitch bend and
+channel/poly pressure, and nulls both parameter-number families. It preserves
+program/bank, volume/pan, effects, sound controllers, channel mode and actual
+parameter values. Other controllers retain their current values in this receiver.
+A full synth reset instead restores parameter defaults. Snapshots include
+selector completeness, active family, remembered values and SF2 generator index.
+
+Evidence: Player/tests/parameters.test.mjs covers selection in either byte
+order, null and incomplete selection, base-100 carry, endpoint saturation,
+independent parameters, all controller LSB ranges, locks, NRPN steps, repeated
+absolute values, RP-015, snapshots, actual held-note pitch changes and exact
+seek/absolute-versus-relative PCM on JS, scalar WASM and SIMD.

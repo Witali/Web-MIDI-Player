@@ -1645,7 +1645,7 @@ var MIDIUtils = class MIDIUtils {
 				type: "Channel MIDI Param",
 				channel,
 				parameter: "pitchWheelRange",
-				value: value / 128
+				value: (value >> 7) + (value & 127) / 100
 			};
 			case RegisteredParameterTypes.fineTuning: return {
 				type: "Channel MIDI Param",
@@ -1821,7 +1821,7 @@ var MIDIUtils = class MIDIUtils {
 		switch (parameter) {
 			case "pressure": return [MIDIMessage.channelPressure(ticks, channel, value)];
 			case "pitchWheel": return [MIDIMessage.pitchWheel(ticks, channel, value)];
-			case "pitchWheelRange": return MIDIMessage.registeredParameter(ticks, channel, RegisteredParameterTypes.pitchWheelRange, Math.floor(value * 128));
+			case "pitchWheelRange": return MIDIMessage.registeredParameter(ticks, channel, RegisteredParameterTypes.pitchWheelRange, (Math.floor(value) << 7) | Math.round((value - Math.floor(value)) * 100));
 			case "modulationDepth": return MIDIMessage.registeredParameter(ticks, channel, RegisteredParameterTypes.modulationDepth, Math.floor(value * 1.28));
 			case "rxChannel": return system === "xg" ? [MIDIUtils.xgMessage(ticks, 8, channel, 4, [value])] : [MIDIUtils.gsMessage(ticks, 64, 16 | gsChannel, 2, [value])];
 			case "polyMode": return value ? [MIDIMessage.controllerChange(ticks, channel, MIDIControllers.polyModeOn, 0)] : [MIDIMessage.controllerChange(ticks, channel, MIDIControllers.monoModeOn, 0)];
@@ -5226,8 +5226,8 @@ setResetValue(MIDIControllers.generalPurposeController6, 64);
 setResetValue(MIDIControllers.generalPurposeController8, 64);
 setResetValue(MIDIControllers.registeredParameterLSB, 127);
 setResetValue(MIDIControllers.registeredParameterMSB, 127);
-setResetValue(MIDIControllers.nonRegisteredParameterLSB, 0);
-setResetValue(MIDIControllers.nonRegisteredParameterMSB, 0);
+setResetValue(MIDIControllers.nonRegisteredParameterLSB, 127);
+setResetValue(MIDIControllers.nonRegisteredParameterMSB, 127);
 const DEFAULT_DRUM_REVERB = new Int8Array(128).fill(127);
 DEFAULT_DRUM_REVERB[35] = 0;
 DEFAULT_DRUM_REVERB[36] = 0;
@@ -5237,6 +5237,7 @@ DEFAULT_DRUM_REVERB[36] = 0;
 * except for the locked controllers.
 */
 function resetChannelInternal(sendCCEvents = true) {
+	this.parameterSelection = { rpn: 0, nrpn: 0 };
 	for (let cc = 0; cc < 128; cc++) {
 		if (this.lockedControllers[cc]) {
 			this.synthCore.callEvent("controllerChange", {
@@ -5274,8 +5275,10 @@ function resetChannelInternal(sendCCEvents = true) {
 	this.sf2NRPNGeneratorLSB = 0;
 	this.playingNotes.fill(false);
 	this.lastParameterIsRegistered = true;
-	this._midiControllers[MIDIControllers.nonRegisteredParameterLSB] = 0;
-	this._midiControllers[MIDIControllers.nonRegisteredParameterMSB] = 0;
+	this.parameterSelection = { rpn: 0, nrpn: 0 };
+	this.parameterValues.clear();
+	this._midiControllers[MIDIControllers.nonRegisteredParameterLSB] = 16256;
+	this._midiControllers[MIDIControllers.nonRegisteredParameterMSB] = 16256;
 	this._midiControllers[MIDIControllers.registeredParameterLSB] = 16256;
 	this._midiControllers[MIDIControllers.registeredParameterMSB] = 16256;
 	this._midiControllers[MIDIControllers.dataEntryMSB] = 0;
@@ -5293,6 +5296,8 @@ const RP_15_RESET_CC_NUMS = [
 	MIDIControllers.portamentoOnOff,
 	MIDIControllers.sostenutoPedal,
 	MIDIControllers.softPedal,
+	MIDIControllers.nonRegisteredParameterMSB,
+	MIDIControllers.nonRegisteredParameterLSB,
 	MIDIControllers.registeredParameterMSB,
 	MIDIControllers.registeredParameterLSB
 ];
@@ -5303,10 +5308,13 @@ const RP_15_RESET_CC_NUMS = [
 function resetRP15() {
 	this.pitchWheel(8192);
 	this.setMIDIParameter("pressure", 0);
+	for (let note = 0; note < 128; note++) this.polyPressure(note, 0);
 	for (const resetCC of RP_15_RESET_CC_NUMS) {
 		const resetValue = DEFAULT_MIDI_CONTROLLERS[resetCC];
 		if (resetValue !== this._midiControllers[resetCC]) this.controllerChange(resetCC, resetValue >> 7);
 	}
+	// RP-015 cancels selection but retains the actual parameter values.
+	this.parameterSelection = { rpn: 0, nrpn: 0 };
 }
 //#endregion
 //#region src/sequencer/set_time_to.ts
@@ -6954,15 +6962,17 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 * to allow changes.
 */
 function controllerChange(controller, value, sendEvent = true) {
-	if (controller > 127 || value < 0) throw new Error("Invalid MIDI Controller.");
-	if (controller >= MIDIControllers.modulationWheelLSB && controller <= MIDIControllers.effectControl2LSB) {
+	if (!Number.isInteger(controller) || !Number.isInteger(value) || controller < 0 || controller > 127 || value < 0 || value > 127) throw new Error("Invalid MIDI Controller.");
+	if (this.lockedControllers[controller]) return;
+	if (controller >= 32 && controller <= 63) {
 		const actualCCNum = controller - 32;
 		if (this.lockedControllers[actualCCNum]) return;
 		this._midiControllers[actualCCNum] = this._midiControllers[actualCCNum] & 16256 | value & 127;
 		this.computeModulatorsAll(1, actualCCNum);
 	}
-	if (this.lockedControllers[controller]) return;
-	this._midiControllers[controller] = value << 7 | this._midiControllers[controller] & 127;
+	// MIDI 1.0 p. 12: an MSB replaces its old LSB rather than retaining it.
+	this._midiControllers[controller] = value << 7;
+	if (controller < 32 && !this.lockedControllers[controller + 32]) this._midiControllers[controller + 32] = 0;
 	switch (controller) {
 		case MIDIControllers.omniModeOff:
 		case MIDIControllers.omniModeOn:
@@ -6988,6 +6998,7 @@ function controllerChange(controller, value, sendEvent = true) {
 			break;
 		case MIDIControllers.bankSelect:
 			this.setBankMSB(value);
+			this.setBankLSB(0);
 			if (this.channel % 16 === 9 && BankSelectHacks.isSystemXG(this.channelSystem)) this.setBankMSB(127);
 			break;
 		case MIDIControllers.bankSelectLSB:
@@ -6998,15 +7009,16 @@ function controllerChange(controller, value, sendEvent = true) {
 			break;
 		case MIDIControllers.registeredParameterLSB:
 		case MIDIControllers.registeredParameterMSB:
-			this._midiControllers[MIDIControllers.dataEntryMSB] = 0;
+			this.parameterSelection.rpn |= controller === MIDIControllers.registeredParameterMSB ? 1 : 2;
 			this.lastParameterIsRegistered = true;
 			break;
 		case MIDIControllers.nonRegisteredParameterMSB:
 			this.sf2NRPNGeneratorLSB = 0;
-			this._midiControllers[MIDIControllers.dataEntryMSB] = 0;
+			this.parameterSelection.nrpn |= 1;
 			this.lastParameterIsRegistered = false;
 			break;
 		case MIDIControllers.nonRegisteredParameterLSB:
+			this.parameterSelection.nrpn |= 2;
 			if (this._midiControllers[MIDIControllers.nonRegisteredParameterMSB] >> 7 === NonRegisteredMSB.SF2) {
 				if (this.sf2NRPNGeneratorLSB % 100 !== 0) this.sf2NRPNGeneratorLSB = 0;
 				switch (value) {
@@ -7022,12 +7034,13 @@ function controllerChange(controller, value, sendEvent = true) {
 					default: if (value < 100) this.sf2NRPNGeneratorLSB += value;
 				}
 			}
-			this._midiControllers[MIDIControllers.dataEntryMSB] = 0;
 			this.lastParameterIsRegistered = false;
 			break;
+		case MIDIControllers.dataIncrement:
+		case MIDIControllers.dataDecrement:
 		case MIDIControllers.dataEntryMSB:
 		case MIDIControllers.dataEntryLSB:
-			this.dataEntry();
+			this.dataEntry(controller, value);
 			break;
 		case MIDIControllers.resetAllControllers:
 			this.resetRP15();
@@ -7196,8 +7209,62 @@ function handleAWE32NRPN(paramLSB, dataValue) {
 /**
 * Executes a data entry  change for the current channel.
 */
-function dataEntry() {
-	const dataValue = this._midiControllers[MIDIControllers.dataEntryMSB];
+const NRPN_PART_CONTROLLERS = { 8: MIDIControllers.vibratoRate, 9: MIDIControllers.vibratoDepth, 10: MIDIControllers.vibratoDelay,
+	32: MIDIControllers.brightness, 33: MIDIControllers.filterResonance, 99: MIDIControllers.attackTime,
+	100: MIDIControllers.decayTime, 102: MIDIControllers.releaseTime };
+function dataEntry(controller = MIDIControllers.dataEntryMSB, value = this._midiControllers[MIDIControllers.dataEntryMSB] >> 7) {
+	const registered = this.lastParameterIsRegistered;
+	if (this.parameterSelection[registered ? "rpn" : "nrpn"] !== 3) return;
+	const msb = this._midiControllers[registered ? 101 : 99] >> 7;
+	const lsb = this._midiControllers[registered ? 100 : 98] >> 7;
+	const number = (msb << 7) | lsb;
+	if (number === 16383) return;
+	const key = registered ? `r${number}` : msb === NonRegisteredMSB.SF2 ? `sf${this.sf2NRPNGeneratorLSB}` : `n${number}`;
+	let current = this.parameterValues.get(key) ?? 0;
+	// Read native parameter state too: SysEx/API updates must be reflected by
+	// the next relative adjustment, not overwritten by a stale data register.
+	if (registered) {
+		switch (number) {
+			case 0: { const cents = Math.round(this._midiParameters.pitchWheelRange * 100); const coarse = Math.min(127, Math.floor(cents / 100)); current = (coarse << 7) | Math.min(127, cents - coarse * 100); break; }
+			case 1: current = Math.round(this._midiParameters.fineTune * 81.92 + 8192); break;
+			case 2: current = (this._midiParameters.keyShift + 64) << 7; break;
+			case 5: current = Math.round(this._midiParameters.modulationDepth * 1.28); break;
+		}
+	} else if (msb === NonRegisteredMSB.partParameter) {
+		const cc = NRPN_PART_CONTROLLERS[lsb];
+		if (cc !== undefined) current = this._midiControllers[cc];
+	} else if (!this.parameterValues.has(key)) {
+		const drum = this.drumParams[lsb];
+		switch (msb) {
+			case NonRegisteredMSB.drumPitch: current = 64 << 7; break;
+			case NonRegisteredMSB.drumPitchFine: current = ((drum.finePitch ?? 0) + 64) << 7; break;
+			case NonRegisteredMSB.drumLevel: current = Math.round(drum.gain * 120) << 7; break;
+			case NonRegisteredMSB.drumPan: current = drum.pan << 7; break;
+			case NonRegisteredMSB.drumReverb: current = Math.round(drum.reverbGain * 127) << 7; break;
+			case NonRegisteredMSB.drumChorus: current = Math.round(drum.chorusGain * 127) << 7; break;
+			case NonRegisteredMSB.drumDelay: current = Math.round(drum.delayGain * 127) << 7; break;
+			case NonRegisteredMSB.awe32:
+			case NonRegisteredMSB.SF2: current = 8192; break;
+		}
+	}
+	let dataValue;
+	if (controller === MIDIControllers.dataIncrement || controller === MIDIControllers.dataDecrement) {
+		const step = controller === MIDIControllers.dataIncrement ? 1 : -1;
+		if (registered && number === 0) {
+			const cents = Math.max(0, Math.min(12827, (current >> 7) * 100 + (current & 127) + step));
+			const coarse = Math.min(127, Math.floor(cents / 100));
+			dataValue = (coarse << 7) | (cents - coarse * 100);
+		} else {
+			// RP-018 specifies MSB steps for RPN 2/3/4, LSB steps otherwise.
+			// NRPN steps are this receiver's documented manufacturer policy.
+			const coarse = registered ? number >= 2 && number <= 4 : msb === 1 || msb >= 24 && msb <= 31;
+			dataValue = Math.max(0, Math.min(coarse ? 16256 : 16383, current + step * (coarse ? 128 : 1)));
+		}
+	} else dataValue = controller === MIDIControllers.dataEntryMSB ? value << 7 : (current & 16256) | value;
+	dataValue = Math.max(0, Math.min(16383, dataValue));
+	this.parameterValues.set(key, dataValue);
+	this._midiControllers[MIDIControllers.dataEntryMSB] = dataValue;
+	this._midiControllers[MIDIControllers.dataEntryLSB] = (dataValue & 127) << 7;
 	if (this.lastParameterIsRegistered) {
 		const rpnValue = this._midiControllers[MIDIControllers.registeredParameterMSB] | this._midiControllers[MIDIControllers.registeredParameterLSB] >> 7;
 		switch (rpnValue) {
@@ -7205,7 +7272,7 @@ function dataEntry() {
 				SpessaLog.unsupported("RPN", [rpnValue >> 7, rpnValue & 127], `channel ${this.channel}`);
 				break;
 			case RegisteredParameterTypes.pitchWheelRange: {
-				const range = dataValue / 128;
+				const range = (dataValue >> 7) + (dataValue & 127) / 100;
 				this.setMIDIParameter("pitchWheelRange", range);
 				SpessaLog.coolInfo(`Pitch Wheel Range for ${this.channel}`, range, "semitones");
 				break;
@@ -7290,13 +7357,14 @@ function dataEntry() {
 			* also if SC-55 preset is explicitly requested (MAP1 - LSB 1), it's 100 cents as well!
 			*/
 			const pitch = this.channelSystem === "xg" || this.patch.bankLSB === 1 ? (dataCoarse - 64) * 100 : (dataCoarse - 64) * 50;
-			this.drumParams[paramFine].pitch = pitch;
+			this.drumParams[paramFine].pitch = pitch + (this.drumParams[paramFine].finePitch ?? 0);
 			SpessaLog.coolInfo(`Drum ${paramFine} pitch for ${this.channel}`, pitch, "cents");
 			break;
 		}
 		case NonRegisteredMSB.drumPitchFine: {
 			const pitch = dataCoarse - 64;
-			this.drumParams[paramFine].pitch += pitch;
+			this.drumParams[paramFine].pitch += pitch - (this.drumParams[paramFine].finePitch ?? 0);
+			this.drumParams[paramFine].finePitch = pitch;
 			SpessaLog.coolInfo(`Drum ${paramFine} pitch fine for ${this.channel}`, this.drumParams[paramFine].pitch, "cents");
 			break;
 		}
@@ -7326,6 +7394,7 @@ function dataEntry() {
 		case NonRegisteredMSB.SF2: {
 			if (paramFine > 100) break;
 			const gen = this.sf2NRPNGeneratorLSB;
+			if (!GeneratorLimits[gen]) { SpessaLog.unsupported("SF2 NRPN generator", [gen], "Unknown generator number"); break; }
 			const offset = dataValue - 8192;
 			this.setGeneratorOffset(gen, offset);
 			break;
@@ -12353,6 +12422,7 @@ var DrumParameters = class DrumParameters {
 	static copyFrom(p) {
 		const d = new DrumParameters();
 		d.pitch = p.pitch;
+		d.finePitch = p.finePitch ?? 0;
 		d.chorusGain = p.chorusGain;
 		d.reverbGain = p.reverbGain;
 		d.exclusiveClass = p.exclusiveClass;
@@ -12374,6 +12444,10 @@ function getChannelSnapshot() {
 		} : void 0,
 		lockedSystem: this.lockedSystem,
 		midiControllers: this._midiControllers.slice(),
+		parameterSelection: { ...this.parameterSelection },
+		parameterValues: [...this.parameterValues],
+		lastParameterIsRegistered: this.lastParameterIsRegistered,
+		sf2NRPNGeneratorLSB: this.sf2NRPNGeneratorLSB,
 		lockedControllers: [...this.lockedControllers],
 		pitchWheels: this.pitchWheels.slice(),
 		generators: {
@@ -12394,6 +12468,10 @@ function getChannelSnapshot() {
 function applySnapshot(snapshot) {
 	this.setDrums(snapshot.drumChannel);
 	this._midiControllers.set(snapshot.midiControllers);
+	this.parameterSelection = { ...(snapshot.parameterSelection ?? { rpn: 0, nrpn: 0 }) };
+	this.parameterValues = new Map(snapshot.parameterValues ?? []);
+	this.lastParameterIsRegistered = snapshot.lastParameterIsRegistered ?? true;
+	this.sf2NRPNGeneratorLSB = snapshot.sf2NRPNGeneratorLSB ?? 0;
 	for (let i = 0; i < 128; i++) this.lockController(i, snapshot.lockedControllers[i]);
 	this.pitchWheels.set(snapshot.pitchWheels);
 	this.octaveTuning.set(snapshot.octaveTuning);
@@ -12443,6 +12521,12 @@ function setMIDIParameterInternal$1(parameter, value) {
 	switch (parameter) {
 		case "pitchWheel":
 			this.computeModulatorsAll(0, ModulatorControllerSources.pitchWheel);
+			break;
+		case "pitchWheelRange":
+			this.computeModulatorsAll(0, ModulatorControllerSources.pitchWheelRange);
+			break;
+		case "modulationDepth":
+			this.computeModulatorsAll(1, MIDIControllers.modulationWheel);
 			break;
 		case "pressure":
 			this.computeModulatorsAll(0, ModulatorControllerSources.channelPressure);
@@ -12694,6 +12778,8 @@ var MIDIChannel = class {
 	* @protected
 	*/
 	lastParameterIsRegistered = true;
+	parameterSelection = { rpn: 0, nrpn: 0 };
+	parameterValues = new Map();
 	/**
 	* Per-note pitch wheel mode uses the pitchWheels table as source
 	* instead of the regular entry in the midiControllers table.
