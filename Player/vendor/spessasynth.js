@@ -4736,7 +4736,6 @@ var BasicMIDI = class BasicMIDI {
 		this.portChannelOffsetMap = [];
 		for (const track of this.tracks) {
 			track.port = -1;
-			if (track.channels.size === 0) continue;
 			for (const e of track.events) {
 				if (e.statusByte !== MIDIMessageTypes.midiPort) continue;
 				const port = e.data[0];
@@ -5010,11 +5009,9 @@ function processEventInternal(event, trackIndex) {
 			this.synth.pitchWheel(channel, event.data[1] << 7 | event.data[0]);
 			break;
 		case MIDIMessageTypes.controllerChange:
-			if (this._midiData.isMultiPort && track.channels.size === 0) return;
 			this.synth.controllerChange(channel, event.data[0], event.data[1]);
 			break;
 		case MIDIMessageTypes.programChange:
-			if (this._midiData.isMultiPort && track.channels.size === 0) return;
 			this.synth.programChange(channel, event.data[0]);
 			break;
 		case MIDIMessageTypes.polyPressure:
@@ -5109,7 +5106,6 @@ function processTick() {
 * @param port The MIDI port number to assign.
 */
 function assignMIDIPortInternal(trackNum, port) {
-	if (this._midiData.tracks[trackNum].channels.size === 0) return;
 	if (this.midiPortChannelOffset === 0) {
 		this.midiPortChannelOffset += 16;
 		this.midiPortChannelOffsets[port] = 0;
@@ -5127,12 +5123,7 @@ function assignMIDIPortInternal(trackNum, port) {
 */
 function loadNewSequenceInternal(parsedMIDI) {
 	if (!parsedMIDI.tracks) throw new Error("This MIDI has no tracks!");
-	if (parsedMIDI.duration === 0) {
-		SpessaLog.warn("This MIDI file has a duration of exactly 0 seconds.");
-		this.pausedTime = 0;
-		this.isFinished = true;
-		return;
-	}
+	// A zero-duration file may still contain valid setup/controller commands.
 	this.oneTickToSeconds = 60 / (120 * parsedMIDI.timeDivision);
 	this._midiData = parsedMIDI;
 	this.isFinished = false;
@@ -5142,10 +5133,11 @@ function loadNewSequenceInternal(parsedMIDI) {
 		this.synth.setEmbeddedSoundBank(this._midiData.embeddedSoundBank, this._midiData.bankOffset);
 		if (this.preload) this._midiData.preloadSynth(this.synth);
 	}
-	this.currentMIDIPorts = this._midiData.tracks.map((t) => t.port);
+	// Routing is event state: a later port marker cannot affect earlier MIDI.
+	this.currentMIDIPorts = this._midiData.tracks.map(() => 0);
 	this.midiPortChannelOffset = 0;
 	this.midiPortChannelOffsets = {};
-	for (const [trackIndex, track] of this._midiData.tracks.entries()) this.assignMIDIPort(trackIndex, track.port);
+	for (const [trackIndex] of this._midiData.tracks.entries()) this.assignMIDIPort(trackIndex, 0);
 	this.firstNoteTime = this._midiData.midiTicksToSeconds(this._midiData.firstNoteOn);
 	SpessaLog.info(`%cTotal song time: ${formatTime(Math.ceil(this._midiData.duration)).time}`, ConsoleColors.recognized);
 	this.callEvent("songChange", { songIndex: this._songIndex });
@@ -5350,7 +5342,6 @@ function setTimeToInternal(time, ticks = void 0) {
 					case "Controller Change": {
 						const { controller, value, channel } = analyzed;
 						if (channel >= channelsToSave) break;
-						if (this._midiData.isMultiPort && track.channels.size === 0) break;
 						if (controller === MIDIControllers.resetAllControllers) {
 							resetAllControllers(channel);
 							break;
@@ -5362,7 +5353,6 @@ function setTimeToInternal(time, ticks = void 0) {
 				break;
 			}
 			case MIDIMessageTypes.controllerChange: {
-				if (this._midiData.isMultiPort && track.channels.size === 0) break;
 				const controller = event.data[0];
 				const value = event.data[1];
 				switch (controller) {
@@ -19885,7 +19875,8 @@ var SynthesizerCore = class {
 		this.midiChannels.push(channel);
 		if (sendEvent) {
 			this.callEvent("channelAdded", void 0);
-			channel.setDrums(true);
+			// A new port needs the same controller/gain/preset defaults as port 0.
+			channel.reset(false);
 		}
 	}
 	/**

@@ -57,3 +57,23 @@ The tempo audio fixture also ends with Note Off followed by All Sound Off on
 the same tick. These are separate ordered events: finishing on the first final
 Note Off would drop All Sound Off. The sequencer now processes the timeline
 through its end rather than using the last voice-message tick as an early exit.
+
+## Complete event execution and output routing (2026-10-19)
+
+SMF 1.0 pp. 4-5 (PDF 6-7) permits simultaneous tracks carrying different
+classes of events, including setup and controller messages without notes.
+A track's note-channel list is metadata, not permission to discard its other
+messages. Commands continue through the complete timeline, including files
+containing only tick-zero setup. Within each track their stored order is
+preserved; simultaneous events in different tracks use stable track order.
+
+The legacy FF21 numeric port convention is also handled as event state, not
+as a retroactive property of the whole track. Each newly encountered output
+gets normal channel defaults (including melodic and percussion assignments);
+controllers and Program Changes from note-free tracks reach that output.
+FF21 is a compatibility convention, not a normative SMF 1.0 meta-event.
+
+Evidence: Player/tests/event-order.test.mjs records every dispatched event,
+checks delayed final commands and zero-duration setup, compares multi-port PCM
+bit for bit with equivalent port-zero playback, and checks timed port switches
+while earlier notes continue on the previous output.

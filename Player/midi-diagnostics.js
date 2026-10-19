@@ -59,10 +59,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
         }
       };
       try {
-        const ignoredPart = midi.isMultiPort && midi.tracks[tr].channels.size === 0 && (status === 0xb0 || status === 0xc0);
-        if (ignoredPart) record('unrouted-multiport-message', 'unsupported', 'Multi-port MIDI',
-          'Команда на дорожке без канальных нот пропускается многопортовым секвенсором.');
-        if (status === 0xb0 && !ignoredPart) {
+        if (status === 0xb0) {
           const [controller] = event.data;
           if (pedals.has(controller)) record('partial-pedal', 'partial', `CC${controller} · ${pedals.get(controller)}`,
             'Значение сохраняется для модуляторов банка; поведение педали движок не реализует.', { controller });
