@@ -1,6 +1,3 @@
-export { WebMidiPorts, midiMessages } from './web-midi.js';
-export { LiveMidiPlayer } from './live-midi.js';
-export { renderMidiDevices } from './devices-view.js';
 export { renderMidiDiagnostics } from './diagnostics-view.js';
 export { renderMidiText } from './text-view.js';
 export { renderPlaybackControls } from './playback-view.js';

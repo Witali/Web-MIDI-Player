@@ -1119,6 +1119,14 @@ see DSP-PERFORMANCE.md for phase timings and observed overhead.
 
 ## Web MIDI device input/output (20 October 2026)
 
+Disabled in normal player/catalog builds at the user's request. The modules
+and their tests remain in the source repository as an optional integration,
+documented in Player/README.md. They are no longer imported/exported by the
+file-player entry point, instantiated by the example, shown in the catalog UI
+or included in either generated runtime. A catalog update also removes these
+six known modules from previous generated exports. The implementation details
+below describe this retained, explicitly enabled capability.
+
 Reference: [W3C Web MIDI WD, 21 January 2025](https://www.w3.org/TR/2025/WD-webmidi-20250121/),
 sections 3, 4, 5.3–5.5. Permission is separate from explicit input/output
 selection. SysEx/software options are requested by controls. Failed requests
@@ -1156,8 +1164,8 @@ lifecycle, bytes, timestamps, SysEx and Thru. live-synth.test.mjs checks
 cold-load gate timing, failures, exact JS/WASM/SIMD PCM, partial reads and real
 separate recordings. live-midi.test.mjs uses the actual worker and tests
 audio startup/stop, short buffers, resampling and stale epochs. The shared
-view has action/cleanup tests. Both catalog exports include all live modules;
-the dialog and actual browser audio startup/stop were inspected. These tests
+view has action/cleanup tests. Before disabling it by default, the dialog and
+actual browser audio startup/stop were inspected. These tests
 do not prove physical-driver conformance. SMF output routing, transport
 synchronization and MIDI 2.0/UMP remain separate extensions.
 

@@ -3,6 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+// Optional external-device modules stay in the repository for explicit integrations.
+// Standard catalogs ship only the file player, including when updating an old export.
+const externalMidiModules = new Set(['web-midi.js', 'live-midi.js', 'live-synth.js', 'live-worker.js', 'live-worklet.js', 'devices-view.js']);
 const read = filename => fs.readFileSync(path.join(root, filename), 'utf8');
 
 export function renderCatalog(library) {
@@ -27,15 +30,26 @@ export function renderCatalog(library) {
 
 export function writeCatalog(directory, library) {
   fs.mkdirSync(directory, { recursive: true });
+  const playerDirectory = path.join(path.resolve(directory), 'player');
+  if (fs.existsSync(playerDirectory)) {
+    if (fs.lstatSync(playerDirectory).isSymbolicLink()) throw new Error('Player export must be a real directory.');
+    for (const name of externalMidiModules) {
+      const target = path.join(playerDirectory, name);
+      if (fs.existsSync(target)) {
+        if (!fs.lstatSync(target).isFile()) throw new Error('Unexpected external MIDI export entry: ' + name);
+        fs.unlinkSync(target);
+      }
+    }
+  }
   fs.writeFileSync(path.join(directory, 'index.html'), renderCatalog(library));
   if (library.mode !== 'public') {
     fs.cpSync(path.join(root, 'Player'), path.join(directory, 'player'), {
-      recursive: true, filter: source => !['tests', 'node_modules', '.cache', '.git'].includes(path.basename(source))
+      recursive: true, filter: source => !['tests', 'node_modules', '.cache', '.git'].includes(path.basename(source)) && !externalMidiModules.has(path.basename(source))
     });
     return;
   }
   const runtime = ['index.js', 'worker.js', 'worklet.js', 'audio-queue.js', 'midi-timing.js',
-    'soundfont-preview.js', 'active-voices.js', 'event-queue.js', 'web-midi.js', 'live-midi.js', 'live-synth.js', 'live-worker.js', 'live-worklet.js', 'devices-view.js', 'sample-dump.js', 'sample-dump-oscillator.js', 'sample-dump-bank.js', 'sample-dump-settings.js', 'midi-tuning.js', 'gs-effects.js', 'effect-dsp.js', 'xg-variation.js', 'xg-delay.js', 'xg-effect-values.js', 'xg-drive.js', 'xg-insertion-slots.js', 'xg-effect-control.js', 'xg-insertion.js', 'xg-effect-types.js', 'xg-system-effects.js', 'xg-reverb.js', 'xg-chorus.js', 'fluid-bank-mappings.js', 'synth-checkpoint.js', 'playback-settings.js', 'playback-view.js', 'loop-preview.js', 'transport-timeline.js', 'lazy-bank.js', 'release-velocity.js', 'part-controls.js', 'parts-view.js', 'midi-text.js', 'text-view.js', 'midi-diagnostics.js', 'diagnostics-view.js', 'stereo-preview.js', 'voice-dsp-state.js', 'voice-dsp-batch.js', 'voice-dsp.js',
+    'soundfont-preview.js', 'active-voices.js', 'event-queue.js', 'sample-dump.js', 'sample-dump-oscillator.js', 'sample-dump-bank.js', 'sample-dump-settings.js', 'midi-tuning.js', 'gs-effects.js', 'effect-dsp.js', 'xg-variation.js', 'xg-delay.js', 'xg-effect-values.js', 'xg-drive.js', 'xg-insertion-slots.js', 'xg-effect-control.js', 'xg-insertion.js', 'xg-effect-types.js', 'xg-system-effects.js', 'xg-reverb.js', 'xg-chorus.js', 'fluid-bank-mappings.js', 'synth-checkpoint.js', 'playback-settings.js', 'playback-view.js', 'loop-preview.js', 'transport-timeline.js', 'lazy-bank.js', 'release-velocity.js', 'part-controls.js', 'parts-view.js', 'midi-text.js', 'text-view.js', 'midi-diagnostics.js', 'diagnostics-view.js', 'stereo-preview.js', 'voice-dsp-state.js', 'voice-dsp-batch.js', 'voice-dsp.js',
     'engine', 'vendor', 'dsp/voice-mixer.wasm', 'dsp/voice-mixer-simd.wasm',
     'soundfonts/fluidr3-gm', 'licenses', 'PROVENANCE.json'];
   for (const asset of runtime) {

@@ -34,13 +34,23 @@ can show the actual FluidR3 GS presets selected.
 
 ## Live MIDI devices
 
-Both catalogs have a **MIDI-устройства** button; the portable example has the
-same controls. Choose input/output ports explicitly. Permission, local input
-sound and MIDI Thru have separate controls. Importing the library or granting
-access never chooses a device. Disconnected devices must be selected again.
+This optional capability is preserved in the source repository: external MIDI
+input/output, MIDI Thru and keyboard playback through the local sound bank.
+It is disabled in the normal player, both catalogs and the portable example.
+The default index.js entry point does not import or export the external-device
+API; generated catalog players omit its six modules and request no MIDI access.
+
+To enable it deliberately in an embedding, copy web-midi.js, live-midi.js,
+live-synth.js, live-worker.js, live-worklet.js and devices-view.js from Player/
+into the same Player/ directory as the normal runtime, then import them directly.
+Copying the complete source Player/ directory also includes these optional
+modules, but does not activate them. Choose input/output ports explicitly.
+Permission, local sound and Thru have separate controls; permission alone never
+chooses a device. Disconnected devices must be selected again.
 
 ```js
-import { LiveMidiPlayer, renderMidiDevices } from './Player/index.js';
+import { LiveMidiPlayer } from './Player/live-midi.js';
+import { renderMidiDevices } from './Player/devices-view.js';
 const live = new LiveMidiPlayer({ volume: 0.55, effects: true, dsp: 'auto' });
 const removeView = renderMidiDevices(document.querySelector('#devices'), live);
 // At teardown: removeView(); await live.dispose();
@@ -76,7 +86,7 @@ select a custom complete bank or browser bank, respectively.
 WebMidiPorts is also exported independently:
 
 ```js
-import { WebMidiPorts } from './Player/index.js';
+import { WebMidiPorts } from './Player/web-midi.js';
 const ports = new WebMidiPorts();
 // From explicit controls; inputId/outputId come from the user's selection.
 await ports.request({ sysex: false, software: false });
