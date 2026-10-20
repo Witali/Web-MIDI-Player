@@ -49,7 +49,7 @@ test('XG malformed/range failures, unknown algorithms and valid insertion select
   const rows=notices(()=>{
     s.systemExclusive(new Uint8Array([0x43,0x10,0x4c,2,1,0x42,1,128,0xf7]));
     s.systemExclusive(new Uint8Array([0x43,0x10,0x4c,2,1,0x42,0xf7]));
-    set(s,1,14861);set(s,5,0);set(s,7,11);set(s,13,3);send(s,0x57,[0]);send(s,0x5b,[64]);send(s,0x61,[0]);send(s,0x5c,[127]);
+    set(s,1,14861);set(s,5,0);set(s,7,11);set(s,13,3);send(s,0x57,[0]);send(s,0x5b,[64]);send(s,0x61,[0]);send(s,0x5a,[2]);
   });
   assert.equal(rows.length,10);assert.ok(rows.every(r=>r.kind!=='implemented'));assert.equal(fx.parameters[0],3333);assert.equal(fx.raw[0x57],64);assert.equal(fx.raw[0x5b],127);
   const insertion=notices(()=>{send(s,0x5a,[0]);send(s,0x5b,[0]);});assert.ok(insertion.every(r=>r.kind==='implemented'));

@@ -6928,14 +6928,14 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 			deferredOscillator ? voice.wavetable : null, voice.tuningRatio,
 			deferredEnvelope ? voice.volEnv : null, gainTarget);
 		voice.isActive = voice.isActive && active;
-		if (xgRoute) { xgRoute.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight); return; }
+		if (xgRoute) { xgRoute.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, voice); return; }
 		if (enabled) {
 			core.xgVariation?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.delayGain * (delaySend / 128 / 127));
 			core.xgSystemEffects?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.reverbGain * (reverbSend / 1e3), systemParameters.chorusGain * (chorusSend / 1e3));
 		}
 		return;
 	}
-	if (xgRoute) { xgRoute.capture(buffer, sampleCount, gainLeft, gainRight); return; }
+	if (xgRoute) { xgRoute.capture(buffer, sampleCount, gainLeft, gainRight, voice); return; }
 	if (this._midiParameters.efxAssign && systemParameters.effectsEnabled && core.insertionActive) {
 		const insertionL = core.insertionInputL;
 		const insertionR = core.insertionInputR;
@@ -14400,6 +14400,7 @@ function rolandSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false
 * @param channelOffset
 */
 function yamahaSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false) {
+	if (!singleEffectWrite && this.xgInsertion?.receiveSlots(syx, channelOffset)) return;
 	if (!singleEffectWrite && this.xgInsertion?.receivePart(syx, channelOffset, packet => yamahaSystemExclusive.call(this, packet, channelOffset, true))) return;
 	if (!singleEffectWrite && this.xgVariation?.receive(syx, channelOffset, packet => yamahaSystemExclusive.call(this, packet, channelOffset, true))) return;
 	if (syx[2] === 76) {
@@ -14434,8 +14435,9 @@ function yamahaSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false
 				}
 				case 127:
 				case 126:
+					if (syx.length !== 8 || syx.at(-1) !== 247 || data !== 0) { SpessaLog.xgFail("System reset", [...syx], "Malformed reset or nonzero data."); return; }
 					SpessaLog.coolInfo("MIDI System", "Yamaha XG");
-					this.reset("xg");
+					this.reset("xg", a3 === 126 ? "system-on" : "all");
 					break;
 			}
 			return;

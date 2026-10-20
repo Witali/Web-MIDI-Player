@@ -439,8 +439,12 @@ enable the documented mid EQ. Parameter pairs remain 14-bit even for controls
 whose valid value fits in seven bits. Variation Insertion also processes the
 selected part before volume/expression/pan, with Dry/Wet, post-part sends,
 Dry Level and per-note drum on/off. No Effect mutes the part while retaining
-its voices; Thru uses the original rendering path. Separate insertion slots
-and effect controller modulation remain in progress.
+its voices; Thru uses the original rendering path. Two Effect2 insertion slots
+process the same supported families in INS1 → INS2 → Variation order. Each has
+independent part assignment, Dry/Wet, valid parameter representations and limits.
+MW, pitch bend, channel pressure and assignable controllers AC1/AC2 control the
+parameter marked in Yamaha's table: Drive for drive effects, Dry/Wet for the
+other supported families. The modulation interpolation law is a host choice.
 Unsupported effect types produce an explicit Thru notice.
 See [implementation notes](specs/IMPLEMENTATION-NOTES.md) for primary sources,
-algorithm choices, coverage and PCM evidence. The effects plan item stays open.
+algorithm choices, coverage and PCM evidence.

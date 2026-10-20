@@ -700,7 +700,8 @@ kept together rather than mistaking its second byte for another command. Dry Lev
 Variation Send and Rx Channel OFF now have defined behavior. Invalid receive/mono/
 mode/key-shift values do not mutate the part. A mixer command outside XG mode is
 diagnosed instead of silently claiming active audio routing. Separate insertion
-slots and effect controller modulation are the next unfinished effect work.
+slots and effect controller modulation were the next unfinished effect work;
+see the completed Effect2 section below.
 
 Evidence: tests/xg-insertion.test.mjs checks independent delayed dry PCM on all
 three DSPs; changing volume/expression/pan after a note has entered the delay;
@@ -733,3 +734,71 @@ Evidence: tests/xg-drive.test.mjs transcribes the published default, checks
 all factory parameter limits, independent nonlinear PCM, stereo dry taps,
 real EQ gain, output mute, reset and the gate distinction. The Variation
 model suite now exercises all25 supported addresses through real MIDI.
+
+## XG Effect2 slots and effect controllers (2026-10-20)
+
+Primary references: MU100 Sound List & MIDI Data printed pp.11-16,42-45,47
+(the official PDF and SHA-256 are recorded above), and MU100 Owner's Manual
+printed pp.138,140-141. The original insertion signal-flow diagram on p.141
+was visually checked. Effect2 uses addresses03 00 and03 01, with separate
+part selection and five control depths for each slot. Both published factory
+programs are Distortion49/00, Part OFF127, all control depths64.
+
+The two slots support the same25 exact type addresses as Variation, within
+the separate-Insertion parameter ranges described in the preceding section.
+They run INS1 → INS2 → Variation before the selected part's mixer. Different
+part assignments keep independent audio paths. Main and alternate histories,
+raw bytes, base parameters, effective parameters and buffers are synth-owned
+state included in exact seek/checkpoints. All supplied bytes are dispatched
+in order; malformed framing is rejected before any writes. Unsupported slots,
+analogue inputs and unknown algorithms remain explicit diagnostics. Unused
+fields of a known algorithm are accepted as inactive fields rather than
+incorrectly diagnosed as an unknown command.
+
+MU100 pp.44-45 explicitly separates the two parameter representations:
+Delay LCR/LR/Echo/Cross use14-bit fields30..43 and do not receive02..0B;
+other supported types receive02..0B and ignore30..43. Partial writes retain
+the complementary byte, and only valid combined values reach DSP state.
+Ignored alternative representations do not alter the active parameter.
+
+The original Control dots on pp.11-16 were visually checked at high resolution:
+Drive is the controlled parameter for Distortion/Overdrive; Dry/Wet is the
+controlled parameter for the supported reverb/delay/modulation types. Effect1
+addresses5C..60 and Effect2 addresses0D..11 are signed depths centred at64.
+Sources are MW, channel pitch bend, channel pressure, AC1 and AC2. Multi Part
+addresses59 and60 assign AC1/2 CC numbers0..95, default16/17. Effect control
+listens to the assigned receiver part and is inactive for System Variation.
+Base program/raw parameter data is retained independently of the live overlay.
+The unpublished interpolation law is represented by additive normalized signed
+source/depth in parameter-data space, clamped to that parameter's legal range.
+This law is a host policy, not a claim about Yamaha's DSP coefficients.
+
+A preceding nonlinear insertion can mix drum notes whose Variation sends
+have different settings. The host keeps a second copy of each slot processing
+the component without Variation send. Variation receives full-output minus
+that alternate output; the alternate output bypasses Variation and is added
+back. This preserves full nonlinear insertion output through Variation Thru,
+and a lone Variation-OFF note bypasses Variation even after prior slots.
+For mixed nonlinear input, cross terms are attributed to participating notes.
+Yamaha does not publish that internal separation algorithm; it is an explicit
+host policy. In System connection the same decomposition weights per-note
+Variation sends before applying the part's CC94 send after its mixer.
+
+System On clears audio history but preserves Effect2 settings; All Parameter
+Reset restores them. The persistence rule is explicitly documented by Yamaha
+PSR2000E2 printed p.39, official source
+https://usa.yamaha.com/files/download/other_assets/7/321057/PSR2000E2.pdf,
+361790 bytes, SHA-256
+6e9aa74aef77f4e2df56838206d22ef936d35a55061072bfa676fb96fe299262.
+MU100 p.36 describes System On/mode entry without that explicit Effect2 rule;
+the player adopts PSR's persistence policy, rather than claiming that the MU100
+text states the same reset behavior. Malformed/nonzero reset data is rejected.
+
+Evidence: tests/xg-insertion-slots.test.mjs checks defaults/ranges, both parameter
+representations, partial/batched writes, malformed messages, analogue/reserved
+addresses, exact type fallback, independent delayed PCM through three stages,
+noncommutative drive/delay ordering, separate parts/ports and receive routing,
+all five sources on both slots and Variation, signed depth, base-state retention,
+inactive System controls, audible stored-tail modulation without voices, nonlinear
+drum bypass, resets, F0/F7, Hold2, changing types, exact seeks/checkpoints on all
+three DSPs, selective loading through the actual Worker and effects:false.

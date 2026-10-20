@@ -21,8 +21,8 @@ class SystemBlock {
   }
   parameter(p,value){
     const range=this.processor&&(this.kind==='Reverb'?reverbRange(p):chorusRange(this.type>>8,p));
-    if(!range){fail(this.kind+' parameter',[p,value],'Parameter is reserved, unused, or its effect is unavailable.');return;}
-    if(value<range[0]||value>range[1]){fail(this.kind+' parameter',[p,value],'Value outside documented range '+range.join('..')+'.');return;}
+    if(!range&&!this.processor){if(this.type===0){SpessaLog.xgInfo(this.kind+' parameter inactive',p);return;}fail(this.kind+' parameter',[p,value],'Selected effect is unavailable. Using Thru.');return;}
+    if(range&&(value<range[0]||value>range[1])){fail(this.kind+' parameter',[p,value],'Value outside documented range '+range.join('..')+'.');return;}
     this.raw[p<=10?p+1:p+5]=value;this.processor.setParameter(p,value);SpessaLog.xgInfo(this.kind+' parameter '+p,value);
   }
   render(count){

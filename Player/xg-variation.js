@@ -1,3 +1,4 @@
+import { restoreXGEffectBase } from './xg-effect-control.js';
 import { XGInsertionRouting } from './xg-insertion.js';
 import { XGSystemEffects } from './xg-system-effects.js';
 import { xgLevel } from './xg-effect-values.js';
@@ -24,7 +25,7 @@ class XGVariation {
     this.raw[0x40]=msb;this.raw[0x41]=lsb;this.type=(msb<<8)|lsb;
     this.processor=createXGEffect(this.core.sampleRate,msb,lsb);
     this.mode=this.processor?'effect':msb===0&&lsb===0?'off':'thru';
-    this.parameters=this.processor?.parameters??new Int32Array(16);
+    this.parameters=this.processor?this.processor.parameters.slice():new Int32Array(16);
     const defaults=this.processor?.parameters??new Int32Array(16);
     for(let p=1;p<=16;p++) {
       if(p<=10) {this.raw[0x42+(p-1)*2]=defaults[p-1]>>7;this.raw[0x43+(p-1)*2]=defaults[p-1]&127;}
@@ -55,10 +56,11 @@ class XGVariation {
           if(address===at && i+1<data.length)this.raw[at+1]=data[++i];decoded=(this.raw[at]<<7)|this.raw[at+1];
         }else{parameter=address-0x70+11;decoded=value;}
         const range=this.processor && xgEffectRange(this.processor,parameter);
-        if(!range){fail('Variation parameter',[parameter,decoded],'Parameter is reserved, unused, or its effect type is unavailable.');continue;}
-        if(decoded<range[0] || decoded>range[1]){fail('Variation parameter',[parameter,decoded],'Value outside documented range '+range.join('..')+'.');continue;}
-        this.enabled=true;this.processor.setParameter(parameter,decoded);SpessaLog.xgInfo('Variation parameter '+parameter,decoded);continue;
+        if(!range&&!this.processor){if(this.type===0||this.type===0x4000){SpessaLog.xgInfo('Variation parameter inactive',parameter);continue;}fail('Variation parameter',[parameter,decoded],'Selected effect is unavailable. Using Thru.');continue;}
+        if(range&&(decoded<range[0] || decoded>range[1])){fail('Variation parameter',[parameter,decoded],'Value outside documented range '+range.join('..')+'.');continue;}
+        this.enabled=true;this.parameters[parameter-1]=decoded;this.processor.setParameter(parameter,decoded);SpessaLog.xgInfo('Variation parameter '+parameter,decoded);continue;
       }
+      if(address>=0x5c&&address<=0x60){this.raw[address]=value;this.enabled=true;SpessaLog.xgInfo('Variation controller depth',value);continue;}
       const range=address===0x57?[1,127]:address===0x5a?[0,1]:address>=0x56&&address<=0x5b?[0,127]:null;
       if(!range) {fail('Variation parameter',[address,value],'Reserved address or unsupported controller modulation.');continue;}
       if(value<range[0]||value>range[1] || (address===0x5b&&value>31&&value!==127)) {
@@ -78,6 +80,7 @@ class XGVariation {
     if(!this.active) return;
     // The part routing stage processes insertion connection before the mixer.
     if(this.raw[0x5a]!==1) return;
+    restoreXGEffectBase(this);
     if(this.processor)this.processor.process(this.inputL,this.inputR,this.outputL,this.outputR,count);
     else if(this.mode==='thru'){this.outputL.set(this.inputL);this.outputR.set(this.inputR);}
     else{this.outputL.fill(0);this.outputR.fill(0);}
@@ -98,6 +101,6 @@ export function installXGVariation(synth) {
   core.xgSystemEffects=new XGSystemEffects(core);
   core.xgVariation=new XGVariation(core);
   core.xgInsertion=new XGInsertionRouting(core);
-  const reset=core.reset.bind(core);core.reset=(...args)=>{reset(...args);core.xgVariation.reset();core.xgSystemEffects.reset();core.xgInsertion.reset();};
+  const reset=core.reset.bind(core);core.reset=(...args)=>{reset(...args);core.xgVariation.reset();core.xgSystemEffects.reset();core.xgInsertion.reset(args[1]==='system-on');};
   return core.xgVariation;
 }
