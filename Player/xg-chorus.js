@@ -47,10 +47,11 @@ export class XGChorus {
     const at=(this.position-delay+buffer.length)%buffer.length,index=Math.floor(at),fraction=at-index;
     return buffer[index]+(buffer[(index+1)%buffer.length]-buffer[index])*fraction;
   }
-  process(inputL,inputR,outputL,outputR,count){
+  process(inputL,inputR,outputL,outputR,count,dryL,dryR){
     const p=this.parameters,mono=this.type!==0x43&&p[14]===0,feedback=(p[2]-64)/64,taps=this.type===0x42?3:1;
     for(let i=0;i<count;i++){
       let l=this.midL.process(this.highL.process(this.lowL.process(inputL[i]))),r=this.midR.process(this.highR.process(this.lowR.process(inputR[i])));
+      if(dryL){dryL[i]=l;dryR[i]=r;}
       if(mono)l=r=(l+r)*.5;
       const writeL=l+feedback*this.feedbackL,writeR=r+feedback*this.feedbackR;
       let outL=0,outR=0;

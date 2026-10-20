@@ -44,10 +44,11 @@ export class XGDelay {
     const at=Math.floor(position),fraction=position-at;
     return buffer[at]+(buffer[(at+1)%buffer.length]-buffer[at])*fraction;
   }
-  process(inputL,inputR,outputL,outputR,count) {
+  process(inputL,inputR,outputL,outputR,count,dryL,dryR) {
     const p=this.parameters,feedback=value=>(value-64)/64;
     for(let i=0;i<count;i++) {
       const l=this.highL.process(this.lowL.process(inputL[i])),r=this.highR.process(this.lowR.process(inputR[i]));
+      if(dryL){dryL[i]=l;dryR[i]=r;}
       let outL,outR,writeL,writeR;
       if(this.type===5) {
         const center=this.tap(this.left,p[2])*p[5]/127*Math.SQRT1_2,feed=this.tap(this.left,p[3]);

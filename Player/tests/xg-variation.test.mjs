@@ -44,7 +44,7 @@ test('MU100 Effect1 defaults, 14-bit units and partial parameter/type writes fol
   assert.equal(XG_EQ_FREQUENCY[4],32);assert.equal(XG_EQ_FREQUENCY[28],500);assert.equal(XG_EQ_FREQUENCY[40],2000);assert.equal(XG_EQ_FREQUENCY[58],16000);
 });
 
-test('XG malformed/range failures, unknown algorithms and unimplemented insertion are explicit and never silently accepted',async()=>{
+test('XG malformed/range failures, unknown algorithms and valid insertion selection are explicit and never silently accepted',async()=>{
   const s=await synth(),fx=s.synthCore.xgVariation;send(s,0x5a,[1]);
   const rows=notices(()=>{
     s.systemExclusive(new Uint8Array([0x43,0x10,0x4c,2,1,0x42,1,128,0xf7]));
@@ -52,7 +52,7 @@ test('XG malformed/range failures, unknown algorithms and unimplemented insertio
     set(s,1,14861);set(s,5,0);set(s,7,11);set(s,13,3);send(s,0x57,[0]);send(s,0x5b,[64]);send(s,0x61,[0]);send(s,0x5c,[127]);
   });
   assert.equal(rows.length,10);assert.ok(rows.every(r=>r.kind!=='implemented'));assert.equal(fx.parameters[0],3333);assert.equal(fx.raw[0x57],64);assert.equal(fx.raw[0x5b],127);
-  const insertion=notices(()=>{send(s,0x5a,[0]);send(s,0x5b,[0]);});assert.ok(insertion.some(r=>r.reason?.includes('before part volume/pan')));
+  const insertion=notices(()=>{send(s,0x5a,[0]);send(s,0x5b,[0]);});assert.ok(insertion.every(r=>r.kind==='implemented'));
   const unknown=notices(()=>send(s,0x40,[0x7f,0x7f]));assert.equal(fx.mode,'thru');assert.ok(unknown.some(r=>r.reason?.includes('Thru')));
   const unsupported=notices(()=>send(s,0x16,[1,0,10,11]));assert.equal(unsupported.filter(r=>r.kind!=='implemented').length,4,'all bytes of a reserved Effect1 record must still be diagnosed');
 });
@@ -113,14 +113,14 @@ test('System Variation retains stereo CC94 sends and ignores insertion-only Dry/
   }
 });
 
-test('unsupported insertion uses diagnosed Thru; No Effect disables the System bus; effects:false preserves exact dry PCM',async()=>{
+test('insertion Thru retains original PCM; No Effect disables the System bus; effects:false preserves exact dry PCM',async()=>{
   const plain=midi([event(reset),...tone]);
-  const insert=midi([...setup(5),event(packet(0x5a,[0,0])),...tone]);
+  const insert=midi([...setup(5),event(packet(0x40,[0x40,0])),event(packet(0x5a,[0,0])),...tone]);
   const off=midi([...setup(5),event(packet(0x40,[0,0])),...tone]);
   const wet=midi([...setup(5),...tone]);
   for(const dsp of ['js','wasm','wasm-simd']){
     const previews=await Promise.all([plain,insert,off,wet,plain].map((bytes,i)=>createSoundFontPreview(bytes,prepared.bank,{dsp,effects:i<3})));
-    try{assert.ok(previews[1].stats.diagnostics.entries.some(r=>r.reason?.includes('before part volume/pan')));
+    try{assert.equal(previews[1].stats.diagnostics.summary.unsupported,0);
       const pcm=previews.map(p=>p.read(72000));samePCM(pcm[0],pcm[1],'insertion fallback');samePCM(pcm[0],pcm[2],'System No Effect');samePCM(pcm[3],pcm[4],'effects:false dry identity');
     }finally{previews.forEach(p=>p.close());}
   }

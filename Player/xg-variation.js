@@ -1,3 +1,4 @@
+import { XGInsertionRouting } from './xg-insertion.js';
 import { XGSystemEffects } from './xg-system-effects.js';
 import { xgLevel } from './xg-effect-values.js';
 export { xgLevel } from './xg-effect-values.js';
@@ -32,10 +33,6 @@ class XGVariation {
     if(report && this.mode==='thru' && !(msb===0x40 && lsb===0)) fail('Variation effect',[msb,lsb],'Unsupported effect type. Using Thru.');
     else if(report)SpessaLog.xgInfo('Variation type',[msb,lsb]);
   }
-  warnInsertion() {
-    if(this.raw[0x5a]===0 && this.raw[0x5b]!==127)
-      fail('Variation insertion',[this.raw[0x5b]],'Insertion before part volume/pan is not implemented yet. Using Thru.');
-  }
   receive(syx,channelOffset,dispatch) {
     if(syx[2]!==0x4c || syx[3]!==2 || syx[4]!==1) return false;
     if((syx[1]&0xf0)!==0x10) {fail('Effect message',Array.from(syx),'Only XG Parameter Change is implemented; bulk dumps require their own decoder.');return true;}
@@ -50,7 +47,7 @@ class XGVariation {
       if(address===0x40 || address===0x41) {
         let msb=this.raw[0x40],lsb=this.raw[0x41];
         if(address===0x40){msb=value;if(i+1<data.length)lsb=data[++i];}else lsb=value;
-        this.enabled=true;this.select(msb,lsb);this.warnInsertion();continue;
+        this.enabled=true;this.select(msb,lsb);continue;
       }
       if((address>=0x42&&address<=0x55)||(address>=0x70&&address<=0x75)) {
         this.raw[address]=value;let parameter,decoded;
@@ -69,7 +66,6 @@ class XGVariation {
       }
       this.raw[address]=value;this.enabled=true;if(address===0x5b)this.partOffset=channelOffset;
       SpessaLog.xgInfo('Variation control '+address.toString(16),value);
-      if(address===0x5a || address===0x5b)this.warnInsertion();
     }
     if(this.enabled && !this.active) fail('Variation system mode',[],'Configured XG Variation outside XG mode. Audio routing requires XG System On.');
     return true;
@@ -80,9 +76,8 @@ class XGVariation {
   }
   process(outputL,outputR,reverb,chorus,start,count) {
     if(!this.active) return;
-    // Keep the delay clock advancing while an unsupported insertion route is
-    // bypassed, so switching back cannot resume a frozen old System tail.
-    if(this.raw[0x5a]!==1) { if(this.processor)this.processor.process(this.inputL,this.inputR,this.outputL,this.outputR,count); return; }
+    // The part routing stage processes insertion connection before the mixer.
+    if(this.raw[0x5a]!==1) return;
     if(this.processor)this.processor.process(this.inputL,this.inputR,this.outputL,this.outputR,count);
     else if(this.mode==='thru'){this.outputL.set(this.inputL);this.outputR.set(this.inputR);}
     else{this.outputL.fill(0);this.outputR.fill(0);}
@@ -102,6 +97,7 @@ export function installXGVariation(synth) {
   const core=synth.synthCore;if(core.xgVariation)return core.xgVariation;
   core.xgSystemEffects=new XGSystemEffects(core);
   core.xgVariation=new XGVariation(core);
-  const reset=core.reset.bind(core);core.reset=(...args)=>{reset(...args);core.xgVariation.reset();core.xgSystemEffects.reset();};
+  core.xgInsertion=new XGInsertionRouting(core);
+  const reset=core.reset.bind(core);core.reset=(...args)=>{reset(...args);core.xgVariation.reset();core.xgSystemEffects.reset();core.xgInsertion.reset();};
   return core.xgVariation;
 }

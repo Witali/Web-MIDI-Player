@@ -655,3 +655,57 @@ now contracts its tap offsets as density increases, in addition to increasing
 the reflection count. Previously it only added farther taps. Initial Delay
 remains unchanged. An independent impulse test checks the first and next
 reflection times and the higher concentration inside a fixed time window.
+
+
+## XG Variation Insertion and part mixer (2026-10-20)
+
+MU100 Owner's Manual printed pp.136-141 places Variation Insertion before part
+volume/expression/pan. Sound List & MIDI Data pp.11-16,30,42,46,50 defines
+insertion Dry/Wet, the inactive System-only controls, Variation Part, Multi Part
+Dry Level/Variation Send, and per-drum-note Variation Send. Their original PDFs
+and hashes are recorded above. XG drum Variation Send defaults to 127, whereas
+the shared GS reset previously gave 0; this default is now separated by mode.
+
+The selected part is summed into an owned stereo insertion bus. Attenuation
+sources CC7/11 and pan source CC10 are evaluated at neutral values for the audio
+stage only; original controllers, SF2 generators and modulator results remain
+intact. Pitch/filter/envelope and other source modulation still use live MIDI.
+The normal path remains bit-identical for unprocessed parts and Thru/fallback.
+When an existing voice enters or leaves the insertion bus, its previous envelope
+gain is rescaled without restarting clocks, samples, gates or release; the bound
+native envelope state is committed consistently. Hold2 and exact checkpoints
+retain these additional fields and the part buses, including after type changes.
+
+Processing follows the block's dry-tap diagram: delay/modulation dry paths use
+their pre-effect EQ, while Reverb dry paths branch before mono input filtering.
+Insertion applies the Dry/Wet balance, then part volume/expression/pan and the
+host gain/pan. Chorus/Reverb sends precede Dry Level. System-only Variation
+return/pan/send controls are retained but inactive here. No Effect produces a
+silent selected part without deleting notes; Thru bypasses the extra pipeline.
+CC94 is retained without changing insertion selection. Multi Part Variation Send
+selects/clears the part in Insertion connection, and controls CC94 depth in System.
+Per-note drum Variation OFF keeps that note on its original independent path.
+
+The post-part mixer uses a continuous squared gain curve with 14-bit controller
+values and a stereo mid/side pan model; the Dry/Wet law is a linear balance.
+Those curves are host choices, not published Yamaha coefficients. In this stage,
+SF2 volume/pan sources define neutral instrument input rather than applying those
+controls twice. Post-insertion Chorus/Reverb sends use the part's MIDI controls,
+as in the device graph, rather than per-voice SF2 effect-send levels. Existing
+ordinary SoundFont paths, including their bank-specific curves, remain unchanged.
+
+Multi Part messages are framing/range checked before dispatch, and every payload
+byte is consumed. Existing unsupported fields remain explicit; two-byte Detune is
+kept together rather than mistaking its second byte for another command. Dry Level,
+Variation Send and Rx Channel OFF now have defined behavior. Invalid receive/mono/
+mode/key-shift values do not mutate the part. A mixer command outside XG mode is
+diagnosed instead of silently claiming active audio routing. Separate insertion
+slots and effect controller modulation are the next unfinished effect work.
+
+Evidence: tests/xg-insertion.test.mjs checks independent delayed dry PCM on all
+three DSPs; changing volume/expression/pan after a note has entered the delay;
+unchanged feedback memory during those changes; 14-bit LSB gain; host mute/gain;
+Dry/Wet versus inactive System controls; isolated No Effect/Thru; serial sends
+with Dry Level 0; Multi Part payload ordering/malformed records; independent ports
+and actual receive-part routing; NRPN 31 per-note drum gating/defaults; Hold2,
+F0/F7, live types, exact seek/checkpoint PCM, real Worker and effects:false.

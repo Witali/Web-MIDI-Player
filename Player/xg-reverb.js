@@ -38,11 +38,12 @@ export class XGReverb {
     const at=(position-delay+buffer.length)%buffer.length,index=Math.floor(at),fraction=at-index;
     return buffer[index]+(buffer[(index+1)%buffer.length]-buffer[index])*fraction;
   }
-  process(inputL,inputR,outputL,outputR,count){
+  process(inputL,inputR,outputL,outputR,count,dryL,dryR){
     const p=this.parameters,feedback=(p[14]-64)/64,reflectionCount=2+p[11];
     const earlyGain=p[12]<=64?1:(127-p[12])/63,lateGain=p[12]>=64?1:(p[12]-1)/63;
     const values=this.values;
     for(let frame=0;frame<count;frame++){
+      if(dryL){dryL[frame]=inputL[frame];dryR[frame]=inputR[frame];}
       const mono=(inputL[frame]+inputR[frame])*.5;
       const l=this.lpL.process(this.hpL.process(this.block==='system'?inputL[frame]:mono)),r=this.lpR.process(this.hpR.process(this.block==='system'?inputR[frame]:mono));
       const firstL=this.tap(this.left,this.position,this.initialDelay,l),firstR=this.tap(this.right,this.position,this.initialDelay,r);

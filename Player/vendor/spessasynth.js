@@ -6771,6 +6771,8 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	const core = this.synthCore;
 	const sampleRate = core.sampleRate;
 	const modulated = voice.modulatedGenerators;
+	const xgRoute = core.xgInsertion?.route(this, voice);
+	const prePart = xgRoute?.voiceParameters(voice);
 	let targetKey = voice.targetKey;
 	let cents = voice.pitchOffset + modulated[GeneratorTypes.fineTune] + this.octaveTuning[targetKey] + this.currentTuning;
 	let semitones = modulated[GeneratorTypes.coarseTune];
@@ -6830,7 +6832,12 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		voice.tuningCents = centsRounded;
 		voice.tuningRatio = Math.pow(2, centsTotal / 1200);
 	}
-	const gainTarget = cbAttenuationToGain(modulated[GeneratorTypes.initialAttenuation]) * cbAttenuationToGain(volumeExcursionCentibels);
+	const gainTarget = cbAttenuationToGain(prePart ? prePart[0] : modulated[GeneratorTypes.initialAttenuation]) * cbAttenuationToGain(volumeExcursionCentibels);
+	if (!!xgRoute !== !!voice.xgRenderInsertion) {
+		if (voice.envelopeTarget > 0) voice.volEnv.outputGain *= gainTarget / voice.envelopeTarget;
+		voice.volEnv._cCommit?.();
+	}
+	voice.xgRenderInsertion = !!xgRoute;
 	voice.envelopeTarget = gainTarget;
 	if (voice.loopingMode === 2 && !voice.isInRelease) {
 		if (!hold2) voice.isActive = voice.volEnv.process(sampleCount, gainTarget);
@@ -6897,29 +6904,38 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		pan = voice.currentPan;
 	}
 	const { systemParameters } = core;
-	const outputGain = this.currentGain * voiceGain;
-	const index = Math.min(Math.max(-500, pan + this.currentPan), 500) + 500 | 0;
+	const outputGain = (xgRoute ? 1 : this.currentGain) * voiceGain;
+	if (xgRoute) {
+		const targetPan = voice.xgInstrumentPanOverride || prePart[1];
+		voice.xgCurrentPan ??= targetPan;
+		voice.xgCurrentPan += (targetPan - voice.xgCurrentPan) * core.panSmoothingFactor;
+		pan = voice.xgCurrentPan;
+	}
+	const index = Math.min(Math.max(-500, pan + (xgRoute ? 0 : this.currentPan)), 500) + 500 | 0;
 	const gainLeft = panTableLeft[index] * outputGain;
 	const gainRight = panTableRight[index] * outputGain;
+	const xgDry = core.xgInsertion?.dryLevel(this) ?? 1;
 	if (dsp) {
 		const enabled = systemParameters.effectsEnabled;
 		const reverbSend = modulated[GeneratorTypes.reverbEffectsSend] * voice.reverbSend;
 		const chorusSend = modulated[GeneratorTypes.chorusEffectsSend] * voice.chorusSend;
 		const delaySend = this._midiControllers[MIDIControllers.variationDepth] * voice.delaySend;
-		const active = dsp.render(voice.filter, filterEnabled, gain, gainInc, sampleCount, gainLeft, gainRight,
-			enabled && reverbSend > 0 ? systemParameters.reverbGain * outputGain * (reverbSend / 1e3) : 0,
-			enabled && chorusSend > 0 ? systemParameters.chorusGain * (chorusSend / 1e3) * outputGain : 0,
-			enabled && core.delayActive && delaySend > 0 ? outputGain * systemParameters.delayGain * ((delaySend >> 7) / 127) : 0,
-			!!(this._midiParameters.efxAssign && enabled && core.insertionActive),
+		const active = dsp.render(voice.filter, filterEnabled, gain, gainInc, sampleCount, xgRoute ? 0 : gainLeft * xgDry, xgRoute ? 0 : gainRight * xgDry,
+			enabled && !xgRoute && reverbSend > 0 ? systemParameters.reverbGain * outputGain * (reverbSend / 1e3) : 0,
+			enabled && !xgRoute && chorusSend > 0 ? systemParameters.chorusGain * (chorusSend / 1e3) * outputGain : 0,
+			enabled && !xgRoute && core.delayActive && delaySend > 0 ? outputGain * systemParameters.delayGain * ((delaySend >> 7) / 127) : 0,
+			!!(!xgRoute && this._midiParameters.efxAssign && enabled && core.insertionActive),
 			deferredOscillator ? voice.wavetable : null, voice.tuningRatio,
 			deferredEnvelope ? voice.volEnv : null, gainTarget);
 		voice.isActive = voice.isActive && active;
+		if (xgRoute) { xgRoute.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight); return; }
 		if (enabled) {
 			core.xgVariation?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.delayGain * (delaySend / 128 / 127));
 			core.xgSystemEffects?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.reverbGain * (reverbSend / 1e3), systemParameters.chorusGain * (chorusSend / 1e3));
 		}
 		return;
 	}
+	if (xgRoute) { xgRoute.capture(buffer, sampleCount, gainLeft, gainRight); return; }
 	if (this._midiParameters.efxAssign && systemParameters.effectsEnabled && core.insertionActive) {
 		const insertionL = core.insertionInputL;
 		const insertionR = core.insertionInputR;
@@ -6933,8 +6949,8 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	for (let i = 0; i < sampleCount; i++) {
 		const s = buffer[i];
 		const idx = i + startIndex;
-		outputL[idx] += gainLeft * s;
-		outputR[idx] += gainRight * s;
+		outputL[idx] += gainLeft * s * xgDry;
+		outputR[idx] += gainRight * s * xgDry;
 	}
 	if (!systemParameters.effectsEnabled) return;
 	const reverbSend = modulated[GeneratorTypes.reverbEffectsSend] * voice.reverbSend;
@@ -8018,6 +8034,7 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 	}
 	const voices = this.synthCore.getVoices(this.channel, soundBankNote, realVelocity);
 	let panOverride = 0;
+	let xgInstrumentPanOverride = 0;
 	let exclusiveOverride = 0;
 	let pitchOffset = 0;
 	let reverbSend = 1;
@@ -8030,6 +8047,7 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 		const drumPan = p.pan - 64;
 		if (drumPan !== 0) if (drumPan === -64) panOverride = Math.round(this.synthCore.randomGenerator() * 1e3 - 500);
 		else {
+			xgInstrumentPanOverride = Math.max(-63, Math.min(drumPan, 63)) / 63 * 500 || 1;
 			const channelPan = (this._midiControllers[MIDIControllers.pan] >> 7) - 64;
 			panOverride = Math.max(-63, Math.min(drumPan + channelPan, 63)) / 63 * 500 || 1;
 		}
@@ -8113,6 +8131,9 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 		voice.portamentoFromKey = portaFromKey;
 		voice.portamentoDuration = portaTime;
 		voice.overridePan = panOverride;
+		voice.xgInstrumentPanOverride = xgInstrumentPanOverride || panOverride;
+		voice.xgCurrentPan = undefined;
+		voice.xgRenderInsertion = false;
 		voice.gainModifier = voiceGain;
 		voice.pitchOffset = pitchOffset;
 		voice.reverbSend = reverbSend;
@@ -13317,7 +13338,7 @@ var MIDIChannel = class {
 			p.pan = 64;
 			p.reverbGain = DEFAULT_DRUM_REVERB[i] / 127;
 			p.chorusGain = this.channelSystem === "xg" ? DEFAULT_DRUM_REVERB[i] / 127 : 0;
-			p.delayGain = 0;
+			p.delayGain = this.channelSystem === "xg" ? 1 : 0;
 			p.rxNoteOn = true;
 			p.rxNoteOff = false;
 		}
@@ -14379,6 +14400,7 @@ function rolandSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false
 * @param channelOffset
 */
 function yamahaSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false) {
+	if (!singleEffectWrite && this.xgInsertion?.receivePart(syx, channelOffset, packet => yamahaSystemExclusive.call(this, packet, channelOffset, true))) return;
 	if (!singleEffectWrite && this.xgVariation?.receive(syx, channelOffset, packet => yamahaSystemExclusive.call(this, packet, channelOffset, true))) return;
 	if (syx[2] === 76) {
 		const a1 = syx[3];
@@ -20282,6 +20304,7 @@ var SynthesizerCore = class {
 		this.chorusInput.fill(0);
 		if (this.xgVariation?.active) this.xgVariation.begin();
 		if (this.xgSystemEffects?.active) this.xgSystemEffects.begin();
+		this.xgInsertion?.begin();
 		if (this.delayActive) this.delayInput.fill(0);
 		if (this.insertionActive) {
 			this.insertionInputL.fill(0);
@@ -20308,6 +20331,7 @@ var SynthesizerCore = class {
 		if (this.systemParameters.effectsEnabled) {
 			const { chorusInput, delayInput, reverbInput, insertionInputR, insertionInputL } = this;
 			if (this.insertionActive) this.insertionProcessor.process(insertionInputL, insertionInputR, effectsLeft, effectsRight, reverbInput, chorusInput, delayInput, startIndex, sampleCount);
+			this.xgInsertion?.process(effectsLeft, effectsRight, startIndex, sampleCount);
 			this.xgVariation?.process(effectsLeft, effectsRight, reverbInput, chorusInput, startIndex, sampleCount);
 			if (this.xgSystemEffects?.active) this.xgSystemEffects.process(effectsLeft, effectsRight, startIndex, sampleCount);
 			else {

@@ -436,8 +436,11 @@ System-only and insertion-only parameters retain their specified applicability.
 XG Variation in System mode supports all those families (23 programs). Its
 Reverb input is summed before HPF/LPF/early reflections; Chorus/Celeste/Flanger
 enable the documented mid EQ. Parameter pairs remain 14-bit even for controls
-whose valid value fits in seven bits. Insertion before the part's volume/pan,
-separate insertion slots and effect controller modulation remain in progress.
-Selecting an unsupported insertion route produces an explicit Thru notice.
+whose valid value fits in seven bits. Variation Insertion also processes the
+selected part before volume/expression/pan, with Dry/Wet, post-part sends,
+Dry Level and per-note drum on/off. No Effect mutes the part while retaining
+its voices; Thru uses the original rendering path. Separate insertion slots
+and effect controller modulation remain in progress.
+Unsupported effect types produce an explicit Thru notice.
 See [implementation notes](specs/IMPLEMENTATION-NOTES.md) for primary sources,
 algorithm choices, coverage and PCM evidence. The effects plan item stays open.
