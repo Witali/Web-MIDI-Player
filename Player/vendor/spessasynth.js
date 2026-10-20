@@ -249,7 +249,7 @@ function writeVariableLengthQuantity(number) {
 * purpose: contains some useful functions that don't belong in any specific category
 */
 function splitmix32(a) {
-	return function() {
+	const next = function() {
 		a |= 0;
 		a = a + 2654435769 | 0;
 		let t = a ^ a >>> 16;
@@ -258,6 +258,8 @@ function splitmix32(a) {
 		t = Math.imul(t, 1935289751);
 		return ((t ^ t >>> 15) >>> 0) / 4294967296;
 	};
+	Object.defineProperty(next, "state", { get: () => a, set: value => { a = value | 0; } });
+	return next;
 }
 // Random pan belongs to each synthesizer, so replay/seek is deterministic.
 /**
@@ -5120,13 +5122,17 @@ function processEventInternal(event, trackIndex, decoded = false) {
 * Processes a single MIDI tick.
 * Call this every rendering quantum to process the sequencer events in real-time.
 */
-function processTick() {
+function processTick(through = undefined) {
 	if (this.paused || !this._midiData) return;
-	const currentTime = this.currentTime;
-	while (this.playedTime < currentTime) {
+	const currentTime = through ?? this.currentTime;
+	while (true) {
 		const { timeline, tracks, loop } = this._midiData;
-		const e = timeline[this.index++];
+		const e = timeline[this.index];
 		const event = tracks[e.tr].events[e.ev];
+		// Explicit B includes its commands using the absolute tempo map. The
+		// incremental playback clock can differ by a few floating-point ULPs.
+		if (!(through === undefined ? this.playedTime < currentTime : this._midiData.midiTicksToSeconds(event.ticks) <= currentTime)) break;
+		this.index++;
 		this.processEvent(event, e.tr);
 		if (this.loopCount > 0 && loop.end <= event.ticks) {
 			if (this.loopCount !== Infinity) {

@@ -372,3 +372,54 @@ tempo changes, SMPTE, trailing events, explicit/automatic decoding, karaoke
 read/write round trips, GS/XG partial letters/bitmaps, invalid bounds/checksum,
 F0/F7 completion, independent devices, unchanged PCM on JS/WASM/SIMD and exact
 seek, public Worker text events, stop, configuration edits and new-file reset.
+
+
+## Host speed, pitch and A/B transport (2026-10-20)
+
+SMF RP-001 p. 6 (PDF 8) defines delta times and timed F0/F7 packets; p. 9
+(PDF 11) specifies Set Tempo in microseconds per quarter note and End Of Track
+as the exact track ending, including looped/concatenated sequences. Existing
+PPQN tempo maps and SMPTE normalization remain unchanged. Host rate scales
+sequencer time, rather than sample playback speed or individual MIDI commands.
+All commands retain their order. Source seconds remain the public coordinate.
+The ending release/effect tail stays in real synthesis time.
+
+MIDI 1.0 pp. 10–11 (PDF 15–16) defines key/velocity and matched release
+messages; pp. 47–49 (PDF 52–54) defines MIDI Tuning Standard and the real-time
+single-note tuning payload. Host transpose adds a system pitch offset to the
+receiver, preserving original MIDI key identities, sample selection, MTS,
+bend and portamento. Drum channels ignore this host offset. Transpose does
+not rewrite Note On/Off keys or clamp them at 0/127. Tests compare it with
+independent SoundFont pitch-generator changes, including MTS and portamento.
+
+Speed/pitch bounds, whole-score configuration, exact reconstruction, A/B and
+their UI are host policies, not new MIDI requirements. The audio interval is
+[A, B); the sequencer explicitly dispatches every command at B inclusively
+before restoring A. This inclusive check uses the absolute tempo map rather
+than the accumulated playback clock, avoiding floating-point drift without
+adding an epsilon that might include later commands. It does not dispatch
+later commands while this loop is
+active. The no-PCM compatibility inspection still covers the whole file.
+Lyrics/display presentation excludes B and restores A on the audible wrap.
+No message is silently removed to implement transport controls.
+
+Checkpoints restore mutable synth/sequence state in place, including the
+pending 128-frame remainder, byte decoder, voice gates, pedal capture, random
+pan and native DSP/effect buffers. Immutable bank/MIDI data and monotonic sample
+caches/allocators are retained. Channel topology is preallocated from complete
+inspection. Later voice-pool or WASM memory growth does not invalidate a saved
+state; bound native views are refreshed. This is exact repeated-prefix state,
+without accumulating the previous cycle's tail or smoothing its PCM seam.
+
+Worker spans map actually consumed PCM frames to source time across wraps.
+The AudioWorklet reports loops only after consumption, accounts for device
+resampling, and freezes source position during underruns. Epochs reject old
+PCM and metadata. New files restore constructor rate/transpose and clear loops.
+
+Evidence: Player/tests/playback-settings.test.mjs, checkpoint.test.mjs and
+worklet-loop.test.mjs cover tempo rewrites, every SMPTE mode, independent pitch
+references/MTS, unchanged percussion, arbitrary A/B frames, exact PCM on
+JS/WASM/SIMD, ordered B commands versus later commands (including a 300-tempo-change drift
+regression), whole-song End Of Track, partial SysEx, wet
+state, RNG, memory/pool growth, exact seeks, Worker cancellation/sample reuse,
+public API/defaults, audible lyrics and 44.1 kHz output timing/underruns/EOF.

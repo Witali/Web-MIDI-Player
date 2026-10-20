@@ -71,6 +71,17 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
     core: exports.dsp_abi_version ? 'c' : 'wat',
     stateful: !!exports.dsp_process_voice_envelope,
     get left() { return left; }, get right() { return right; },
+    get memoryBuffer() { return memory.buffer; },
+    checkpoint() {
+      // Copy mutable bindings and the C static layout, not immutable PCM or
+      // the monotonic allocation/cache bookkeeping held by this closure.
+      const blocks = [{ offset: 0, bytes: new Uint8Array(memory.buffer, 0, Math.max(65536, Number(exports.__heap_base?.value || 65536))).slice() },
+        ...bindings.map(b => ({ offset: b.offset, bytes: new Uint8Array(memory.buffer, b.offset, b.length * b.Type.BYTES_PER_ELEMENT).slice() }))];
+      return { buffer: memory.buffer, bytes: blocks.reduce((n, b) => n + b.bytes.length, 0), restore() {
+        for (const block of blocks) new Uint8Array(memory.buffer, block.offset, block.bytes.length).set(block.bytes);
+        refresh();
+      } };
+    },
     render(filter, enabled, gain, increment, count, gainLeft, gainRight, reverb, chorus, delay, insertion, wave, tuningRatio, envelope, target) {
       let pointer = 0;
       if (wave) {

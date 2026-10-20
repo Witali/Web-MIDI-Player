@@ -57,16 +57,18 @@ export class MidiTextCollector {
   }
 }
 export class MidiTextTimeline {
-  constructor(info = { events: [] }) { this.events = info.events; this.frames = this.events.map(e => Math.round(e.seconds * 48000)); this.reset(); }
+  constructor(info = { events: [] }) { this.events = info.events; this.rate = 1; this.frames = this.events.map(e => Math.round(e.seconds * 48000)); this.reset(); }
   reset() { this.cursor = 0; this.lyrics = new Map(); this.displays = new Map(); this.marker = this.cue = null; }
-  at(seconds, { discontinuous = false } = {}) {
+  at(seconds, { discontinuous = false, endExclusive = Infinity, rate = 1 } = {}) {
     if (!Number.isFinite(seconds)) throw new TypeError('Text time must be finite.');
+    if (!Number.isFinite(rate) || rate <= 0) throw new RangeError('Text playback rate must be positive.');
+    if (rate !== this.rate) { this.rate = rate; this.frames = this.events.map(e => Math.round(e.seconds / rate * 48000)); this.reset(); }
     // Seeking rounds to the same 48 kHz frame. A fractional-frame marker
     // must remain selected when the user seeks to its exact metadata time.
-    const frame = Math.round(seconds * 48000);
+    const frame = Math.round(seconds / rate * 48000);
     if (discontinuous || (this.cursor && this.frames[this.cursor - 1] > frame)) this.reset();
     const crossed = [];
-    while (this.cursor < this.events.length && this.frames[this.cursor] <= frame) {
+    while (this.cursor < this.events.length && this.frames[this.cursor] <= frame && this.events[this.cursor].seconds < endExclusive) {
       const event = this.events[this.cursor++]; crossed.push(event);
       if (event.lyric) {
         let text = event.text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');

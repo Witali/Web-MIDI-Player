@@ -78,6 +78,64 @@ cancels obsolete work. Reverse seeking costs CPU proportional to the prefix.
 The MIDI specification does not prescribe a seek algorithm; exact reconstruction
 is this player's policy. See [specification notes](specs/IMPLEMENTATION-NOTES.md).
 
+## Speed, transpose and looping
+
+These host controls require the SoundFont engine. Constructor options
+`playbackRate` (default 1) and `transpose` (default 0) provide new-load defaults.
+After loading, call `await player.setPlayback(changes)` with any subset of:
+
+- `rate`: finite 0.25–4. This scales the sequencer clock and every PPQN tempo
+  segment, preserving pitch and real-time instrument envelopes. Explicit host
+  rate also scales SMPTE playback; tempo events still do not alter SMPTE timing.
+- `transpose`: integer −48…+48 semitones. A global synth pitch offset adds to
+  MIDI tuning, bend, MTS and portamento. Original MIDI keys, key-dependent
+  modulators, sample regions and Note On/Off identities stay intact; drum
+  channels are unchanged. Pitch shifting does not select a new sample region.
+- `loop`: `null`/`false` disables repeat; `true` repeats the entire original
+  sequence through End Of Track; `{ start, end }` repeats A/B. Bounds must fit
+  `metadata.sourceDuration`, excluding the ending effect tail, and span at least
+  128 output PCM frames (about 2.67 ms). Boundary precision is one output frame.
+
+`currentTime`, `duration`, seek targets, text timestamps and A/B use **original
+file seconds**. At rate 2 the source position advances two seconds per real
+second. `duration` includes a dynamic tail estimate in the same coordinate;
+initial two-second real tail headroom therefore adds `2 * rate` source seconds.
+
+Settings apply to the whole score, then reconstruct the current position with
+those settings, including notes and wet effects. Audio is suspended during
+preparation. A newer seek/load cancels obsolete reconstruction. Failed preparation
+retains the previous preview. Read defensive `player.playback`, `playbackRate`,
+`transpose` and `loop` values; `playbackchange` reports accepted settings.
+
+A/B repeats the exact continuous-render PCM slice [A, B). Every MIDI command
+at B is dispatched in file order before restoring A; commands after B wait
+until the user changes/disables that loop. Complete-file diagnostics remain
+available. The synth restores voices, controllers, pending partial audio,
+random pan, byte-stream decoder and effect memory at A. It does not carry the
+previous cycle's wet tail across the boundary or crossfade the seam. A hard
+boundary may click where the selected PCM endpoints differ. State checkpoints
+exclude immutable samples and MIDI data; no full-song PCM is retained. Very
+short loops restore the full mutable state frequently and can exceed real-time
+CPU capacity; longer regions reduce this cost.
+
+Playback/seek before A includes the intro. Seeking to or beyond B returns A;
+Stop returns zero while retaining settings. New loads clear loops and restore
+the constructor's rate/transpose defaults. `player.iteration` counts audible
+wraps; seek/configuration resets it. `loop` events report `{ start, end, iteration }`
+when consumed audio crosses B, independently of buffered-ahead rendering.
+Text is flushed through [A, B), then reconstructed at A with reason `loop`.
+
+```js
+import { renderPlaybackControls } from './Player/index.js';
+await player.setPlayback({ rate: .75, transpose: 2, loop: { start: 4, end: 12 } });
+const disconnect = renderPlaybackControls(document.querySelector('#playback'), player);
+// Call disconnect() before replacing/removing the view.
+```
+
+The catalogs expose **Темп и повтор** and the portable example shares these
+controls. Their loop and reconstruction policy is a player feature; MIDI/SMF
+specifies the original messages and timing, not this host-control API.
+
 ## Playback compatibility report
 
 SoundFont `load()` returns `metadata.diagnostics` before playback begins. The
@@ -142,7 +200,7 @@ all crossed text/display events between audible position reports (normally
 changes reconstruct state and emit their reason; their event list is the
 prefix replay, not newly played messages. Stop and backward seeks restore
 lyrics, markers and displays; a new load clears them. State comparisons use
-the same nearest 48 kHz frame as audio seeking, including fractional-frame
+the same nearest 48 kHz output frame as audio seeking at the selected host rate, including fractional-frame
 marker positions. Metadata retains the unrounded event time.
 
 `state.lyrics` contains each track's current line/syllable; only the displayed

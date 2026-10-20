@@ -1,6 +1,8 @@
 // The source project renders PCM in C/WASM. Keep it off the website's UI thread.
 import { createStereoPreview } from './stereo-preview.js';
 import { BrowserSoundBank } from './lazy-bank.js';
+import { createLoopPreview } from './loop-preview.js';
+import { defaultPlayback, normalizePlaybackPatch, resolvePlayback } from './playback-settings.js';
 import { updatePartSettings } from './part-controls.js';
 let enginePromise, preview, port, epoch = 0, queue = Promise.resolve();
 let latestSeek = 0, changing = false;
@@ -44,11 +46,11 @@ export function unwrapMidi(bytes) {
   throw new Error('RMID has no MIDI data.');
 }
 function render(data) {
-  if (changing || data.epoch !== epoch || !preview) return;
+  if (changing || data.epoch !== epoch || data.epoch !== latestSeek || !preview) return;
   try {
     const channels = preview.read(2048);
     const stats = preview.stats;
-    port.postMessage({ epoch, channels, duration: stats.duration, done: stats.position >= stats.duration }, channels.map(samples => samples.buffer));
+    port.postMessage({ epoch, channels, spans: preview.lastSpans, duration: stats.duration, done: !stats.playback?.loop && stats.position >= stats.duration }, channels.map(samples => samples.buffer));
   } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
 }
 async function soundFontPreview(data) {
@@ -63,25 +65,27 @@ async function soundFontPreview(data) {
     bank = prepared.bank;
   }
   data.signal?.throwIfAborted();
-  return createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared,
-    releaseVelocityProfiles: data.releaseVelocityProfiles, parts: data.parts, partSettings: data.partSettings, textEncoding: data.textEncoding });
+  const base = await createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared,
+    releaseVelocityProfiles: data.releaseVelocityProfiles, parts: data.parts, partSettings: data.partSettings, textEncoding: data.textEncoding, playback: data.playback });
+  return createLoopPreview(base, base.stats.playback);
 }
 async function command(data) {
   if (data.type === 'load' && data.engine !== 'z80') {
     data.signal?.throwIfAborted();
     preview?.close(); preview = null; source = null;
-    const options = { ...data, partSettings: {} };
+    const options = { ...data, partSettings: {}, playback: data.playback ?? defaultPlayback() };
     preview = await soundFontPreview(options);
     source = options; source.parts = preview.stats.parts;
     epoch = data.epoch; return preview.stats;
   }
-  if (data.type === 'parts') {
-    if (!source || !preview) throw new Error('Part controls require a loaded SoundFont song.');
-    const settings = updatePartSettings(source.parts, preview.stats.instruments, source.partSettings, data.part, data.changes);
-    // Build before replacing the active preview. Failed or aborted downloads
-    // leave the previous song/settings usable. The encoded cache is shared.
-    const next = await soundFontPreview({ ...source, partSettings: settings });
-    preview.close(); preview = next; source.partSettings = settings;
+  if (data.type === 'parts' || data.type === 'playback') {
+    if (!source || !preview) throw new Error('Playback settings require a loaded SoundFont song.');
+    const patch = data.type === 'parts'
+      ? { partSettings: updatePartSettings(source.parts, preview.stats.instruments, source.partSettings, data.part, data.changes) }
+      : { playback: resolvePlayback({ ...source.playback, ...normalizePlaybackPatch(data.settings) }, preview.stats.sourceDuration) };
+    // Keep the previous preview/configuration until preparation succeeds.
+    const next = await soundFontPreview({ ...source, ...patch });
+    preview.close(); preview = next; Object.assign(source, patch);
     const result = await preview.seek(data.seconds, { isCurrent: () => data.epoch === latestSeek });
     if (!result.cancelled) epoch = data.epoch;
     return { ...result, metadata: preview.stats };
@@ -129,7 +133,7 @@ self.onmessage = ({ data }) => {
   if (data.type === 'load') {
     loadAbort?.abort(); loadAbort = new AbortController(); data.signal = loadAbort.signal;
   }
-  if (data.type === 'seek' || data.type === 'parts' || data.type === 'load') latestSeek = data.epoch;
+  if (data.type === 'seek' || data.type === 'parts' || data.type === 'playback' || data.type === 'load') latestSeek = data.epoch;
   if (data.type === 'connect') {
     port?.close(); port = data.port; port.onmessage = ({ data }) => render(data); port.start(); return;
   }

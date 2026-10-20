@@ -144,8 +144,8 @@
     constructor() { this.item = null; this.song = null; this.playing = false; this.position = 0; this.token = 0; }
     async initialize() {
       if (this.engine) return this.engine;
-      const { MidiPlayer: SamplePlayer, renderMidiDiagnostics, renderPartControls, renderMidiText } = await sampleModule;
-      this.renderDiagnostics = renderMidiDiagnostics; this.renderParts = renderPartControls; this.renderText = renderMidiText;
+      const { MidiPlayer: SamplePlayer, renderMidiDiagnostics, renderPartControls, renderMidiText, renderPlaybackControls } = await sampleModule;
+      this.renderDiagnostics = renderMidiDiagnostics; this.renderParts = renderPartControls; this.renderText = renderMidiText; this.renderPlayback = renderPlaybackControls;
       const engine = this.engine = new SamplePlayer({ volume: Number($('volume').value) });
       engine.addEventListener('statechange', () => {
         if (this.engine !== engine) return;
@@ -156,6 +156,7 @@
         this.position = event.detail.currentTime; $('seek').value = this.position;
         $('current-time').textContent = time(this.position);
       });
+      engine.addEventListener('playbackchange', () => { if (this.engine === engine) { this.song = engine.metadata; this.display(); } });
       engine.addEventListener('partschanged', () => { if (this.engine === engine) this.song = engine.metadata; });
       engine.addEventListener('error', event => { if (this.engine === engine) toast(event.detail.message); });
       return engine;
@@ -187,6 +188,7 @@
     }
     display() {
       $('player').hidden = !this.item;
+      $('player-playback').disabled = !this.song;
       $('player-text').disabled = !this.song?.text?.events.length;
       $('player-parts').disabled = !this.song?.parts?.length;
       $('player-diagnostics').disabled = !this.song?.diagnostics;
@@ -202,7 +204,7 @@
       render();
     }
     close() {
-      this.textCleanup?.(); this.textCleanup = null;
+      this.textCleanup?.(); this.textCleanup = null; this.playbackCleanup?.(); this.playbackCleanup = null;
       this.token++; const engine = this.engine; this.engine = null; engine?.dispose().catch(error => toast(error.message));
       this.item = this.song = null; this.playing = false; this.position = 0; this.display();
     }
@@ -237,6 +239,13 @@
     $('diagnostics-title').textContent = `Совместимость · ${player.item.title}`;
     $('diagnostics').showModal();
   };
+  $('player-playback').onclick = () => {
+    if (!player.song) return;
+    player.playbackCleanup?.(); player.playbackCleanup = player.renderPlayback($('playback-settings-body'), player.engine, { onError: error => toast(error.message) });
+    $('playback-settings-title').textContent = 'Темп и повтор · ' + player.item.title; $('playback-settings').showModal();
+  };
+  $('close-playback-settings').onclick = () => $('playback-settings').close();
+  $('playback-settings').onclose = () => { player.playbackCleanup?.(); player.playbackCleanup = null; };
   $('player-text').onclick = () => {
     if (!player.song?.text) return;
     player.textCleanup?.(); player.textCleanup = player.renderText($('midi-text-body'), player.engine);
@@ -263,8 +272,8 @@
   };
   document.addEventListener('keydown', event => {
     const editing = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.target.isContentEditable;
-    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open) { event.preventDefault(); $('search').focus(); }
-    if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && player.item) { event.preventDefault(); player.toggle(); }
+    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && !$('playback-settings').open) { event.preventDefault(); $('search').focus(); }
+    if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && !$('playback-settings').open && player.item) { event.preventDefault(); player.toggle(); }
   });
   window.addEventListener('beforeunload', () => { player.engine?.dispose().catch(() => {}); });
   update();

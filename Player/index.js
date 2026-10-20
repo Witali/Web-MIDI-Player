@@ -1,12 +1,14 @@
 export { renderMidiDiagnostics } from './diagnostics-view.js';
 export { renderMidiText } from './text-view.js';
+export { renderPlaybackControls } from './playback-view.js';
 export { renderPartControls } from './parts-view.js';
+import { defaultPlayback, normalizePlaybackPatch, resolvePlayback } from './playback-settings.js';
 import { MidiTextTimeline, normalizeTextEncoding } from './midi-text.js';
 import { updatePartSettings } from './part-controls.js';
 import { normalizeReleaseVelocityProfiles } from './release-velocity.js';
 // Public transport API. PCM synthesis remains in the Worker/WASM engine.
 export class MidiPlayer extends EventTarget {
-  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, sampleManifestUrl, dsp = 'auto', releaseVelocityProfiles, textEncoding = 'auto' } = {}) {
+  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, sampleManifestUrl, dsp = 'auto', releaseVelocityProfiles, textEncoding = 'auto', playbackRate = 1, transpose = 0 } = {}) {
     super();
     this.state = 'empty'; this.currentTime = 0; this.duration = 0;
     this.metadata = null; this._volume = 0.55; this.volume = volume;
@@ -17,6 +19,9 @@ export class MidiPlayer extends EventTarget {
     if (engine !== 'soundfont' && this._releaseVelocityProfiles.length) throw new TypeError('Release velocity profiles require the SoundFont engine.');
     this._textEncoding = normalizeTextEncoding(textEncoding);
     this._textTimeline = new MidiTextTimeline();
+    this._playbackDefaults = { ...defaultPlayback(), ...normalizePlaybackPatch({ rate: playbackRate, transpose }) };
+    if (engine !== 'soundfont' && (playbackRate !== 1 || transpose !== 0)) throw new TypeError('Playback settings require the SoundFont engine.');
+    this.iteration = 0;
     this._dsp = dsp;
     this._engine = engine; this._effects = effects;
     this._soundfontUrl = soundfontUrl ? new URL(soundfontUrl, globalThis.location?.href || import.meta.url).href : undefined;
@@ -24,6 +29,10 @@ export class MidiPlayer extends EventTarget {
     this._revision = 0; this._epoch = 0; this._sequence = 0; this._pending = new Map();
     this._wantsPlayback = false;
   }
+  get playback() { return structuredClone(this.metadata?.playback ?? this._playbackDefaults); }
+  get playbackRate() { return this.playback.rate; }
+  get transpose() { return this.playback.transpose; }
+  get loop() { return this.playback.loop; }
   get textEvents() { return structuredClone(this.metadata?.text?.events ?? []); }
   get textState() { return structuredClone(this._textTimeline.snapshot()); }
   get parts() { return structuredClone(this.metadata?.parts ?? []); }
@@ -35,14 +44,16 @@ export class MidiPlayer extends EventTarget {
     this._gain?.gain.setTargetAtTime(value, this._context.currentTime, 0.01);
   }
   _emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
-  _updateText(reason = 'playback') {
-    const result = this._textTimeline.at(this.currentTime, { discontinuous: reason !== 'playback' });
-    if (result.events.length || reason !== 'playback') this._emit('textchange', structuredClone({ currentTime: this.currentTime, reason, ...result }));
+  _updateText(reason = 'playback', seconds = this.currentTime) {
+    const result = this._textTimeline.at(seconds, { discontinuous: reason !== 'playback', rate: this.playbackRate, endExclusive: this.metadata?.playback?.loop?.end ?? Infinity });
+    if (result.events.length || reason !== 'playback') this._emit('textchange', structuredClone({ currentTime: seconds, reason, ...result }));
   }
   _acceptMetadata(metadata) {
+    const playbackChanged = JSON.stringify(this.metadata?.playback) !== JSON.stringify(metadata.playback);
     const changed = JSON.stringify(this.metadata?.parts) !== JSON.stringify(metadata.parts);
     this.metadata = metadata; this.duration = metadata.duration;
     if (changed) this._emit('partschanged', { parts: this.parts });
+    if (playbackChanged) this._emit('playbackchange', this.playback);
   }
   _state(value) { this.state = value; this._emit('statechange', { state: value }); }
   _alive() { if (this.state === 'disposed') throw new Error('Player has been disposed.'); }
@@ -75,7 +86,7 @@ export class MidiPlayer extends EventTarget {
   async load(source) {
     this._alive(); const revision = ++this._revision;
     this._wantsPlayback = false;
-    this._epoch++; this.metadata = null; this.duration = this.currentTime = 0; this._textTimeline = new MidiTextTimeline();
+    this._epoch++; this.iteration = 0; this.metadata = null; this.duration = this.currentTime = 0; this._textTimeline = new MidiTextTimeline();
     this._state('loading');
     this._abort?.abort(); this._worker?.postMessage({ type: 'cancelLoad' });
     this._abort = new AbortController();
@@ -94,7 +105,7 @@ export class MidiPlayer extends EventTarget {
       else throw new TypeError('Load a MIDI URL, File, Blob, ArrayBuffer or typed array.');
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       const metadata = await this._call('load', { bytes, epoch: this._epoch, engine: this._engine,
-        textEncoding: this._textEncoding, effects: this._effects, soundfontUrl: this._soundfontUrl, sampleManifestUrl: this._sampleManifestUrl, releaseVelocityProfiles: this._releaseVelocityProfiles, dsp: this._dsp }, [bytes.buffer]);
+        playback: this._playbackDefaults, textEncoding: this._textEncoding, effects: this._effects, soundfontUrl: this._soundfontUrl, sampleManifestUrl: this._sampleManifestUrl, releaseVelocityProfiles: this._releaseVelocityProfiles, dsp: this._dsp }, [bytes.buffer]);
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       this.metadata = metadata; this.duration = metadata.duration;
       this._textTimeline = new MidiTextTimeline(metadata.text); this._updateText('load');
@@ -131,7 +142,13 @@ export class MidiPlayer extends EventTarget {
         if (this.metadata) this.metadata.duration = data.duration;
         this._emit('durationchange', { duration: this.duration });
       }
+      if (data.type === 'loop') {
+        this._updateText('playback', data.end);
+        this.currentTime = data.start; this.iteration = data.iteration; this._updateText('loop');
+        this._emit('loop', { ...data });
+      }
       if (data.type === 'position' || data.type === 'ended') {
+        this.iteration = data.iteration || 0;
         this.currentTime = Math.min(this.duration, data.seconds); this._updateText();
         this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration, underruns: data.underruns });
       }
@@ -156,7 +173,9 @@ export class MidiPlayer extends EventTarget {
       const epoch = ++this._epoch;
       const result = await this._call('seek', { seconds: this.currentTime, epoch });
       if (epoch !== this._epoch || revision !== this._revision) return;
-      this._node.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
+      if (result.metadata) this._acceptMetadata(result.metadata);
+      this.currentTime = result.seconds; this.iteration = 0;
+      this._node.port.postMessage({ type: 'reset', epoch, offset: result.seconds, rate: this.playbackRate, running: true });
       this._updateText('seek');
     }
     this._state('playing');
@@ -178,40 +197,54 @@ export class MidiPlayer extends EventTarget {
     const result = await this._call('seek', { seconds: Math.max(0, Math.min(seconds, this.duration)), epoch });
     if (revision !== this._revision || epoch !== this._epoch) return;
     if (result.metadata) this._acceptMetadata(result.metadata);
-    this.currentTime = result.seconds; this._updateText('seek');
-    this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
+    this.currentTime = result.seconds; this.iteration = 0; this._updateText('seek');
+    this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, rate: this.playbackRate, running: true });
     this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration });
     if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
     else this._state('ready');
   }
   async setPart(id, changes) {
-    this._alive();
-    if (!this.metadata || this._engine !== 'soundfont') throw new Error('Part controls require a loaded SoundFont song.');
-    if (this.state === 'loading') throw new Error('Wait for the MIDI file to load.');
-    // Reject invalid controls before disturbing the running transport.
+    this._alive(); this._settingsReady();
     const normalized = updatePartSettings(this.parts, this.instruments, {}, id, changes)[id];
+    await this._configure('parts', { part: id, changes: normalized });
+    return this.parts.find(p => p.id === id);
+  }
+  async setPlayback(changes) {
+    this._alive(); this._settingsReady();
+    const settings = normalizePlaybackPatch(changes);
+    resolvePlayback({ ...this.playback, ...settings }, this.metadata.sourceDuration);
+    await this._configure('playback', { settings });
+    return this.playback;
+  }
+  _settingsReady() {
+    if (!this.metadata || this._engine !== 'soundfont') throw new Error('Playback settings require a loaded SoundFont song.');
+    if (this.state === 'loading') throw new Error('Wait for the MIDI file to load.');
+  }
+  async _configure(type, values) {
     const revision = this._revision, epoch = ++this._epoch, seconds = this.currentTime;
     this._state('seeking'); await this._context?.suspend();
     try {
-      const result = await this._call('parts', { part: id, changes: normalized, seconds, epoch });
+      const result = await this._call(type, { ...values, seconds, epoch });
       if (revision !== this._revision || epoch !== this._epoch) return;
       this._acceptMetadata(result.metadata);
-      this.currentTime = result.seconds; this._updateText('configure');
-      this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
+      this.currentTime = result.seconds; this.iteration = 0; this._updateText('configure');
+      this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, rate: this.playbackRate, running: true });
       this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration });
       if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
       else this._state('ready');
-      return this.parts.find(p => p.id === id);
     } catch (error) {
       if (revision === this._revision && epoch === this._epoch) {
-        // The Worker keeps its previous preview if sample preparation fails.
-        // Restore that transport using the new epoch, then surface the error.
-        const restored = await this._call('seek', { seconds, epoch });
-        this.currentTime = restored.seconds;
-        if (restored.metadata) this._acceptMetadata(restored.metadata);
-        this._node?.port.postMessage({ type: 'reset', epoch, offset: restored.seconds, running: true });
-        if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
-        else this._state('ready');
+        try {
+          const restored = await this._call('seek', { seconds, epoch });
+          if (revision === this._revision && epoch === this._epoch) {
+            this.currentTime = restored.seconds; this.iteration = 0;
+            if (restored.metadata) this._acceptMetadata(restored.metadata);
+            this._updateText('seek');
+            this._node?.port.postMessage({ type: 'reset', epoch, offset: restored.seconds, rate: this.playbackRate, running: true });
+            if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
+            else this._state('ready');
+          }
+        } catch (restoreError) { if (revision === this._revision && epoch === this._epoch) this._failure(restoreError); }
       }
       throw error;
     }

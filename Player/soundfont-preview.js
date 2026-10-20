@@ -1,3 +1,5 @@
+import { resolvePlayback } from './playback-settings.js';
+import { captureSynthCheckpoint } from './synth-checkpoint.js';
 import { describeParts, describeInstruments, installPartControls } from './part-controls.js';
 import { MidiTextCollector } from './midi-text.js';
 import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from './vendor/spessasynth.js';
@@ -8,7 +10,7 @@ import { normalizeReleaseVelocityProfiles, installReleaseVelocityProfiles } from
 
 // Complete SF2 and selectively prepared banks share the same playback path.
 // Stereo, controllers and SoundFont modulators stay in the synth.
-export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared, releaseVelocityProfiles, parts, partSettings = {}, textEncoding } = {}) {
+export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared, releaseVelocityProfiles, parts, partSettings = {}, textEncoding, playback: playbackOptions = {} } = {}) {
   if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
   const profiles = normalizeReleaseVelocityProfiles(releaseVelocityProfiles);
   SpessaLog.setLogLevel(false, false, false);
@@ -17,12 +19,13 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   const diagnostics = prepared?.diagnostics ?? await diagnoseMidi(midi, bank, { effects, textCollector });
   const text = prepared?.text ?? textCollector.finish();
   parts ??= diagnostics.parts;
+  const playback = resolvePlayback(playbackOptions, midi.duration), { rate, transpose } = playback;
   const configuredParts = describeParts(parts, partSettings), instruments = describeInstruments(bank);
   let synth, sequence, frames = 0, renderedFrames = 0, quietTailFrames = 0;
   let pending = [new Float32Array(128), new Float32Array(128)], pendingAt = 128;
   let closed = false;
   const warnings = new Set();
-  let duration = midi.duration + 2;
+  let duration = midi.duration / rate + 2;
   async function reset() {
     if (closed) throw new Error('Preview has been closed.');
     synth?.stopAllChannels(true);
@@ -39,6 +42,9 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     synth.setSystemParameter('autoAllocateVoices', true);
     synth.setSystemParameter('blackMIDIMode', false);
     synth.setSystemParameter('monophonicRetrigger', false);
+    // Host pitch offset leaves note/gate identities, sample regions, MTS,
+    // portamento and key-dependent modulators intact. Drum channels ignore it.
+    synth.setSystemParameter('fineTune', transpose * 100);
     if (dsp !== 'js') {
       try {
         if (dsp === 'auto') {
@@ -53,10 +59,12 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
         warnings.add(`WASM voice DSP unavailable; using JavaScript: ${error.message}`);
       }
     }
+    while (synth.midiChannels.length < diagnostics.channelCount) synth.createMIDIChannel();
     sequence = new SpessaSynthSequencer(synth);
     // Samples were selected through the complete ordered command handlers.
     // The upstream approximate program scan must not touch empty regions.
     sequence.preload = sequence.skipToFirstNoteOn = false; sequence.loopCount = 0;
+    sequence.playbackRate = rate;
     sequence.loadNewSongList([midi]);
     installPartControls(synth, bank, parts, partSettings); sequence.play();
     frames = renderedFrames = quietTailFrames = 0; pendingAt = 128;
@@ -65,7 +73,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     pending[0].fill(0); pending[1].fill(0);
     sequence.processTick(); synth.process(pending[0], pending[1], 0, 128);
     renderedFrames += 128; pendingAt = 0;
-    if (renderedFrames >= Math.ceil(midi.duration * 48000)) {
+    if (renderedFrames >= Math.ceil(midi.duration / rate * 48000)) {
       let peak = 0;
       for (let i = 0; i < 128; i++) peak = Math.max(peak, Math.abs(pending[0][i]), Math.abs(pending[1][i]));
       quietTailFrames = synth.voiceCount || peak > 1e-6 ? 0 : quietTailFrames + 128;
@@ -89,13 +97,32 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   }
   await reset();
   return {
-    get stats() { return { duration, sourceDuration: midi.duration, position: frames / 48000, channels: 2,
+    get frame() { return frames; },
+    get stats() { return { duration: duration * rate, sourceDuration: midi.duration, position: frames / 48000 * rate, playback, channels: 2,
       sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, sampleBank: prepared?.sampleBank ?? { mode: 'full' }, warnings: [...warnings], diagnostics, parts: configuredParts, instruments, text, title: midi.getName() }; },
     read,
+    flushThrough(seconds) {
+      const now = synth.synthCore.currentTime;
+      synth.synthCore.currentTime = seconds / rate + sequence.absoluteStartTime;
+      try { sequence.processTick(seconds); } finally { synth.synthCore.currentTime = now; }
+    },
     reset,
+    capture() {
+      if (closed) throw new Error('Preview has been closed.');
+      const savedSynth = synth, savedSequence = sequence, state = captureSynthCheckpoint(synth, sequence, midi);
+      const savedFrames = frames, savedRendered = renderedFrames, savedQuiet = quietTailFrames, savedAt = pendingAt;
+      const savedPCM = pending.map(c => c.slice());
+      return { bytes: state.bytes + 1024, memoryBytes: state.memoryBytes, restore() {
+        if (closed) throw new Error('Preview has been closed.');
+        if (synth !== savedSynth) synth.stopAllChannels(true);
+        state.restore(); synth = savedSynth; sequence = savedSequence;
+        frames = savedFrames; renderedFrames = savedRendered; quietTailFrames = savedQuiet; pendingAt = savedAt;
+        pending.forEach((c, i) => c.set(savedPCM[i]));
+      } };
+    },
     async seek(seconds, { isCurrent = () => true } = {}) {
       if (!Number.isFinite(seconds)) throw new TypeError('Seek position must be finite.');
-      const target = Math.round(Math.max(0, Math.min(seconds, duration)) * 48000);
+      const target = Math.round(Math.max(0, Math.min(seconds / rate, duration)) * 48000);
       if (!isCurrent()) return { cancelled: true };
       // MIDI specifies event/gate/controller semantics, not a seek algorithm.
       // Replay the same synthesis path: current channel state alone cannot
@@ -111,7 +138,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
           lastYield = performance.now();
         }
       }
-      return isCurrent() ? { seconds: frames / 48000 } : { cancelled: true };
+      return isCurrent() ? { seconds: frames / 48000 * rate } : { cancelled: true };
     },
     close() { synth?.stopAllChannels(true); synth = sequence = null; closed = true; }
   };

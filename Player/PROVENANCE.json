@@ -28,7 +28,8 @@
       "CC69 Hold 2 freezes existing volume/modulation envelopes, preserves independent pedals and controllers, defers Note Off release until OFF and resumes ongoing release; native state stays synchronized",
       "Note Off velocity preserved across SMF/F7, raw/scheduled MIDI, routed ports, per-key voice identities, pedals and events; Note On zero uses 64. Explicit preset response curves adjust release envelope times without reinterpreting SF2 sources or changing unconfigured banks. Forced drum release targets the owed Note On identity.",
       "Host SoundFont part controls preserve ordered MIDI processing: receiver-port metadata, independent gain/pan and exact preset override, sample preparation, transport reconstruction and shared catalog/example UI; no upstream vendor changes.",
-      "Timed text metadata and shared lyrics/marker/display UI follow the real PPQN/SMPTE/port timeline; preserve original bytes, encoding and Channel Prefix semantics. Karaoke parsing no longer rewrites Lyric meta events into Text. GS/XG display packets are collected at final F7 and known LCD formats validate bounds/checksum."
+      "Timed text metadata and shared lyrics/marker/display UI follow the real PPQN/SMPTE/port timeline; preserve original bytes, encoding and Channel Prefix semantics. Karaoke parsing no longer rewrites Lyric meta events into Text. GS/XG display packets are collected at final F7 and known LCD formats validate bounds/checksum.",
+      "Host rate/transpose and exact A/B transport preserve source-time coordinates and ordered commands. In-process synth/DSP checkpoints retain partial PCM, decoder, RNG and effect state without sample copies. Vendor RNG exposes state and sequencer accepts an inclusive loop boundary; default tick processing is unchanged."
     ]
   },
   "soundfont": {

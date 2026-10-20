@@ -129,6 +129,6 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   } finally { synth.stopAllChannels(true); }
   signal?.throwIfAborted();
   return { version: 1, engine: 'soundfont', scope: 'file', complete, eventsScanned: scanned,
-    summary, entries: [...entries.values()], omitted, parts: [...foundParts.values()].sort((a, b) => a.port - b.port || a.channel - b.channel),
+    summary, entries: [...entries.values()], omitted, channelCount: synth.midiChannels.length, parts: [...foundParts.values()].sort((a, b) => a.port - b.port || a.channel - b.channel),
     note: 'Отчёт проверяет обработку команд и выбор пресетов. Он не гарантирует совпадение с аппаратным синтезатором; модуляторы и качество звука отдельно не оцениваются.' };
 }
