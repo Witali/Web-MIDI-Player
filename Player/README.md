@@ -327,7 +327,7 @@ if (marker) await player.seek(marker.seconds);
 Both catalogs expose **Текст и метки**, with syllable highlighting, marker/cue
 navigation, track names, displays and a paginated complete event list.
 The portable example generates its own text and markers. Compact Z80 text
-export remains part of that backend's separate pending expansion.
+export is unavailable; expansion of that backend is outside this project's scope.
 
 ## Part controls
 
@@ -371,7 +371,8 @@ Settings survive stop/seek and reset on a new load. A failed sample download
 leaves the previous configuration playable and can be retried. Concurrent
 changes are combined; a later seek cancels obsolete reconstruction, retaining
 requested settings. This is host playback policy, not new MIDI commands.
-Compact Z80 part controls remain part of its separate pending expansion.
+Compact Z80 part controls are unavailable. That backend is retained as-is;
+its expansion is outside this project's scope.
 
 ## Note Off velocity and instrument profiles
 
