@@ -32,6 +32,93 @@ no copyrighted or downloaded MIDI is included. Its GS/XG demo requests rain,
 thunder, engine and laughter through XG addresses so the compatibility view
 can show the actual FluidR3 GS presets selected.
 
+## Live MIDI devices
+
+Both catalogs have a **MIDI-устройства** button; the portable example has the
+same controls. Choose input/output ports explicitly. Permission, local input
+sound and MIDI Thru have separate controls. Importing the library or granting
+access never chooses a device. Disconnected devices must be selected again.
+
+```js
+import { LiveMidiPlayer, renderMidiDevices } from './Player/index.js';
+const live = new LiveMidiPlayer({ volume: 0.55, effects: true, dsp: 'auto' });
+const removeView = renderMidiDevices(document.querySelector('#devices'), live);
+// At teardown: removeView(); await live.dispose();
+```
+
+A separate LiveMidiPlayer owns an audio context/Worker/AudioWorklet and its
+`ports` (WebMidiPorts). Keyboard input does not change the file player's song,
+seek state, loop or controllers. The sound button calls `start()` from the
+user's click; `stop()` releases the live graph. `panic()` cancels pending input
+and stops voices. `dispose()` also closes selected ports. Set `volume` from 0
+to 1; `statechange` and `error` carry their payload in event.detail. `start()`
+returns runtime metadata; `metadata` updates after applied input.
+
+`live.send(bytes)` accepts complete wire messages for the local synth and
+returns a promise for their application. Selected keyboard input calls it
+while local sound runs. Optional `{ timestamp }` is an input receipt time in
+milliseconds: buffered messages keep their relative timing. Cold sample
+preparation moves the waiting burst together, retaining Note On/Off gates.
+An empty stream reanchors to the next receipt. Equal times retain arrival
+order; dispatch uses fixed 128-frame synthesis boundaries. There is no
+controller coalescing or event cap. A preparation failure reports an error,
+stops voices and blocks later commands until an explicit panic/retry.
+
+Live startup loads only verified bank metadata. Before admitting a command,
+it prepares independent recordings of currently selected instruments,
+including their key/velocity regions and stereo links. Instrument readiness
+covers nested mono/legato/pedal note starts. File playback keeps its existing
+score-based region selection. Played instruments stay decoded for the live
+session; encoded data uses the bounded cache. No whole SF2 is fetched. The
+first instrument can take time to prepare. soundfontUrl and sampleManifestUrl
+select a custom complete bank or browser bank, respectively.
+
+WebMidiPorts is also exported independently:
+
+```js
+import { WebMidiPorts } from './Player/index.js';
+const ports = new WebMidiPorts();
+// From explicit controls; inputId/outputId come from the user's selection.
+await ports.request({ sysex: false, software: false });
+await ports.selectInput(inputId);   // null disconnects
+await ports.selectOutput(outputId);
+ports.addEventListener('midimessage', event => {
+  const { data, timestamp, port } = event.detail;
+});
+ports.thru = true;                  // selected input -> selected output
+ports.send([0x90, 60, 100]);
+ports.send([0x80, 60, 0], performance.now() + 300);
+// ports.panic(); await ports.dispose();
+```
+
+`ports.ports` lists descriptions; `ports.selection` describes the selected
+pair. Events: portschange, inputchange, outputchange, midimessage, midisend,
+statechange and error. A successful permission refresh clears selections;
+a failed request/open preserves the previous session. Native opens/closes
+are serialized per port, including superseded operations and hotplug.
+
+Output timestamps follow Web MIDI: absolute performance-clock milliseconds,
+past times send immediately, equal times preserve call order. `send()` checks
+one or more complete MIDI 1.0 wire messages atomically; running status and
+SMF meta/length encodings are not accepted. Realtime bytes may interrupt a
+message without consuming data positions. SysEx output requires permission
+requested with sysex:true. Input bytes and receipt times are copied for
+listeners. Thru forwards every permitted message, including Common/Realtime
+and SysEx. Output replacement clears future sends and releases used channels;
+panic clears future sends and releases all channels. `clearOutput()` exposes
+queue cancellation alone.
+
+The local synth uses the supported MIDI 1.0/GM/GS/XG/MTS/SDS handlers.
+Common/Realtime bytes remain available to listeners and Thru; external
+synchronization is still pending. This API does not route a loaded SMF to
+hardware or implement UMP. Output controls send test notes or explicit hex
+commands. Tests use modeled device ports, actual Worker/WASM PCM and browser
+audio startup/stop; physical driver conformance is not claimed.
+
+Web MIDI needs HTTPS or localhost, a supporting browser and MIDI permission;
+SysEx is a separate opt-in. See [W3C Web MIDI, sections 4–5](https://www.w3.org/TR/2025/WD-webmidi-20250121/).
+
+
 ## Sound and instrument coverage
 
 The default SoundFont engine uses **FluidR3 GM + GS**, two MIT-licensed banks.

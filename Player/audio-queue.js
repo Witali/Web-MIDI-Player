@@ -1,6 +1,7 @@
 // Bounded, allocation-free playback queue shared by the AudioWorklet and tests.
 export class AudioQueue {
-  constructor(capacity = 48000) {
+  constructor(capacity = 48000, prebuffer = 1920) {
+    this.prebuffer = prebuffer;
     this.samples = new Float32Array(capacity);
     this.reset();
   }
@@ -27,7 +28,7 @@ export class AudioQueue {
     }
   }
   pull(output, deviceRate = 48000) {
-    if (!this.started && this.length < 1920 && !this.ended) { output.fill(0); return; }
+    if (!this.started && this.length < this.prebuffer && !this.ended) { output.fill(0); return; }
     this.started = true;
     const step = 48000 / deviceRate;
     for (let i = 0; i < output.length; i++) {

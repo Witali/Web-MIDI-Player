@@ -10,6 +10,8 @@ details{margin:24px 0;padding:16px;border:1px solid #3a4858;border-radius:8px;fo
 .midi-text-report{font-size:13px;line-height:1.6}.midi-text-report label{display:block;margin:16px 0}.midi-text-report select{max-width:100%}.midi-text-report pre{white-space:pre-wrap;overflow-wrap:anywhere}.midi-text-live{font-size:18px;min-height:2em}.midi-text-live mark{background:#88dfbd;color:#123c2c;border-radius:3px;padding:2px}.midi-display-bitmap{font:10px/1 monospace;letter-spacing:1px;white-space:pre!important}.midi-text-report button{margin:8px}.player{flex-wrap:wrap}
 
 .playback-controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;border:1px solid #52616d;border-radius:8px;padding:16px}.playback-controls label{display:flex;gap:8px;align-items:center;margin:0}.playback-controls input{width:100px}.playback-controls input,.playback-controls select{font:inherit;padding:6px}.playback-controls button{padding:8px 12px}.playback-controls:disabled{opacity:.6}.playback-note{font-size:13px;line-height:1.6}.playback-iteration{font-size:13px}
+
+.midi-devices{font-size:13px;line-height:1.6}.midi-devices label{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0}.midi-devices select,.midi-devices input[type=text]{max-width:100%;padding:8px;font:inherit;min-width:180px}.midi-devices input[type=range]{max-width:240px}.midi-device-buttons{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}.midi-devices button{margin:4px;padding:9px 12px;border-radius:6px}.midi-devices code{display:block;overflow-wrap:anywhere;max-height:100px;overflow:auto}.midi-devices p{margin:12px 0}
 </style>
 <h1>Web-MIDI-Player</h1>
 <p>Самостоятельный стереоплеер. Тестовая мелодия перемещается слева в центр и вправо. Все MIDI в примере создаются на странице.</p>
@@ -22,10 +24,12 @@ details{margin:24px 0;padding:16px;border:1px solid #3a4858;border-radius:8px;fo
 <details id="text" hidden><summary>Текст и метки</summary><div id="text-body" class="midi-text-report"></div></details>
 <details id="parts" hidden><summary>Партии</summary><div id="parts-body"></div></details>
 <details id="diagnostics" hidden><summary>Совместимость воспроизведения</summary><div id="diagnostics-body"></div></details>
+<details><summary>MIDI-устройства и живая клавиатура</summary><div id="midi-devices"></div></details>
 <small>FluidR3 GM + GS · 128 инструментов · стереопанорама CC10 · <span id="backend">DSP выбирается при загрузке</span><br><a href="../README.md">API и установка</a> · <a href="./benchmark.html">Сравнить скорость JS / WASM / SIMD</a></small>
 <script type="module">
-import { MidiPlayer, renderMidiDiagnostics, renderPartControls, renderMidiText, renderPlaybackControls } from '../index.js';
+import { MidiPlayer, renderMidiDiagnostics, renderPartControls, renderMidiText, renderPlaybackControls, LiveMidiPlayer, renderMidiDevices } from '../index.js';
 const $=id=>document.getElementById(id),player=new MidiPlayer({effects:false});
+const live=new LiveMidiPlayer({effects:false});const devicesCleanup=renderMidiDevices($('midi-devices'),live);
 const vlq=n=>{const a=[n&127];while(n=Math.floor(n/128))a.unshift((n&127)|128);return a;};
 function score(all=false){
   const events=[],sfx=all==='sfx';
@@ -54,5 +58,5 @@ $('seek').onchange=()=>action(()=>player.seek(Number($('seek').value)));
 $('volume').oninput=()=>player.volume=Number($('volume').value);
 $('all').onclick=()=>action(async()=>{source=score(true);await player.unlock();await player.load(source);await player.play();});
 $('file').onchange=()=>action(async()=>{if(!$('file').files[0])return;source=$('file').files[0];await player.load(source);});
-window.addEventListener('pagehide',()=>player.dispose());
+window.addEventListener('pagehide',()=>{devicesCleanup();live.dispose().catch(()=>{});player.dispose().catch(()=>{});});
 </script></html>

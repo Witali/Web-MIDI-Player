@@ -69,6 +69,47 @@ export class BrowserSoundBank {
     }
     return bytes;
   }
+  // A live keyboard has no score to scan. Prepare regions of the currently
+  // selected instruments before admitting the next command, retaining each
+  // recording as its own verified file. No full SF2 or silent empty regions.
+  async openLive({ signal } = {}) {
+    SpessaLog.setLogLevel(false, false, false);
+    const { manifest, metadata, profile } = await this.assets(signal);
+    const bank = SoundBankLoader.fromArrayBuffer(metadata.slice(0)); bank.hostProfile = profile;
+    if (bank.samples.length !== manifest.samples.length || bank.samples.some((s,i) => s.sampleRate !== manifest.samples[i].sample_rate_hz)) throw invalid();
+    await BasicSoundBank.isSF3DecoderReady;
+    const ready = new Set(), presets = new Set(), indexes = new Map(bank.samples.map((s,i) => [s,i]));
+    const readers = new Map(bank.samples.map(sample => [sample,sample.getAudioData.bind(sample)]));
+    const stats = { mode: 'live-samples', samples: 0, files: 0, downloadedBytes: 0, cacheHits: 0, totalSamples: bank.samples.length };
+    const loadedFiles = new Set();
+    for (const sample of bank.samples) sample.getAudioData = () => {
+      if (!ready.has(sample)) throw new Error('Live SoundFont sample was not prepared: ' + sample.name);
+      return readers.get(sample)();
+    };
+    return { bank, stats, isPrepared: selected => selected.every(p => !p || presets.has(p)), prepare: async (selected, { signal: commandSignal = signal } = {}) => {
+      commandSignal?.throwIfAborted();
+      const needed = new Set(), pending = [...new Set(selected)].filter(p => p && !presets.has(p));
+      const add = sample => { if (!sample || !indexes.has(sample) || ready.has(sample) || needed.has(sample)) return; needed.add(sample); add(sample.linkedSample); };
+      for (const preset of pending) for (const zone of preset.zones) for (const region of zone.instrument?.zones ?? []) add(region.sample);
+      const entries = [...needed], files = new Map(); let cursor = 0;
+      const loader = this;
+      await Promise.all(Array.from({ length: Math.min(loader.concurrency,entries.length) }, async () => {
+        while (cursor < entries.length) {
+          commandSignal?.throwIfAborted();
+          const sample = entries[cursor++], row = manifest.samples[indexes.get(sample)];
+          if (!files.has(row.file)) files.set(row.file,loader.sample(row,commandSignal,stats));
+          const data = await files.get(row.file); commandSignal?.throwIfAborted();
+          let pcm;
+          if (row.format === 'vorbis') { sample.setCompressedData(new Uint8Array(data)); pcm = readers.get(sample)(); }
+          else { const view = new DataView(data); pcm = Float32Array.from({ length: row.frames },(_,i) => view.getInt16(i*2,true)/32768); }
+          if (pcm.length < row.frames || pcm.some(v => !Number.isFinite(v))) throw invalid();
+          sample.setAudioData(pcm.subarray(0,row.frames),row.sample_rate_hz); ready.add(sample); loadedFiles.add(row.file);
+          stats.samples = ready.size; stats.files = loadedFiles.size;
+        }
+      }));
+      commandSignal?.throwIfAborted(); for (const preset of pending) presets.add(preset);
+    } };
+  }
   async load(bytes, { effects = true, signal: outerSignal, parts, partSettings, textEncoding, sampleDumpMappings } = {}) {
     const abort = new AbortController();
     const signal = outerSignal ? AbortSignal.any([outerSignal, abort.signal]) : abort.signal;

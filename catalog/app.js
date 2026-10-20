@@ -263,6 +263,15 @@
   $('player-toggle').onclick = () => player.toggle(); $('player-close').onclick = () => player.close();
   $('seek').onchange = () => { const position = Number($('seek').value); if (player.song) { player.seek(position); } };
   $('volume').oninput = () => { if (player.engine) player.engine.volume = Number($('volume').value); };
+  let liveMidi, devicesCleanup;
+  $('midi-devices-open').onclick = async () => {
+    try {
+      const { LiveMidiPlayer, renderMidiDevices } = await sampleModule;
+      if (!liveMidi) { liveMidi = new LiveMidiPlayer(); devicesCleanup = renderMidiDevices($('midi-devices-body'), liveMidi, { onError: error => toast(error.message) }); }
+      $('midi-devices-dialog').showModal();
+    } catch (error) { toast(error.message); }
+  };
+  $('midi-devices-close').onclick = () => $('midi-devices-dialog').close();
   $('export').onclick = () => {
     const cell = value => { let text = String(value ?? ''); if (/^[=+@-]/.test(text)) text = "'" + text; return `"${text.replaceAll('"', '""')}"`; };
     const rows = [['Название', 'Исполнитель', 'Раздел', 'Время', 'BPM', 'Инструменты', 'Источники', 'Файл', ...(isPublic ? ['Статус прав', 'Автор набора', 'Подтверждение'] : [])], ...filtered.map(item => [item.title, item.artist, item.category, time(item.duration), item.tempo, item.instruments.join('; '), item.versions.length, item.versions[0].file, ...(isPublic ? [item.rights.label, item.rights.contributor, item.rights.sourcePage] : [])])];
@@ -272,9 +281,9 @@
   };
   document.addEventListener('keydown', event => {
     const editing = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.target.isContentEditable;
-    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && !$('playback-settings').open) { event.preventDefault(); $('search').focus(); }
+    if (event.key === '/' && !editing && !$('midi-devices-dialog').open && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && !$('playback-settings').open) { event.preventDefault(); $('search').focus(); }
     if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && !$('playback-settings').open && player.item) { event.preventDefault(); player.toggle(); }
   });
-  window.addEventListener('beforeunload', () => { player.engine?.dispose().catch(() => {}); });
+  window.addEventListener('beforeunload', () => { devicesCleanup?.(); liveMidi?.dispose().catch(() => {}); player.engine?.dispose().catch(() => {}); });
   update();
 })();

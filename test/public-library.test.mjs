@@ -96,6 +96,9 @@ test('public export includes verified standalone sample files and omits the full
   const f = fixture(t), output = path.join(f.directory, 'export');
   writeCatalog(output, buildPublicLibrary(f.directory));
   assert.ok(fs.existsSync(path.join(output, 'player/lazy-bank.js')));
+  for (const name of ['web-midi.js','live-midi.js','live-synth.js','live-worker.js','live-worklet.js','devices-view.js']) {
+    assert.deepEqual(fs.readFileSync(path.join(output,'player',name)),fs.readFileSync(new URL('../Player/'+name,import.meta.url)));
+  }
   assert.ok(!fs.existsSync(path.join(output, 'player/soundfonts/FluidR3_GM.sf2')));
   assert.ok(!fs.existsSync(path.join(output, 'player/soundfonts/FluidR3_GS.sf2')));
   assert.ok(fs.existsSync(path.join(output, 'player/fluid-bank-mappings.js')));

@@ -1116,3 +1116,47 @@ with 1000/4000/16000 controllers; every scheduled message is checked by identity
 and order. 30 full PCM pairs and 30 complete note-analysis JSON pairs match.
 The ordinary SMF path is measured separately and has no claimed queue speedup;
 see DSP-PERFORMANCE.md for phase timings and observed overhead.
+
+## Web MIDI device input/output (20 October 2026)
+
+Reference: [W3C Web MIDI WD, 21 January 2025](https://www.w3.org/TR/2025/WD-webmidi-20250121/),
+sections 3, 4, 5.3–5.5. Permission is separate from explicit input/output
+selection. SysEx/software options are requested by controls. Failed requests
+and opens preserve the previous session. Per-port open/close serialization,
+selection generations and access-request revisions prevent stale promises
+from replacing newer selections. Hotplug requires explicit reselection;
+teardown removes listeners and closes selected resources.
+
+The boundary accepts complete MIDI 1.0 wire messages. Running status, undefined
+statuses, incomplete packets and SMF meta/length records are rejected before
+any output byte is sent. Realtime interruption preserves data-byte positions.
+Input callbacks carry copied bytes and receipt times. Native output timestamps
+and same-time call order are retained; Thru forwards permitted Common,
+Realtime and SysEx as well as Channel messages. Output replacement clears
+future sends and releases used channels; panic releases all channels.
+
+Live synthesis uses a separate worker/audio graph and the pinned synth's
+channel and GS/XG/MTS/SDS handlers. Common/Realtime transport semantics are
+still pending. Browser-bank readiness prepares selected instruments' separate
+recordings, including all key/velocity regions, before admitting a command.
+This covers nested mono/legato/pedal note starts. File preparation remains
+score-based. A failed preparation reports an error and blocks later commands
+until panic; a Note On is never silently skipped.
+
+Within a waiting input burst, receipt timestamps preserve inter-message
+timing. A cold sample fetch shifts the burst together, retaining Note On/Off
+gate intervals. An idle queue reanchors to the next receipt. Dispatch uses
+128-frame boundaries; worker reads have 256 frames. A 512-frame target and
+256-frame prebuffer serve live output; file playback keeps its 1920-frame
+prebuffer. The source remains 48 kHz and AudioQueue resamples to device rate.
+Panic invalidates pending PCM generations.
+
+Evidence: web-midi.test.mjs covers permission races, selection, hotplug,
+lifecycle, bytes, timestamps, SysEx and Thru. live-synth.test.mjs checks
+cold-load gate timing, failures, exact JS/WASM/SIMD PCM, partial reads and real
+separate recordings. live-midi.test.mjs uses the actual worker and tests
+audio startup/stop, short buffers, resampling and stale epochs. The shared
+view has action/cleanup tests. Both catalog exports include all live modules;
+the dialog and actual browser audio startup/stop were inspected. These tests
+do not prove physical-driver conformance. SMF output routing, transport
+synchronization and MIDI 2.0/UMP remain separate extensions.
