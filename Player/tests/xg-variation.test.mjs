@@ -54,7 +54,7 @@ test('XG malformed/range failures, unknown algorithms and unimplemented insertio
   assert.equal(rows.length,10);assert.ok(rows.every(r=>r.kind!=='implemented'));assert.equal(fx.parameters[0],3333);assert.equal(fx.raw[0x57],64);assert.equal(fx.raw[0x5b],127);
   const insertion=notices(()=>{send(s,0x5a,[0]);send(s,0x5b,[0]);});assert.ok(insertion.some(r=>r.reason?.includes('before part volume/pan')));
   const unknown=notices(()=>send(s,0x40,[0x7f,0x7f]));assert.equal(fx.mode,'thru');assert.ok(unknown.some(r=>r.reason?.includes('Thru')));
-  const unsupported=notices(()=>send(s,0,[1,0,10,11]));assert.equal(unsupported.filter(r=>r.kind!=='implemented').length,4,'all bytes of an unimplemented Reverb record must still be diagnosed');
+  const unsupported=notices(()=>send(s,0x16,[1,0,10,11]));assert.equal(unsupported.filter(r=>r.kind!=='implemented').length,4,'all bytes of a reserved Effect1 record must still be diagnosed');
 });
 
 test('Yamaha device number is the low header nibble; GS/universal device filtering retains its own numbering',async()=>{

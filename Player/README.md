@@ -426,8 +426,15 @@ in 0.1ms units, EQ parameters, feedback, damping, return/pan and sends to Chorus
 and Reverb. System mode ignores insertion-only Dry/Wet. These are host DSP
 models with published parameter maps, rather than hardware DSP reproductions.
 
-XG Insertion before the part's volume/pan, separate insertion slots, Reverb/
-Chorus parameter maps and effect controller modulation remain in progress.
+XG System Reverb also supports Hall/Room/Stage/Plate (eight programs), and
+System Chorus supports Chorus/Celeste/Flanger (eleven programs). Yamaha lookup
+tables set Hz, milliseconds, seconds and filter cutoffs. Chorus input can be
+mono or stereo; Celeste uses three LFO phases; Flanger controls their relative
+phase. Stereo Variation/Chorus sends precede the corresponding pan and return.
+System-only and insertion-only parameters retain their specified applicability.
+
+XG Variation with those types, Insertion before the part's volume/pan, separate
+insertion slots and effect controller modulation remain in progress.
 Selecting an unsupported insertion route produces an explicit Thru notice.
 See [implementation notes](specs/IMPLEMENTATION-NOTES.md) for primary sources,
 algorithm choices, coverage and PCM evidence. The effects plan item stays open.

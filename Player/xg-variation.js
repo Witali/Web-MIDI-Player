@@ -1,9 +1,11 @@
+import { XGSystemEffects } from './xg-system-effects.js';
+import { xgLevel } from './xg-effect-values.js';
+export { xgLevel } from './xg-effect-values.js';
 import { SpessaLog } from './vendor/spessasynth.js';
 import { XGDelay,delayDefaults,delayParameterRange } from './xg-delay.js';
 
 // MU100 Effect1 pp.41-42 and Owner's Manual pp.136-141. Return/send anchors
 // are specified; interpolation below 0 dB is an explicit host gain curve.
-export const xgLevel=value=>value<=96?(value/96)**2:10**((value-96)*6/31/20);
 const fail=(feature,data,reason)=>SpessaLog.xgFail(feature,data,reason);
 class XGVariation {
   constructor(core) {
@@ -44,7 +46,7 @@ class XGVariation {
     for(let i=0;i<data.length;i++) {
       const address=base+i,value=data[i];
       if(address>=128) {fail('Effect address',[2,1,address],'Address outside supported Effect1 block.');continue;}
-      if(address<0x40) {dispatch(new Uint8Array([...syx.slice(0,5),address,value,0xf7]));continue;}
+      if(address<0x40) {i+=this.core.xgSystemEffects.write(address,value,i+1<data.length?data[i+1]:undefined)-1;continue;}
       if(address===0x40 || address===0x41) {
         let msb=this.raw[0x40],lsb=this.raw[0x41];
         if(address===0x40){msb=value;if(i+1<data.length)lsb=data[++i];}else lsb=value;
@@ -91,13 +93,15 @@ class XGVariation {
       const l=this.outputL[i],r=this.outputR[i],mono=(l+r)*.5;
       // System send taps precede Variation pan and return (MU100 p.140).
       reverb[i]+=mono*toReverb;chorus[i]+=mono*toChorus;
+      if(this.core.xgSystemEffects.active)this.core.xgSystemEffects.variation(l,r,toReverb,toChorus,i);
       outputL[start+i]+=l*left;outputR[start+i]+=r*right;
     }
   }
 }
 export function installXGVariation(synth) {
   const core=synth.synthCore;if(core.xgVariation)return core.xgVariation;
+  core.xgSystemEffects=new XGSystemEffects(core);
   core.xgVariation=new XGVariation(core);
-  const reset=core.reset.bind(core);core.reset=(...args)=>{reset(...args);core.xgVariation.reset();};
+  const reset=core.reset.bind(core);core.reset=(...args)=>{reset(...args);core.xgVariation.reset();core.xgSystemEffects.reset();};
   return core.xgVariation;
 }

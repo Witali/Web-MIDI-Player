@@ -32,7 +32,8 @@
       "Host rate/transpose and exact A/B transport preserve source-time coordinates and ordered commands. In-process synth/DSP checkpoints retain partial PCM, decoder, RNG and effect state without sample copies. Vendor RNG exposes state and sequencer accepts an inclusive loop boundary; default tick processing is unchanged.",
       "Recognize native Yamaha XG SFX percussion bank MSB 126 alongside normal drum banks; unavailable SFX kits retain explicit drum fallback diagnostics.",
       "GS effect DT1 extension validates checksums, ranges, all ordered payload bytes and partial EFX type writes; explicit unused/unknown parameter diagnostics. Added host overdrive/distortion models with Roland address/default maps, cabinet categories, mono routing, EQ, pan, level and sends; proprietary hardware transfer functions are not claimed.",
-      "XG System Variation stereo Delay LCR/LR/Echo/Cross Delay: complete Effect1 byte dispatch, 14-bit units and partial writes, validated parameters, CC94 stereo sends, pre-return/pan sends, unknown Thru and explicit unsupported insertion routing. Yamaha device numbers use the low header nibble; synth-owned JS delay state supports exact checkpoints."
+      "XG System Variation stereo Delay LCR/LR/Echo/Cross Delay: complete Effect1 byte dispatch, 14-bit units and partial writes, validated parameters, CC94 stereo sends, pre-return/pan sends, unknown Thru and explicit unsupported insertion routing. Yamaha device numbers use the low header nibble; synth-owned JS delay state supports exact checkpoints.",
+      "XG System Reverb Hall/Room/Stage/Plate (8 programs), Chorus/Celeste/Flanger (11 programs), exact MU100 parameter maps/lookup units, stereo CC91/93 and serial Variation/Chorus sends before pan/return. Host FDN/modulation models keep all state checkpointable; default XG effect programs now replace GS defaults only in XG mode. Unknown types remain diagnosed Thru, reserved values remain explicit."
     ]
   },
   "soundfont": {
@@ -62,7 +63,7 @@
     "failedPipelineBranch": "experiment/fused-voice-pipeline",
     "compiler": "Emscripten 6.0.12",
     "nativeTests": "native/test_dsp.c",
-    "scope": "Main sample/envelope/filter/mix loops, chorus, delay lines and Dattorro reverb; MIDI/SF2 parsing and extended insertion effects remain JavaScript"
+    "scope": "Main sample/envelope/filter/mix loops and GS standard chorus, delay lines and Dattorro reverb; MIDI/SF2 parsing, extended GS insertion and XG effect models remain JavaScript"
   },
   "dependencies": [
     {

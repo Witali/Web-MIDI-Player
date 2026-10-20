@@ -111,7 +111,11 @@
   JS/WASM/SIMD, F0/F7, порты, seek и checkpoints.
   XG System Variation: Delay LCR/LR/Echo/Cross Delay, 14-битные параметры,
   стереопосыл CC94, return/pan и посылы до них; проверены импульсные схемы
-  и независимый задержанный PCM. XG Insertion, Reverb и Chorus ещё в работе.
+  и независимый задержанный PCM.
+  XG System Reverb: 8 программ Hall/Room/Stage/Plate; Chorus/Celeste/Flanger:
+  11 программ, точные таблицы единиц, стереовход и последовательные посылы.
+  Проверены параметры, импульсы, независимый PCM, Worker, seek/checkpoints.
+  XG Variation с этими типами и маршрутизация Insertion ещё в работе.
 - [ ] **P3 — Дополнительные SysEx.** Добавлять конкретные семейства устройств
   и команды по спецификациям и тестовым файлам. Дампы патчей и Sample Dump
   Standard требуют отдельного декодера/банка, а не общего пропуска неизвестных

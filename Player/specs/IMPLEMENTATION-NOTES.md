@@ -555,3 +555,60 @@ send/return ordering, all four algorithms through actual MIDI on JS/WASM/SIMD,
 No Effect/fallback/effects:false PCM, F0/F7 and ports, exact seeks/checkpoints,
 an independent delayed dry-stereo PCM reference with live pan changes,
 inactive-mode diagnostics and real Worker selective loading/seek/PCM.
+
+
+## XG System Reverb and Chorus (2026-10-20)
+
+The exact Yamaha references and hashes are recorded in the preceding section.
+MU100 Sound List & MIDI Data printed pp.11,13-14,25-26,41-42 defines the System
+block diagrams, parameter ranges, conversion tables and factory Effect1 data.
+The Owner's Manual printed pp.136-141 defines connection/return/send semantics.
+The original p.11 and p.13 diagrams were visually checked for independent
+stereo filters, ER paths and mono/stereo chorus input before implementation.
+
+Implemented System types are Hall1/2 (01/00,01), Room1/2/3 (02/00,01,02),
+Stage1/2 (03/00,01), Plate (04/00), Chorus1/2/3/4 (41/00,01,02,08), Celeste1/2/3/4
+(42/00,01,02,08), and Flanger1/2/3 (43/00,01,08). No Effect mutes the selected
+System bus. An unknown MSB/LSB pair uses a diagnosed Thru; subsequent partial
+writes retain the unknown address rather than the fallback processor's type.
+Type changes reset program parameters before following overrides and retain
+independent return/pan/send controls. Only Hall1 and Chorus1 factory programs
+are published in Effect1; other program defaults are explicit host choices.
+
+Numeric tables are transcribed unchanged: LFO 0..39.7Hz, delay offset 0..50ms,
+initial/reverb delay 0.1..99.3ms, Reverb Time 0.3..30s and logarithmic EQ cutoff
+frequencies. Flanger Delay Offset permits only data 0..63 (unlike Chorus/Celeste
+0..127). Its LFO phase difference is (data-64)*3 degrees, data 4..124. Input
+Mode selects mono/stereo for Chorus/Celeste. System mixing ignores insertion-only
+Dry/Wet, and System Chorus ignores the mid-EQ fields documented for Variation
+only; their valid values are retained. Reserved parameters and invalid ranges
+still generate explicit diagnostics rather than a generic successful setter.
+
+Direct CC91/93 sources preserve SoundFont/drum sends and stereo pan after voice
+filter/envelope gain. Variation's stereo outputs feed the System buses before
+its own pan/return; Chorus feeds Reverb before Chorus pan/return. Muting a return
+does not mute its outgoing serial send. XG System On initializes Yamaha's default
+programs; ordinary GS/GM mode retains its previous effects and PCM path. Processor
+selection, filters, LFO phase and all feedback/ring-buffer state belong to the
+synth graph, so checkpoints also restore across later type reallocations.
+
+The DSP implementations are documented host models. Chorus uses interpolated
+modulated delays; Celeste sums three LFO phases; Flanger uses separate channel
+phase offsets. Depth scaling and feedback gain curves are host choices. Reverb
+uses independent HPF/LPF and stereo early reflections before a common mono-fed
+stereo eight-line orthogonal FDN. Per-line gain is 10^(-3*delaySeconds/RT60).
+Diffusion uses feedforward allpasses; density controls reflection count; high
+damping filters feedback. Room geometry, reflection taps, diffusion/damping
+coefficients and balance curves are host choices, since Yamaha does not publish
+its DSP. These models implement the published controls and topology without
+claiming hardware PCM identity. All new DSP remains JavaScript on every backend.
+
+Evidence: tests/xg-system-effects.test.mjs transcribes independent MU100 values,
+checks HPF/LPF cutoff energy, three-phase fractional impulses, mono/stereo,
+Flanger phase, early-reflection timing/side, RT60 gains/decay, all 19 programs,
+serial send taps, an independent dry PCM reference on JS/WASM/SIMD, malformed
+parameter handling, live F0/F7/ports, exact seeks/checkpoints with type changes,
+No Effect/effects:false identity and a real selectively loaded Worker. The prior
+XG Variation stereo-delay suite remains active. Variation algorithms, Insertion
+routing, separate insertion slots and controller modulation remain unfinished;
+the overall effects plan item is still open.

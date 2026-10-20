@@ -6914,7 +6914,10 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 			deferredOscillator ? voice.wavetable : null, voice.tuningRatio,
 			deferredEnvelope ? voice.volEnv : null, gainTarget);
 		voice.isActive = voice.isActive && active;
-		if (enabled) core.xgVariation?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.delayGain * (delaySend / 128 / 127));
+		if (enabled) {
+			core.xgVariation?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.delayGain * (delaySend / 128 / 127));
+			core.xgSystemEffects?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.reverbGain * (reverbSend / 1e3), systemParameters.chorusGain * (chorusSend / 1e3));
+		}
 		return;
 	}
 	if (this._midiParameters.efxAssign && systemParameters.effectsEnabled && core.insertionActive) {
@@ -6946,6 +6949,7 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		const chorus = core.chorusInput;
 		for (let i = 0; i < sampleCount; i++) chorus[i] += chorusGain * buffer[i];
 	}
+	core.xgSystemEffects?.capture(buffer, sampleCount, gainLeft, gainRight, systemParameters.reverbGain * (reverbSend / 1e3), systemParameters.chorusGain * (chorusSend / 1e3));
 	core.xgVariation?.capture(buffer, sampleCount, gainLeft, gainRight, systemParameters.delayGain * (this._midiControllers[MIDIControllers.variationDepth] / 128 / 127) * voice.delaySend);
 	if (core.delayActive) {
 		const delaySend = this._midiControllers[MIDIControllers.variationDepth] * voice.delaySend;
@@ -20277,6 +20281,7 @@ var SynthesizerCore = class {
 		this.reverbInput.fill(0);
 		this.chorusInput.fill(0);
 		if (this.xgVariation?.active) this.xgVariation.begin();
+		if (this.xgSystemEffects?.active) this.xgSystemEffects.begin();
 		if (this.delayActive) this.delayInput.fill(0);
 		if (this.insertionActive) {
 			this.insertionInputL.fill(0);
@@ -20304,9 +20309,12 @@ var SynthesizerCore = class {
 			const { chorusInput, delayInput, reverbInput, insertionInputR, insertionInputL } = this;
 			if (this.insertionActive) this.insertionProcessor.process(insertionInputL, insertionInputR, effectsLeft, effectsRight, reverbInput, chorusInput, delayInput, startIndex, sampleCount);
 			this.xgVariation?.process(effectsLeft, effectsRight, reverbInput, chorusInput, startIndex, sampleCount);
-			this.chorusProcessor.process(chorusInput, effectsLeft, effectsRight, reverbInput, delayInput, startIndex, sampleCount);
-			if (this.delayActive && this.midiParameters.system !== "xg") this.delayProcessor.process(delayInput, effectsLeft, effectsRight, reverbInput, startIndex, sampleCount);
-			this.reverbProcessor.process(reverbInput, effectsLeft, effectsRight, startIndex, sampleCount);
+			if (this.xgSystemEffects?.active) this.xgSystemEffects.process(effectsLeft, effectsRight, startIndex, sampleCount);
+			else {
+				this.chorusProcessor.process(chorusInput, effectsLeft, effectsRight, reverbInput, delayInput, startIndex, sampleCount);
+				if (this.delayActive && this.midiParameters.system !== "xg") this.delayProcessor.process(delayInput, effectsLeft, effectsRight, reverbInput, startIndex, sampleCount);
+				this.reverbProcessor.process(reverbInput, effectsLeft, effectsRight, startIndex, sampleCount);
+			}
 		}
 		this.currentTime += sampleCount * this.sampleTime;
 	}
