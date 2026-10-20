@@ -257,6 +257,6 @@
     if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open) { event.preventDefault(); $('search').focus(); }
     if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && player.item) { event.preventDefault(); player.toggle(); }
   });
-  window.addEventListener('beforeunload', () => { player.clearVoices(); clearInterval(player.timer); });
+  window.addEventListener('beforeunload', () => { player.engine?.dispose().catch(() => {}); });
   update();
 })();
