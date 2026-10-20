@@ -91,7 +91,7 @@ test('prebuilt WASM is tied to the C sources and does not import a JavaScript DS
       const module = await WebAssembly.compile(data);
       assert.deepEqual(WebAssembly.Module.imports(module), []);
       const names = WebAssembly.Module.exports(module).map(item => item.name);
-      for (const name of ['dsp_process_voice', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro']) {
+      for (const name of ['dsp_process_batch', 'dsp_batch_abi_version', 'dsp_voice_command_size', 'dsp_process_voice', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro']) {
         assert.ok(names.includes(name), `Missing C DSP export: ${name}`);
       }
     }
@@ -126,5 +126,33 @@ test('waveform cache matches uncached C for independent voice states, key change
     const stats = new Uint32Array(cached.memory.buffer, cached.dsp_get_cache_stats(), 3);
     assert.ok(stats[0] >= 3); assert.ok(stats[1] >= 6); assert.equal(stats[2], 1);
     cached.dsp_begin_block(); assert.deepEqual([...stats], [0, 0, 0]);
+  }
+});
+
+
+test('batch wasm32 layout matches the native golden output after memory growth and rejects a malformed batch atomically', async () => {
+  const expected = JSON.parse(await fs.readFile(new URL('./native-dsp-golden.json', import.meta.url), 'utf8'));
+  for (const file of ['voice-mixer.wasm', 'voice-mixer-simd.wasm']) {
+    const {instance} = await WebAssembly.instantiate(await fs.readFile(new URL('../dsp/' + file, import.meta.url)));
+    const e = instance.exports, base = e.dsp_get_layout(), source = Number(e.__heap_base.value), command = source + 64;
+    const filter = command + 136;
+    assert.equal(e.dsp_batch_abi_version(), 1); assert.equal(e.dsp_voice_command_size(), 136);
+    new Float32Array(e.memory.buffer, source, 12).set([0, .2, -.6, .9, .7, -.2, -.4, .3, .8, -.5, .1, 0]);
+    new Float64Array(e.memory.buffer, filter, 9).set([.42, .2, .1, -.3, .05, .1, -.2, .03, .04]);
+    const words = new Uint32Array(e.memory.buffer, command, 34), doubles = new Float64Array(e.memory.buffer, command, 17);
+    words[0] = source; words[1] = filter; words[6] = 1; words[7] = 1; words[8] = 12; words[9] = 8; words[10] = 12;
+    doubles.set([10.25, .7, .13, .003, 0, .71, .27, .12, .08, .03, 0], 6);
+    e.memory.grow(1);
+    assert.equal(e.dsp_process_batch(command, 1, 8), 0);
+    assert.deepEqual([...new Float32Array(e.memory.buffer, base + 512, 8)], expected.audio);
+    assert.deepEqual([...new Float64Array(e.memory.buffer, filter, 9)], expected.filter);
+    assert.equal(new Float64Array(e.memory.buffer, command, 17)[16], expected.cursor);
+    const before = new Uint8Array(e.memory.buffer).slice();
+    new Uint32Array(e.memory.buffer, command, 34)[6] = 4;
+    before[command + 24] = 4;
+    assert.equal(e.dsp_process_batch(command, 1, 8), -1);
+    assert.deepEqual(new Uint8Array(e.memory.buffer), before);
+    assert.equal(e.dsp_process_batch(0, 0, 8), 0);
+    assert.equal(e.dsp_process_batch(0, 1, 8), -1);
   }
 });

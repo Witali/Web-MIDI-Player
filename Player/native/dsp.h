@@ -19,6 +19,24 @@ DspScratch *dsp_get_layout(void);
  * within this block; filters/envelopes/mixing still execute for every voice. */
 void dsp_begin_block(void);
 const uint32_t *dsp_get_cache_stats(void); /* hits, misses, enabled in current block */
+/* Batch extension 1. The host grows these descriptors without a voice cap.
+ * Six native pointers, six 32-bit words, then eleven doubles (136 bytes on
+ * wasm32). Input/capture may alias. Persistent filter/envelope state belongs
+ * to one voice; commands execute in array order, including their last block. */
+typedef struct {
+    const float *samples;
+    double *filter, *envelope;
+    const float *centibels, *input;
+    float *capture;
+    uint32_t flags; /* bit 0: filter, bit 1: insertion */
+    int32_t looping, loop_end, loop_length, end, active;
+    double cursor, step, gain, increment, target;
+    double left, right, reverb, chorus, delay, result_cursor;
+} DspVoiceCommand;
+uint32_t dsp_batch_abi_version(void);
+uint32_t dsp_voice_command_size(void);
+/* Invalid descriptors reject the entire batch before changing DSP state. */
+int dsp_process_batch(DspVoiceCommand *commands, uint32_t voices, uint32_t count);
 int dsp_process_voice(uint32_t count, int filtered, double gain, double increment,
     double left, double right, double reverb, double chorus, double delay, int insertion,
     const float *samples, int looping, int loop_end, int loop_length, int end,

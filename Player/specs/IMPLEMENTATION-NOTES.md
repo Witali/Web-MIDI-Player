@@ -990,3 +990,48 @@ explicit priority replacement, repeated checkpoint restoration and later pool/
 WASM growth. Separate performance runs load the previous committed modules and
 compare complete measured PCM while alternating128-frame blocks. Full logs,
 hashes, medians and reproduction commands are in DSP-PERFORMANCE.md.
+
+
+## Batched C voices (20 October 2026)
+
+MIDI 1.0 Detailed Specification v4.2.1, Appendix A-4/A-5 (PDF pages 67–68),
+allows receiver voice assignment policies but requires corresponding Note Off
+handling, sustain-aware All Notes Off and release rather than abrupt truncation.
+It also requires input messages not to be lost during ongoing processing.
+This optimization changes neither MIDI dispatch nor those policies: the host
+prepares a batch inside the existing 1–128-frame audio block, after ordered MIDI
+handling, and executes its voice commands in the existing pool-slot order.
+It never merges, skips, quantizes anew or reorders MIDI commands or voice tails.
+
+The optional batch extension 1 preserves the base DSP ABI 1. The host expands
+136-byte wasm32 descriptors geometrically, with no musical voice count limit.
+Per-voice filter history remains in the bound native arena; coefficients are
+written by the host and observable JS history is synchronized after rendering.
+A transition from the immediate renderer copies its latest history once.
+Volume envelopes remain in their existing bound state. Modulation envelopes
+still use individual C calls where their results are needed to prepare pitch
+or cutoff; one batch does not mean all JS/C crossings have disappeared.
+
+For 16 or more listed voices, the main stereo process wrapper submits one
+render batch before effects. Fewer voices keep immediate rendering, avoiding
+measured setup overhead; all voices are still rendered. A plain multi-output
+call outside that wrapper retains the existing immediate behavior. Unsupported
+older DSP modules also retain their immediate path. This is an internal dispatch
+threshold, not a polyphony limit or a perceptual/silence cutoff.
+
+For non-Hermite interpolation the host retains each precomputed waveform until
+C consumes it. XG insertion/variation/system sends receive each voice's own
+filtered/enveloped PCM in the same order, including its final partial/EOF block.
+Command/payload relocation and native memory growth refresh every affected view
+and queued pointer. Transient command storage is excluded from checkpoints;
+per-voice native filter/envelope state remains included. Capacity and immutable
+sample caches stay monotonic across restoration.
+
+Evidence: native/test_dsp.c compares sequential and batched filters, envelopes,
+oscillators, captures and all seven output/send buffers with no tolerance at
+block lengths 1/3/127/128. tests/dsp.test.mjs checks wasm32 layout against the
+native golden output and atomic rejection of malformed batches.
+tests/voice-batch.test.mjs compares exact actual PCM/state through mixed
+interpolation, XG routing changes, pedals, sample EOF, sparse/dense transitions,
+late sample allocation, descriptor/payload/pool growth and repeated checkpoints
+on scalar/SIMD. Full MIDI/Worker/seek regression tests remain applicable.

@@ -179,6 +179,71 @@ static void reverb(void) {
     CHECK(energy > .001 && r[15] > 0);
     for (line = 0; line < 12; line++) free((void *)lines[line * 4]); free(predelay);
 }
+static void batch_voices(void) {
+    enum { N = 41 };
+    DspVoiceCommand commands[N];
+    double filters[2][N][9], envelopes_state[2][N][16], cursors[N];
+    float input[N][128], captures[2][N][128], expected[8][128], table[32601], samples[257];
+    int statuses[N]; unsigned ci, i, j, pass;
+    const unsigned counts[4] = {1, 3, 127, 128};
+    CHECK(dsp_batch_abi_version() == 1 && dsp_voice_command_size() == sizeof(DspVoiceCommand));
+    for (i = 0; i < 257; i++) samples[i] = (float)sin(i * .17);
+    for (i = 0; i < 32601; i++) table[i] = (float)pow(10, -((double)i - 16600) / 200);
+    for (ci = 0; ci < 4; ci++) {
+        const unsigned count = counts[ci];
+        memset(commands, 0, sizeof(commands)); memset(envelopes_state, 0, sizeof(envelopes_state));
+        for (i = 0; i < N; i++) {
+            DspVoiceCommand *v = commands + i;
+            const double f[9] = {.42 + i * .001, .2, .1, -.3, .05, .1, -.2, .03, .04};
+            memcpy(filters[0][i], f, sizeof(f)); memcpy(filters[1][i], f, sizeof(f));
+            for (j = 0; j < 128; j++) input[i][j] = (float)sin((i + j) * .3);
+            envelopes_state[0][i][2] = envelopes_state[1][i][2] = 4;
+            v->samples = i % 4 ? samples : NULL; v->input = input[i]; v->capture = captures[1][i];
+            v->filter = filters[1][i]; v->envelope = i % 3 ? NULL : envelopes_state[1][i]; v->centibels = table;
+            v->flags = (i % 2 ? 1u : 0u) | (i % 5 == 0 ? 2u : 0u);
+            v->looping = i % 7 != 0; v->loop_end = 17; v->loop_length = 7; v->end = 257;
+            v->cursor = i % 7 ? .25 : 254; v->step = .5; v->gain = .13 + i * .003; v->increment = .003;
+            v->target = .75; v->left = .71; v->right = .27; v->reverb = .12; v->chorus = .08; v->delay = .03;
+        }
+        for (pass = 0; pass < 3; pass++) {
+            clear(); dsp_begin_block();
+            for (i = 0; i < N; i++) {
+                DspVoiceCommand *v = commands + i;
+                if (v->flags & 1) memcpy(s->filter, filters[0][i], sizeof(s->filter));
+                if (!v->samples) memcpy(s->audio[0], v->input, count * sizeof(float));
+                if (v->envelope) statuses[i] = dsp_process_voice_envelope(count, v->flags & 1,
+                    envelopes_state[0][i], v->target, table, v->left, v->right, v->reverb, v->chorus, v->delay,
+                    v->flags & 2, v->samples, v->looping, v->loop_end, v->loop_length, v->end, v->cursor, v->step);
+                else statuses[i] = dsp_process_voice(count, v->flags & 1, v->gain, v->increment,
+                    v->left, v->right, v->reverb, v->chorus, v->delay, v->flags & 2,
+                    v->samples, v->looping, v->loop_end, v->loop_length, v->end, v->cursor, v->step);
+                cursors[i] = statuses[i] ? s->cursor : v->cursor;
+                if (v->flags & 1) memcpy(filters[0][i], s->filter, sizeof(s->filter));
+                memcpy(captures[0][i], s->audio[0], count * sizeof(float));
+            }
+            memcpy(expected, s->audio, sizeof(expected)); clear(); dsp_begin_block();
+            CHECK(dsp_process_batch(commands, N, count) == 0);
+            for (j = 1; j < 8; j++) CHECK(memcmp(expected[j], s->audio[j], count * sizeof(float)) == 0);
+            for (i = 0; i < N; i++) {
+                CHECK(commands[i].active == statuses[i]);
+                CHECK(commands[i].result_cursor == cursors[i]);
+                CHECK(memcmp(filters[0][i], filters[1][i], sizeof(filters[0][i])) == 0);
+                CHECK(memcmp(envelopes_state[0][i], envelopes_state[1][i], sizeof(envelopes_state[0][i])) == 0);
+                CHECK(memcmp(captures[0][i], captures[1][i], count * sizeof(float)) == 0);
+                if (commands[i].samples && commands[i].active) commands[i].cursor = cursors[i];
+            }
+        }
+    }
+    CHECK(dsp_process_batch(NULL, 0, 128) == 0);
+    CHECK(dsp_process_batch(NULL, 1, 128) == -1);
+    CHECK(dsp_process_batch(commands, N, 0) == -1);
+    CHECK(dsp_process_batch(commands, N, 129) == -1);
+    memcpy(expected, s->audio, sizeof(expected));
+    commands[N - 1].flags = 4; CHECK(dsp_process_batch(commands, N, 128) == -1);
+    CHECK(memcmp(expected, s->audio, sizeof(expected)) == 0);
+    commands[N - 1].flags = 0; commands[N - 1].samples = NULL; commands[N - 1].input = NULL;
+    CHECK(dsp_process_batch(commands, N, 128) == -1);
+}
 static void golden(void) {
     unsigned i; const float sample[12] = {0, .2f, -.6f, .9f, .7f, -.2f, -.4f, .3f, .8f, -.5f, .1f, 0};
     clear(); s->filter[0] = .42; s->filter[1] = .2; s->filter[2] = .1; s->filter[3] = -.3; s->filter[4] = .05;
@@ -192,6 +257,6 @@ static void golden(void) {
 int main(int argc, char **argv) {
     s = dsp_get_layout(); CHECK(dsp_abi_version() == 1);
     if (argc > 1 && strcmp(argv[1], "--golden") == 0) { golden(); return 0; }
-    impulse(); gain_pan_and_sends(); interpolation_and_end(); interpolation_boundaries(); dense_polyphony(); envelopes(); chorus_and_delay(); reverb(); waveform_cache();
+    impulse(); gain_pan_and_sends(); interpolation_and_end(); interpolation_boundaries(); dense_polyphony(); envelopes(); chorus_and_delay(); reverb(); waveform_cache(); batch_voices();
     printf("PASS native C DSP: %u checks\n", checks); return 0;
 }

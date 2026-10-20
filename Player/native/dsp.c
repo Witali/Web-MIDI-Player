@@ -4,8 +4,10 @@
 #include <string.h>
 #if defined(_MSC_VER)
 #define DSP_NOINLINE __declspec(noinline)
+#define DSP_ALWAYS_INLINE __forceinline
 #else
 #define DSP_NOINLINE __attribute__((noinline))
+#define DSP_ALWAYS_INLINE inline __attribute__((always_inline))
 #endif
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
@@ -127,13 +129,12 @@ static void mix_simd(uint32_t n, double left, double right, double reverb,
 }
 #endif
 
-int dsp_process_voice(uint32_t count, int filtered, double gain, double increment,
+static DSP_ALWAYS_INLINE int process_voice(uint32_t count, int filtered, double gain, double increment,
     double left, double right, double reverb, double chorus, double delay, int insertion,
     const float *samples, int looping, int loop_end, int loop_length, int end,
-    double cursor, double step) {
+    double cursor, double step, double *f) {
     uint32_t i;
     int active = 1;
-    double *f = scratch.filter;
     const double a0 = f[0], a1 = f[1], a2 = f[2], a3 = f[3], a4 = f[4];
     double x1 = f[5], x2 = f[6], y1 = f[7], y2 = f[8];
     if (!count || count > DSP_QUANTUM || (samples && (end < 4 || !isfinite(cursor) || !isfinite(step) || cursor < 0 || step < 0 ||
@@ -170,6 +171,13 @@ int dsp_process_voice(uint32_t count, int filtered, double gain, double incremen
     return active;
 }
 
+int dsp_process_voice(uint32_t count, int filtered, double gain, double increment,
+    double left, double right, double reverb, double chorus, double delay, int insertion,
+    const float *samples, int looping, int loop_end, int loop_length, int end, double cursor, double step) {
+    return process_voice(count, filtered, gain, increment, left, right, reverb, chorus, delay,
+        insertion, samples, looping, loop_end, loop_length, end, cursor, step, scratch.filter);
+}
+
 int dsp_process_voice_envelope(uint32_t count, int filtered, double *env, double target, const float *table,
     double left, double right, double reverb, double chorus, double delay, int insertion,
     const float *samples, int looping, int loop_end, int loop_length, int end, double cursor, double step) {
@@ -180,4 +188,43 @@ int dsp_process_voice_envelope(uint32_t count, int filtered, double *env, double
     active = dsp_process_voice(count, filtered, gain, increment, left, right, reverb, chorus, delay,
         insertion, samples, looping, loop_end, loop_length, end, cursor, step);
     return active < 0 ? active : active && envelope_active;
+}
+
+#if defined(__wasm32__)
+_Static_assert(sizeof(DspVoiceCommand) == 136, "DSP batch stride ABI");
+_Static_assert(offsetof(DspVoiceCommand, flags) == 24, "DSP batch flags ABI");
+_Static_assert(offsetof(DspVoiceCommand, cursor) == 48, "DSP batch doubles ABI");
+#endif
+uint32_t dsp_batch_abi_version(void) { return 1; }
+uint32_t dsp_voice_command_size(void) { return (uint32_t)sizeof(DspVoiceCommand); }
+int dsp_process_batch(DspVoiceCommand *commands, uint32_t voices, uint32_t count) {
+    uint32_t i;
+    if (!count || count > DSP_QUANTUM || (voices && !commands)) return -1;
+    for (i = 0; i < voices; i++) {
+        const DspVoiceCommand *v = commands + i;
+        if ((v->flags & ~3u) || ((v->flags & 1) && !v->filter) || (!v->samples && !v->input)
+            || (v->envelope && !v->centibels)
+            || (v->samples && (v->end < 4 || !isfinite(v->cursor) || !isfinite(v->step)
+                || v->cursor < 0 || v->step < 0 || (v->looping && (v->loop_length <= 0
+                    || v->loop_end > v->end || v->loop_end < v->loop_length))))) return -1;
+    }
+    for (i = 0; i < voices; i++) {
+        DspVoiceCommand *v = commands + i;
+        const int filtered = (v->flags & 1) != 0, insertion = (v->flags & 2) != 0;
+        double gain = v->gain, increment = v->increment;
+        int envelope_active = 1;
+        if (!v->samples) memcpy(scratch.audio[0], v->input, count * sizeof(float));
+        if (v->envelope) {
+            gain = v->envelope[0];
+            envelope_active = dsp_volume_envelope(v->envelope, count, v->target, v->centibels);
+            increment = (v->envelope[0] - gain) / count;
+        }
+        v->active = process_voice(count, filtered, gain, increment,
+            v->left, v->right, v->reverb, v->chorus, v->delay, insertion,
+            v->samples, v->looping, v->loop_end, v->loop_length, v->end, v->cursor, v->step,
+            filtered ? v->filter : scratch.filter) && envelope_active;
+        v->result_cursor = v->active ? scratch.cursor : v->cursor;
+        if (v->capture) memcpy(v->capture, scratch.audio[0], count * sizeof(float));
+    }
+    return 0;
 }

@@ -1,3 +1,4 @@
+import { installVoiceBatch } from './voice-dsp-batch.js';
 import { installCStateDSP } from './voice-dsp-state.js';
 const compiled = new Map();
 async function module(backend) {
@@ -25,7 +26,7 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
   if (exports.dsp_abi_version && exports.dsp_abi_version() !== 1) throw new Error('Unsupported C DSP ABI.');
   const core = synth.synthCore;
   const bindings = [];
-  let left, right, state, cursor;
+  let left, right, state, cursor, batch;
   const refresh = () => {
     const view = offset => new Float32Array(memory.buffer, base + offset, 128);
     core.voiceBuffer = view(0); left = view(512); right = view(1024);
@@ -33,6 +34,7 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
     core.insertionInputL = view(3072); core.insertionInputR = view(3584);
     state = new Float64Array(memory.buffer, base + 4096, 9); cursor = new Float64Array(memory.buffer, base + 4200, 1);
     for (const item of bindings) item.object[item.key] = new item.Type(memory.buffer, item.offset, item.length);
+    batch?.refresh();
   };
   refresh();
   const sampleCache = new WeakMap();
@@ -58,18 +60,34 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
       return { offset, copyBack: () => array.set(new array.constructor(memory.buffer, offset, array.length)) };
     }
   };
+  const samplePointer = samples => {
+    let pointer = sampleCache.get(samples);
+    if (pointer === undefined) {
+      pointer = arena.alloc(samples.byteLength);
+      new Float32Array(memory.buffer, pointer, samples.length).set(samples);
+      sampleCache.set(samples, pointer);
+    }
+    return pointer;
+  };
   const nativeProcess = synth.process;
   synth.process = (outputL, outputR, start = 0, count = outputL.length - start) => {
     if (count < 1 || count > 128) throw new RangeError('Voice DSP blocks must contain 1–128 samples.');
     left.fill(0); right.fill(0);
     exports.dsp_begin_block?.();
-    nativeProcess(left, right, 0, count);
+    if (batch && core.voiceDSP.batchEnabled && core.voicePool.active.length >= core.voiceDSP.batchMinimumVoices) batch.begin(count);
+    try { nativeProcess(left, right, 0, count); }
+    finally { batch?.end(); }
     outputL.set(left.subarray(0, count), start); outputR.set(right.subarray(0, count), start);
   };
   core.voiceDSP = {
     backend,
     core: exports.dsp_abi_version ? 'c' : 'wat',
     stateful: !!exports.dsp_process_voice_envelope,
+    batchEnabled: !!exports.dsp_process_batch,
+    batchMinimumVoices: 16,
+    get batching() { return batch?.running || false; },
+    get batchStats() { return batch ? { ...batch.stats, capacity: batch.capacity, payloadCapacity: batch.payloadCapacity } : null; },
+    flushBatch() { batch?.flush(); },
     get left() { return left; }, get right() { return right; },
     get memoryBuffer() { return memory.buffer; },
     checkpoint() {
@@ -83,15 +101,7 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
       } };
     },
     render(filter, enabled, gain, increment, count, gainLeft, gainRight, reverb, chorus, delay, insertion, wave, tuningRatio, envelope, target) {
-      let pointer = 0;
-      if (wave) {
-        pointer = sampleCache.get(wave.sampleData);
-        if (pointer === undefined) {
-          pointer = arena.alloc(wave.sampleData.byteLength);
-          new Float32Array(memory.buffer, pointer, wave.sampleData.length).set(wave.sampleData);
-          sampleCache.set(wave.sampleData, pointer);
-        }
-      }
+      const pointer = wave ? samplePointer(wave.sampleData) : 0;
       if (enabled) {
         state[0] = filter.a0; state[1] = filter.a1; state[2] = filter.a2; state[3] = filter.a3; state[4] = filter.a4;
         state[5] = filter.x1; state[6] = filter.x2; state[7] = filter.y1; state[8] = filter.y2;
@@ -106,9 +116,14 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
           pointer, wave ? +wave.isLooping : 0, wave?.loopEnd || 0, wave?.loopLength || 0,
           wave?.end || 0, wave?.cursor || 0, wave ? tuningRatio * wave.playbackStep : 0);
       if (wave && active) wave.cursor = cursor[0];
-      if (enabled) { filter.x1 = state[5]; filter.x2 = state[6]; filter.y1 = state[7]; filter.y2 = state[8]; }
+      if (enabled) {
+        filter.x1 = state[5]; filter.x2 = state[6]; filter.y1 = state[7]; filter.y2 = state[8];
+        if (filter._cFilter) filter._cFilterDirty = true;
+      }
       return !!active;
     }
   };
   if (exports.dsp_volume_envelope && core.voices) installCStateDSP(core, exports, arena);
+  if (core.voices) batch = installVoiceBatch(core, exports, arena, memory, samplePointer);
+  if (batch) core.voiceDSP.enqueue = batch.enqueue;
 }

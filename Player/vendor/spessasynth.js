@@ -6938,6 +6938,18 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		const reverbSend = modulated[GeneratorTypes.reverbEffectsSend] * voice.reverbSend;
 		const chorusSend = modulated[GeneratorTypes.chorusEffectsSend] * voice.chorusSend;
 		const delaySend = this._midiControllers[MIDIControllers.variationDepth] * voice.delaySend;
+		if (dsp.batching) {
+			dsp.enqueue(voice.filter, filterEnabled, gain, gainInc, sampleCount, xgRoute ? 0 : gainLeft * xgDry, xgRoute ? 0 : gainRight * xgDry,
+			enabled && !xgRoute && reverbSend > 0 ? systemParameters.reverbGain * outputGain * (reverbSend / 1e3) : 0,
+			enabled && !xgRoute && chorusSend > 0 ? systemParameters.chorusGain * (chorusSend / 1e3) * outputGain : 0,
+			enabled && !xgRoute && core.delayActive && delaySend > 0 ? outputGain * systemParameters.delayGain * ((delaySend >> 7) / 127) : 0,
+			!!(!xgRoute && this._midiParameters.efxAssign && enabled && core.insertionActive),
+			deferredOscillator ? voice.wavetable : null, voice.tuningRatio,
+			deferredEnvelope ? voice.volEnv : null, gainTarget,
+			voice, xgRoute, gainLeft, gainRight, enabled, systemParameters.reverbGain * (reverbSend / 1e3),
+			systemParameters.chorusGain * (chorusSend / 1e3), systemParameters.delayGain * (delaySend / 128 / 127));
+			return;
+		}
 		const active = dsp.render(voice.filter, filterEnabled, gain, gainInc, sampleCount, xgRoute ? 0 : gainLeft * xgDry, xgRoute ? 0 : gainRight * xgDry,
 			enabled && !xgRoute && reverbSend > 0 ? systemParameters.reverbGain * outputGain * (reverbSend / 1e3) : 0,
 			enabled && !xgRoute && chorusSend > 0 ? systemParameters.chorusGain * (chorusSend / 1e3) * outputGain : 0,
@@ -20311,6 +20323,7 @@ var SynthesizerCore = class {
 		}
 		active.length = kept;
 		this.voicePool.dirty = false;
+		this.voiceDSP?.flushBatch();
 		if (this.voiceDSP) {
 			// The sample cache may have grown while voices were rendered.
 			effectsLeft = this.voiceDSP.left;

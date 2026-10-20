@@ -32,7 +32,10 @@ instruments, drums, envelopes, MIDI controls, transport and JS fallback.
 
 The C module imports no JavaScript DSP or math functions. The host supplies
 bank lookup tables and refreshes cached typed arrays after memory growth.
-Volume envelope evaluation and voice rendering share one C call per block.
+Volume envelope evaluation and voice rendering share one call per voice on
+sparse/legacy paths. The main stereo wrapper batches blocks with at least 16
+listed voices into one render export. Modulation envelopes may still require
+individual C calls while the host prepares pitch/cutoff.
 
 The host calls `dsp_begin_block()` before rendering each audio quantum. A
 bounded waveform cache can then reuse Hermite output only when source pointer,
@@ -58,3 +61,29 @@ controller or vendor extension has been rewritten in C.
 The WAT prototype remains in branch `experiment/wasm-voice-dsp`. The source
 Z80 tester project is not modified. The adapted SpessaSynth algorithms retain
 their Apache-2.0 license; see [NOTICE](NOTICE).
+
+## Batch extension 1
+
+The base ABI 1 and scratch offsets remain compatible. Optional exports
+`dsp_batch_abi_version`, `dsp_voice_command_size` and `dsp_process_batch`
+describe an expandable ordered array of `DspVoiceCommand` structures. On wasm32
+each is 136 bytes: six pointers, six 32-bit words and eleven doubles. Native
+builds use ordinary typed pointers with their natural 64-bit layout. The full
+batch is checked for invalid block/descriptor parameters before DSP state is
+changed. This is a trusted host-memory API, not validation of arbitrary pointers.
+
+Each command owns its filter/envelope state; the batch never shares a filter
+history between voices. The native filter kernel directly updates persistent
+history instead of copying it through the shared scratch layout. Optional input
+supports host interpolation and optional capture retains each voice's processed
+PCM for XG routing. Capture/input may alias; both support partial blocks. Ended
+voices still contribute their final audio, then are retired after the batch.
+`dsp_begin_block()` remains a separate once-per-host-quantum operation.
+
+The JS adapter grows descriptors and optional waveform payloads geometrically,
+refreshes views after memory growth and relocates already queued payload pointers.
+These temporary buffers are reused and omitted from checkpoints; bound native
+filter/envelope states remain checkpointed. Main stereo rendering uses batches
+at 16 listed voices and above, with immediate rendering below that threshold.
+This threshold does not remove voices or change MIDI scheduling. See
+[performance measurements](../DSP-PERFORMANCE.md) for the measured limits.

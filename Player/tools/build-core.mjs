@@ -16,7 +16,7 @@ function run(parameters) {
   if (result.status !== 0) throw new Error(result.stderr || result.error?.message || 'C/WASM compilation failed');
   return result.stdout.trim();
 }
-const exports = ['dsp_abi_version', 'dsp_get_layout', 'dsp_begin_block', 'dsp_get_cache_stats', 'dsp_process_voice', 'dsp_process_voice_envelope', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro'];
+const exports = ['dsp_abi_version', 'dsp_get_layout', 'dsp_begin_block', 'dsp_get_cache_stats', 'dsp_batch_abi_version', 'dsp_voice_command_size', 'dsp_process_batch', 'dsp_process_voice', 'dsp_process_voice_envelope', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro'];
 const common = ['native/dsp.c', 'native/envelopes.c', 'native/effects.c', '-O3', '-std=c11', '-Wall', '-Wextra', '-Werror', '-ffp-contract=off', '-fno-fast-math',
   '--no-entry', '-sSTANDALONE_WASM=1', '-sALLOW_MEMORY_GROWTH=1', '-sINITIAL_MEMORY=1048576', '-sSTACK_SIZE=65536',
   '-sMAXIMUM_MEMORY=2147483648', '-Wl,--export=__heap_base', `-sEXPORTED_FUNCTIONS=${JSON.stringify(exports.map(name => '_' + name))}`];

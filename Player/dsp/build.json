@@ -22,18 +22,18 @@
     "-sSTACK_SIZE=65536",
     "-sMAXIMUM_MEMORY=2147483648",
     "-Wl,--export=__heap_base",
-    "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_begin_block\",\"_dsp_get_cache_stats\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_begin_block\",\"_dsp_get_cache_stats\",\"_dsp_batch_abi_version\",\"_dsp_voice_command_size\",\"_dsp_process_batch\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
   ],
   "simdFlags": [
     "-msimd128"
   ],
   "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
   "sha256": {
-    "native/dsp.c": "06ef059f876c9b971e33c2b9f00b91700cf86cd0851da3eacf57ace9611d7929",
-    "native/dsp.h": "2e2d36d57ffc2ac1c22e6dd25eb6630ed57debcb25d0f592aee9285810d57750",
+    "native/dsp.c": "39982d9dc482f92797094075c3c29aff1c56c1361b39631026e38b19b08656cd",
+    "native/dsp.h": "9a0888c7bfa7cfe0e53d6ce7410d65a6adc5f837596263bbcd3e61e65ba2f564",
     "native/envelopes.c": "1bb2ff84844c91a421a451da0933f0ddf4b96764ef01e13c1f47c79a79fcf91d",
     "native/effects.c": "5470936284f52ca04fcbd15374254b90249eb2a92d32b5463b0051e254729670",
-    "dsp/voice-mixer.wasm": "8b5cde85f23070455e45da448cd5c57234173d3a16f1665be52eaa19841b453e",
-    "dsp/voice-mixer-simd.wasm": "fb3046b306a523db482df1430ec384dbd497012376faffa16d0ea798d25427c5"
+    "dsp/voice-mixer.wasm": "cf590f179ebc75e0b48231a22552e82e918caa527ed523a8c8425824ed8748a0",
+    "dsp/voice-mixer-simd.wasm": "dbf0e6a889024e87c80dc6fd277a310ca2e6159b4a727cd4f5fd0fcf929e73e0"
   }
 }

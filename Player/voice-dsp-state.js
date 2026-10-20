@@ -35,7 +35,14 @@ export function installCStateDSP(core, api, arena) {
       this.currentValue = data.holder.data[8]; return value;
     };
   }
-  function voice(v) { envelope(v.volEnv, volumeFields, true); envelope(v.modEnv, modFields, false); }
+  function voice(v) {
+    envelope(v.volEnv, volumeFields, true); envelope(v.modEnv, modFields, false);
+    if (api.dsp_process_batch) {
+      const filter = v.filter, data = state(['a0', 'a1', 'a2', 'a3', 'a4', 'x1', 'x2', 'y1', 'y2'], filter), init = filter.init;
+      filter._cFilter = data.holder; filter._cFilterPointer = data.pointer;
+      filter.init = function() { init.call(this); data.copy(); };
+    }
+  }
   core.voices.forEach(voice);
   const allocate = core.allocateNewVoices.bind(core);
   core.allocateNewVoices = count => { const start = core.voices.length; allocate(count); core.voices.slice(start).forEach(voice); };
