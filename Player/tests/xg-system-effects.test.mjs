@@ -153,3 +153,14 @@ test('System None and effects:false preserve dry PCM; actual Worker supplies ful
   const off=midi([event(reset),event(packet(0,[0,0])),event(packet(0x20,[0,0])),...tone]);
   for(const dsp of ['js','wasm','wasm-simd']){const p=await createSoundFontPreview(off,prepared.bank,{dsp}),q=await createSoundFontPreview(off,prepared.bank,{dsp,effects:false});try{equal(p.read(60000),q.read(60000));}finally{p.close();q.close();}}
 });
+
+
+test('higher Yamaha Reverb Density places early reflections closer together',()=>{
+  const results=[];for(const density of [0,4]){
+    const effect=new XGReverb(10000,1);for(const [p,v]of [[2,0],[3,0],[4,0],[5,60],[12,density],[13,1],[15,64]])effect.setParameter(p,v);
+    const signal=new Float32Array(200),zero=new Float32Array(200),out=[new Float32Array(200),new Float32Array(200)];signal[0]=1;effect.process(signal,zero,...out,200);
+    results.push(Array.from(out[0]).flatMap((v,i)=>Math.abs(v)>1e-6?[i]:[]));
+  }
+  assert.equal(results[0][0],1);assert.equal(results[1][0],1);assert.equal(results[0][1],71);assert.ok(results[1][1]<results[0][1]);
+  assert.ok(results[1].filter(frame=>frame<100).length>results[0].filter(frame=>frame<100).length);
+});

@@ -645,3 +645,13 @@ and System inapplicability, every added family through real MIDI, an independent
 doubled-dry PCM reference on JS/WASM/SIMD, live F0/F7/ports, allocation-crossing
 exact checkpoints/seeks and real selectively loaded Worker PCM. The existing
 System and delay suites remain unchanged in scope and also pass.
+
+
+## Reverb density spacing correction (2026-10-20)
+
+MU100 Sound List & MIDI Data, printed p.23, explains Density as reflection
+spacing: higher values place reflections closer together. The host ER model
+now contracts its tap offsets as density increases, in addition to increasing
+the reflection count. Previously it only added farther taps. Initial Delay
+remains unchanged. An independent impulse test checks the first and next
+reflection times and the higher concentration inside a fixed time window.

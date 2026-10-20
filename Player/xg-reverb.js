@@ -49,7 +49,7 @@ export class XGReverb {
       this.left[this.position]=l+firstL*feedback;this.right[this.position]=r+firstR*feedback;
       let erL=0,erR=0;
       for(let tap=0;tap<reflectionCount;tap++){
-        const delay=this.initialDelay+early[tap]*this.scale*this.sampleRate;
+        const delay=this.initialDelay+early[tap]*this.scale*this.sampleRate/(1+p[11]*.5);
         erL+=this.tap(this.left,this.position,delay,l)/Math.sqrt(reflectionCount);
         erR+=this.tap(this.right,this.position,delay*(tap?1.07:1),r)/Math.sqrt(reflectionCount);
       }
