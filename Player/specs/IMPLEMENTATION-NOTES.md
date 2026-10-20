@@ -335,3 +335,40 @@ solo union/mute priority, controllers/reset, preserved silent voices/phase,
 selective samples, PCM against an independent MIDI rewrite on JS/WASM/SIMD,
 exact seeks, Worker updates/cancellation, HTTP failure/retry, and public API
 transport recovery. The catalog and portable example share a DOM-only view.
+
+## Timed text and display inspection (2026-10-20)
+
+SMF RP-001 pp. 8–9 (PDF 10–11) defines text events, track/instrument names,
+Lyric syllable timing, Marker, Cue Point and the MIDI Channel Prefix lifetime.
+Printable ASCII is recommended; extended codes are permitted but a universal
+legacy encoding is not specified. Text is collected alongside the real ordered
+sequencer handlers, with their tempo/port state and decoded F7 channel messages.
+Raw bytes and meta types remain intact. Removed the upstream rewrite of Lyric
+into Text in karaoke files; this was a presentation concern, not a file edit.
+
+The UI's line buffer, UTF-8/Windows-1252 fallback, karaoke slash/backslash line
+convention and retention of latest display messages are explicit host policies.
+They do not claim a new MIDI text encoding or hardware LCD expiry/scrolling.
+The complete raw event list remains available independently of the bounded view.
+
+Display references read from the manufacturers on 2026-10-20:
+
+- [Yamaha MU128 Sound List, table 1-7 (p. 43)](https://data.yamaha.com/files/download/other_assets/1/318081/MU128E2.pdf):
+  XG display letter and bitmap addresses. Bitmap bytes run down 16 rows in
+  column groups of seven bits; the last group contributes two visible columns.
+- [Roland SC-8850 Owner's Manual, LCD parameter map (p. 234)](https://cdn.roland.com/assets/media/pdf/SC-8850_OM.pdf):
+  model 45H letter/dot data, partial addresses, checksum and 16×16 mapping.
+  Bitmap groups have five visible bits except the final single column.
+
+Only packets actually emitted by the engine's display handler are collected.
+Known bounds/checksum-valid LCD messages are rendered; others retain full raw
+bytes and their unverified diagnostic. Completion time comes from the final
+F7 packet, not the start of a multipart message. Port and device memory are
+independent and reconstructed after seeking.
+
+Evidence: Player/tests/midi-text.test.mjs covers all text byte preservation,
+Channel Prefix expiry (including escaped channel commands), tracks/ports,
+tempo changes, SMPTE, trailing events, explicit/automatic decoding, karaoke
+read/write round trips, GS/XG partial letters/bitmaps, invalid bounds/checksum,
+F0/F7 completion, independent devices, unchanged PCM on JS/WASM/SIMD and exact
+seek, public Worker text events, stop, configuration edits and new-file reset.

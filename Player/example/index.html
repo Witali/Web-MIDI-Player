@@ -6,6 +6,8 @@ body{font:16px system-ui;background:#11161d;color:#edf0f3;max-width:720px;margin
 details{margin:24px 0;padding:16px;border:1px solid #3a4858;border-radius:8px;font-size:13px;line-height:1.6}summary{cursor:pointer}details li{padding:10px 0;border-bottom:1px solid #3a4858}details pre{white-space:pre-wrap;overflow-wrap:anywhere}
 
 .part-controls{border:1px solid #52616d;border-radius:8px;margin:16px 0;padding:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}.part-controls legend{font-weight:700}.part-controls p{flex-basis:100%;margin:0;font-size:13px}.part-controls label{display:flex;gap:8px;align-items:center;margin:0;flex-wrap:wrap}.part-controls select{max-width:100%;min-width:160px}.part-controls input[type=range]{width:120px}.part-controls input[type=checkbox]{width:18px;height:18px}.part-controls output{min-width:44px}.parts-note{font-size:13px;line-height:1.6}.part-controls:disabled{opacity:.6}
+
+.midi-text-report{font-size:13px;line-height:1.6}.midi-text-report label{display:block;margin:16px 0}.midi-text-report select{max-width:100%}.midi-text-report pre{white-space:pre-wrap;overflow-wrap:anywhere}.midi-text-live{font-size:18px;min-height:2em}.midi-text-live mark{background:#88dfbd;color:#123c2c;border-radius:3px;padding:2px}.midi-display-bitmap{font:10px/1 monospace;letter-spacing:1px;white-space:pre!important}.midi-text-report button{margin:8px}.player{flex-wrap:wrap}
 </style>
 <h1>Web-MIDI-Player</h1>
 <p>Самостоятельный стереоплеер. Тестовая мелодия перемещается слева в центр и вправо. Все MIDI в примере создаются на странице.</p>
@@ -14,25 +16,30 @@ details{margin:24px 0;padding:16px;border:1px solid #3a4858;border-radius:8px;fo
 <label>Позиция <output id="time">0.0 / 0.0 с</output><input id="seek" type="range" min="0" max="1" step="0.1" value="0"></label>
 <label>Громкость<input id="volume" type="range" min="0" max="1" step="0.01" value="0.55"></label>
 <label>Свой MIDI-файл<input id="file" type="file" accept=".mid,.midi,.kar,.rmi"></label>
+<details id="text" hidden><summary>Текст и метки</summary><div id="text-body" class="midi-text-report"></div></details>
 <details id="parts" hidden><summary>Партии</summary><div id="parts-body"></div></details>
 <details id="diagnostics" hidden><summary>Совместимость воспроизведения</summary><div id="diagnostics-body"></div></details>
 <small>FluidR3 GM · 128 инструментов · стереопанорама CC10 · <span id="backend">DSP выбирается при загрузке</span><br><a href="../README.md">API и установка</a> · <a href="./benchmark.html">Сравнить скорость JS / WASM / SIMD</a></small>
 <script type="module">
-import { MidiPlayer, renderMidiDiagnostics, renderPartControls } from '../index.js';
+import { MidiPlayer, renderMidiDiagnostics, renderPartControls, renderMidiText } from '../index.js';
 const $=id=>document.getElementById(id),player=new MidiPlayer({effects:false});
 const vlq=n=>{const a=[n&127];while(n=Math.floor(n/128))a.unshift((n&127)|128);return a;};
 function score(all=false){
   const events=[];
-  for(let i=0;i<(all?128:6);i++)events.push(0,0xc0,all?i:81,0,0xb0,10,all?64:[0,0,64,64,127,127][i],0,0x90,60+(i%6)*2,105,...vlq(all?240:480),0x80,60+(i%6)*2,0);
+  const text=(type,value)=>{const bytes=[...new TextEncoder().encode(value)];events.push(0,255,type,...vlq(bytes.length),...bytes);};
+  text(3,'Web-MIDI-Player demo'); text(6,'Начало');
+  for(let i=0;i<(all?128:6);i++){if(!all)text(5,['Сле','ва ','В ','центре ','Спра','ва'][i]);events.push(0,0xc0,all?i:81,0,0xb0,10,all?64:[0,0,64,64,127,127][i],0,0x90,60+(i%6)*2,105,...vlq(all?240:480),0x80,60+(i%6)*2,0);}
+  text(7,'Завершение');
   events.push(0,255,47,0);const out=new Uint8Array(22+events.length);out.set([77,84,104,100,0,0,0,6,0,0,0,1,1,224,77,84,114,107,0,0,0,0]);new DataView(out.buffer).setUint32(18,events.length);out.set(events,22);return out;
 }
-let source=score(),busy=false;
+let source=score(),busy=false,textCleanup;
 function update(){const state={empty:'Готов',loading:'Загрузка инструментов…',seeking:'Перемотка…',ready:'Готов к воспроизведению',playing:'Воспроизводится · стерео',paused:'Пауза',ended:'Воспроизведение завершено',error:'Ошибка'};if(!busy)$('status').textContent=state[player.state]||player.state;$('play').textContent=player.state==='playing'?'Ⅱ Пауза':'▶ Воспроизвести';$('seek').max=player.duration||1;$('seek').value=player.currentTime;$('time').textContent=`${player.currentTime.toFixed(1)} / ${player.duration.toFixed(1)} с`;}
 async function action(fn){try{busy=true;$('status').textContent='Подготовка…';await fn();}catch(e){$('status').textContent=e.message;return;}finally{busy=false;}update();}
 player.addEventListener('statechange',update);player.addEventListener('timeupdate',update);player.addEventListener('error',e=>$('status').textContent=e.detail.message);
+player.addEventListener('loaded',()=>{textCleanup?.();$('text').hidden=!player.textEvents.length;textCleanup=renderMidiText($('text-body'),player);});
 player.addEventListener('loaded',()=>{ $('parts').hidden=!player.parts.length; renderPartControls($('parts-body'),player); });
 player.addEventListener('loaded',event=>{ $('diagnostics').hidden=!event.detail.diagnostics; renderMidiDiagnostics($('diagnostics-body'),event.detail.diagnostics); });
-player.addEventListener('statechange',()=>{if(player.state==='loading'){$('diagnostics').hidden=true;$('parts').hidden=true;}});
+player.addEventListener('statechange',()=>{if(player.state==='loading'){$('diagnostics').hidden=true;$('parts').hidden=true;$('text').hidden=true;textCleanup?.();textCleanup=null;}});
 player.addEventListener('loaded',event=>$('backend').textContent=`DSP: ${event.detail.dspCore==='c'?'C / ':''}${event.detail.dsp==='wasm-simd'?'WASM SIMD128':event.detail.dsp==='wasm'?'WASM':'JavaScript'}`);
 $('play').onclick=()=>action(async()=>{if(player.state==='playing')return player.pause();await player.unlock();if(!player.metadata)await player.load(source);await player.play();});
 $('prepare').onclick=()=>action(()=>player.load(source));

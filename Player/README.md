@@ -117,6 +117,63 @@ const { renderMidiDiagnostics } = await import('./Player/index.js');
 renderMidiDiagnostics(document.querySelector('#report'), metadata.diagnostics);
 ```
 
+## Timed text, lyrics, markers and displays
+
+SoundFont metadata includes `text.tracks` (1-based track names/instrument
+names) and `text.events` in original timeline order. Each event includes
+`id`, `seconds`, `tick`, `track`, `port`, `channel` (a 1-based MIDI
+Channel Prefix, or null), `kind`, original `metaType`/`bytes`, decoded
+`text` and its `encoding`. Lyrics identify syllable times; markers and cue
+points retain their own timestamps, including events after the last note.
+PPQN tempo maps and all four SMPTE clock modes use the playback timeline.
+Reserved text types are retained. Karaoke detection does not rewrite the SMF
+Lyric event type when reading or writing the file.
+
+`textEncoding: 'auto'` (constructor default) tries valid UTF-8 per event, then
+Windows-1252 for legacy bytes. SMF recommends printable ASCII and does not name
+a universal encoding for extended characters. Automatic legacy detection is
+therefore a heuristic; use an explicit TextDecoder label such as
+`'windows-1251'` or `'shift_jis'` when known. Original bytes remain available.
+
+Read defensive snapshots from `player.textEvents` and `player.textState`.
+`textchange` supplies `{ currentTime, reason, events, state }`: playback emits
+all crossed text/display events between audible position reports (normally
+100 ms), rather than just the most recent syllable. Load, seek and configuration
+changes reconstruct state and emit their reason; their event list is the
+prefix replay, not newly played messages. Stop and backward seeks restore
+lyrics, markers and displays; a new load clears them. State comparisons use
+the same nearest 48 kHz frame as audio seeking, including fractional-frame
+marker positions. Metadata retains the unrounded event time.
+
+`state.lyrics` contains each track's current line/syllable; only the displayed
+line is bounded to 2048 characters, with full event text kept in metadata.
+CR/LF start a new line. In detected karaoke files, leading slash/backslash
+start a line/page as a presentation convention; raw text is preserved.
+`state.marker` and `state.cue` retain the last respective event.
+
+Engine-confirmed GS/XG display packets are timestamped when the final F7
+arrives. Yamaha XG and Roland LCD letter/16×16 bitmap updates have independent
+port/device memory, including partial writes. GS checksum and address/data
+bounds are checked. Unknown/invalid display packets remain visible as raw
+bytes and retain an unverified diagnostic. The view is a timeline inspector:
+it retains the latest message, without emulating hardware scroll/expiry timers.
+
+```js
+import { MidiPlayer, renderMidiText } from './Player/index.js';
+const player = new MidiPlayer({ textEncoding: 'auto' });
+await player.load('./song.mid');
+const disconnectView = renderMidiText(document.querySelector('#text'), player);
+player.addEventListener('textchange', event => console.log(event.detail.state));
+const marker = player.textEvents.find(e => e.kind === 'marker');
+if (marker) await player.seek(marker.seconds);
+// Call disconnectView() before replacing/removing this view.
+```
+
+Both catalogs expose **Текст и метки**, with syllable highlighting, marker/cue
+navigation, track names, displays and a paginated complete event list.
+The portable example generates its own text and markers. Compact Z80 text
+export remains part of that backend's separate pending expansion.
+
 ## Part controls
 
 SoundFont metadata exposes one receiver part per MIDI port/channel that starts

@@ -14,7 +14,7 @@ const patch = p => `банк ${p.bankMSB}:${p.bankLSB}, программа ${p.p
 // Analyze every event with the pinned engine's own routing and parameter
 // handlers, without generating PCM or allocating audio voices. The playback synth is
 // separate: inspection cannot change its controllers, voices or effects.
-export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 200, onSample, signal, parts = [], partSettings = {} } = {}) {
+export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 200, onSample, signal, parts = [], partSettings = {}, textCollector } = {}) {
   const entries = new Map(), summary = { substituted: 0, unsupported: 0, partial: 0, bankDependent: 0, unverified: 0 };
   let context, omitted = 0, complete = true, scanned = 0;
   const record = (code, status, feature, message, fields = {}) => {
@@ -67,8 +67,12 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
       previousTick = event.ticks;
       context = { seconds, tick: event.ticks, track: tr + 1, port: sequence.currentMIDIPorts[tr] ?? 0,
         channel: event.statusByte >= 0x80 && event.statusByte < 0xf0 ? (event.statusByte & 15) + 1 : null };
+      textCollector?.meta(event, context);
       const before = SpessaLog.onDiagnostic;
       let implemented = false, unsupported = false;
+      synth.onEventCall = ({ type, data }) => {
+        if (type === 'displayMessage' && textCollector?.display(data, context)) implemented = true;
+      };
       SpessaLog.onDiagnostic = detail => {
         if (detail.kind === 'implemented') { implemented = true; return; }
         if (detail.kind === 'substituted') {
@@ -88,6 +92,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
           if (type !== 'midiEvent') return;
           const event = data.event, status = event.statusByte & 0xf0;
           context.channel = event.statusByte < 0xf0 ? (event.statusByte & 15) + 1 : null;
+          if (event.statusByte >= 0x80 && event.statusByte < 0xf0) textCollector?.channel(context.track);
           if (status === 0xb0) {
             const [controller] = event.data;
             if (!handledCCs.has(controller)) record('bank-dependent-controller', 'bankDependent', `CC${controller}`,

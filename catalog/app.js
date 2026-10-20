@@ -144,8 +144,8 @@
     constructor() { this.item = null; this.song = null; this.playing = false; this.position = 0; this.token = 0; }
     async initialize() {
       if (this.engine) return this.engine;
-      const { MidiPlayer: SamplePlayer, renderMidiDiagnostics, renderPartControls } = await sampleModule;
-      this.renderDiagnostics = renderMidiDiagnostics; this.renderParts = renderPartControls;
+      const { MidiPlayer: SamplePlayer, renderMidiDiagnostics, renderPartControls, renderMidiText } = await sampleModule;
+      this.renderDiagnostics = renderMidiDiagnostics; this.renderParts = renderPartControls; this.renderText = renderMidiText;
       const engine = this.engine = new SamplePlayer({ volume: Number($('volume').value) });
       engine.addEventListener('statechange', () => {
         if (this.engine !== engine) return;
@@ -187,6 +187,7 @@
     }
     display() {
       $('player').hidden = !this.item;
+      $('player-text').disabled = !this.song?.text?.events.length;
       $('player-parts').disabled = !this.song?.parts?.length;
       $('player-diagnostics').disabled = !this.song?.diagnostics;
       const count = this.song?.diagnostics?.entries.length || 0;
@@ -201,6 +202,7 @@
       render();
     }
     close() {
+      this.textCleanup?.(); this.textCleanup = null;
       this.token++; const engine = this.engine; this.engine = null; engine?.dispose().catch(error => toast(error.message));
       this.item = this.song = null; this.playing = false; this.position = 0; this.display();
     }
@@ -235,6 +237,13 @@
     $('diagnostics-title').textContent = `Совместимость · ${player.item.title}`;
     $('diagnostics').showModal();
   };
+  $('player-text').onclick = () => {
+    if (!player.song?.text) return;
+    player.textCleanup?.(); player.textCleanup = player.renderText($('midi-text-body'), player.engine);
+    $('midi-text-title').textContent = 'Текст и метки · ' + player.item.title; $('midi-text').showModal();
+  };
+  $('close-midi-text').onclick = () => $('midi-text').close();
+  $('midi-text').onclose = () => { player.textCleanup?.(); player.textCleanup = null; };
   $('player-parts').onclick = () => {
     if (!player.engine?.parts.length) return;
     player.renderParts($('parts-body'), player.engine, { onError: error => toast(error.message) });
@@ -254,8 +263,8 @@
   };
   document.addEventListener('keydown', event => {
     const editing = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.target.isContentEditable;
-    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open) { event.preventDefault(); $('search').focus(); }
-    if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && player.item) { event.preventDefault(); player.toggle(); }
+    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open) { event.preventDefault(); $('search').focus(); }
+    if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && player.item) { event.preventDefault(); player.toggle(); }
   });
   window.addEventListener('beforeunload', () => { player.engine?.dispose().catch(() => {}); });
   update();

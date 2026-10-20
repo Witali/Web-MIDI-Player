@@ -1,10 +1,12 @@
 export { renderMidiDiagnostics } from './diagnostics-view.js';
+export { renderMidiText } from './text-view.js';
 export { renderPartControls } from './parts-view.js';
+import { MidiTextTimeline, normalizeTextEncoding } from './midi-text.js';
 import { updatePartSettings } from './part-controls.js';
 import { normalizeReleaseVelocityProfiles } from './release-velocity.js';
 // Public transport API. PCM synthesis remains in the Worker/WASM engine.
 export class MidiPlayer extends EventTarget {
-  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, sampleManifestUrl, dsp = 'auto', releaseVelocityProfiles } = {}) {
+  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, sampleManifestUrl, dsp = 'auto', releaseVelocityProfiles, textEncoding = 'auto' } = {}) {
     super();
     this.state = 'empty'; this.currentTime = 0; this.duration = 0;
     this.metadata = null; this._volume = 0.55; this.volume = volume;
@@ -13,6 +15,8 @@ export class MidiPlayer extends EventTarget {
     if (soundfontUrl && sampleManifestUrl) throw new TypeError('Choose soundfontUrl or sampleManifestUrl.');
     this._releaseVelocityProfiles = normalizeReleaseVelocityProfiles(releaseVelocityProfiles);
     if (engine !== 'soundfont' && this._releaseVelocityProfiles.length) throw new TypeError('Release velocity profiles require the SoundFont engine.');
+    this._textEncoding = normalizeTextEncoding(textEncoding);
+    this._textTimeline = new MidiTextTimeline();
     this._dsp = dsp;
     this._engine = engine; this._effects = effects;
     this._soundfontUrl = soundfontUrl ? new URL(soundfontUrl, globalThis.location?.href || import.meta.url).href : undefined;
@@ -20,6 +24,8 @@ export class MidiPlayer extends EventTarget {
     this._revision = 0; this._epoch = 0; this._sequence = 0; this._pending = new Map();
     this._wantsPlayback = false;
   }
+  get textEvents() { return structuredClone(this.metadata?.text?.events ?? []); }
+  get textState() { return structuredClone(this._textTimeline.snapshot()); }
   get parts() { return structuredClone(this.metadata?.parts ?? []); }
   get instruments() { return structuredClone(this.metadata?.instruments ?? []); }
   get volume() { return this._volume; }
@@ -29,6 +35,10 @@ export class MidiPlayer extends EventTarget {
     this._gain?.gain.setTargetAtTime(value, this._context.currentTime, 0.01);
   }
   _emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
+  _updateText(reason = 'playback') {
+    const result = this._textTimeline.at(this.currentTime, { discontinuous: reason !== 'playback' });
+    if (result.events.length || reason !== 'playback') this._emit('textchange', structuredClone({ currentTime: this.currentTime, reason, ...result }));
+  }
   _acceptMetadata(metadata) {
     const changed = JSON.stringify(this.metadata?.parts) !== JSON.stringify(metadata.parts);
     this.metadata = metadata; this.duration = metadata.duration;
@@ -65,7 +75,7 @@ export class MidiPlayer extends EventTarget {
   async load(source) {
     this._alive(); const revision = ++this._revision;
     this._wantsPlayback = false;
-    this._epoch++; this.metadata = null; this.duration = this.currentTime = 0;
+    this._epoch++; this.metadata = null; this.duration = this.currentTime = 0; this._textTimeline = new MidiTextTimeline();
     this._state('loading');
     this._abort?.abort(); this._worker?.postMessage({ type: 'cancelLoad' });
     this._abort = new AbortController();
@@ -84,9 +94,10 @@ export class MidiPlayer extends EventTarget {
       else throw new TypeError('Load a MIDI URL, File, Blob, ArrayBuffer or typed array.');
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       const metadata = await this._call('load', { bytes, epoch: this._epoch, engine: this._engine,
-        effects: this._effects, soundfontUrl: this._soundfontUrl, sampleManifestUrl: this._sampleManifestUrl, releaseVelocityProfiles: this._releaseVelocityProfiles, dsp: this._dsp }, [bytes.buffer]);
+        textEncoding: this._textEncoding, effects: this._effects, soundfontUrl: this._soundfontUrl, sampleManifestUrl: this._sampleManifestUrl, releaseVelocityProfiles: this._releaseVelocityProfiles, dsp: this._dsp }, [bytes.buffer]);
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       this.metadata = metadata; this.duration = metadata.duration;
+      this._textTimeline = new MidiTextTimeline(metadata.text); this._updateText('load');
       this._state('ready'); this._emit('loaded', metadata); return metadata;
     } catch (error) {
       if (revision === this._revision) { this._state('error'); this._emit('error', error); }
@@ -121,7 +132,7 @@ export class MidiPlayer extends EventTarget {
         this._emit('durationchange', { duration: this.duration });
       }
       if (data.type === 'position' || data.type === 'ended') {
-        this.currentTime = Math.min(this.duration, data.seconds);
+        this.currentTime = Math.min(this.duration, data.seconds); this._updateText();
         this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration, underruns: data.underruns });
       }
       if (data.type === 'ended') {
@@ -146,6 +157,7 @@ export class MidiPlayer extends EventTarget {
       const result = await this._call('seek', { seconds: this.currentTime, epoch });
       if (epoch !== this._epoch || revision !== this._revision) return;
       this._node.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
+      this._updateText('seek');
     }
     this._state('playing');
   }
@@ -166,7 +178,7 @@ export class MidiPlayer extends EventTarget {
     const result = await this._call('seek', { seconds: Math.max(0, Math.min(seconds, this.duration)), epoch });
     if (revision !== this._revision || epoch !== this._epoch) return;
     if (result.metadata) this._acceptMetadata(result.metadata);
-    this.currentTime = result.seconds;
+    this.currentTime = result.seconds; this._updateText('seek');
     this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
     this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration });
     if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
@@ -184,7 +196,7 @@ export class MidiPlayer extends EventTarget {
       const result = await this._call('parts', { part: id, changes: normalized, seconds, epoch });
       if (revision !== this._revision || epoch !== this._epoch) return;
       this._acceptMetadata(result.metadata);
-      this.currentTime = result.seconds;
+      this.currentTime = result.seconds; this._updateText('configure');
       this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
       this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration });
       if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
@@ -217,6 +229,6 @@ export class MidiPlayer extends EventTarget {
     this._pending.clear(); this._worker?.terminate(); this._worker = null;
     this._node?.disconnect(); this._node?.port.close(); this._gain?.disconnect();
     await this._context?.close(); this._context = null; this._node = null;
-    this.metadata = null; this._state('disposed');
+    this.metadata = null; this._textTimeline = new MidiTextTimeline(); this._state('disposed');
   }
 }

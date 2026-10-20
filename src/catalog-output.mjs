@@ -33,7 +33,7 @@ export function writeCatalog(directory, library) {
     return;
   }
   const runtime = ['index.js', 'worker.js', 'worklet.js', 'audio-queue.js', 'midi-timing.js',
-    'soundfont-preview.js', 'lazy-bank.js', 'release-velocity.js', 'part-controls.js', 'parts-view.js', 'midi-diagnostics.js', 'diagnostics-view.js', 'stereo-preview.js', 'voice-dsp-state.js', 'voice-dsp.js',
+    'soundfont-preview.js', 'lazy-bank.js', 'release-velocity.js', 'part-controls.js', 'parts-view.js', 'midi-text.js', 'text-view.js', 'midi-diagnostics.js', 'diagnostics-view.js', 'stereo-preview.js', 'voice-dsp-state.js', 'voice-dsp.js',
     'engine', 'vendor', 'dsp/voice-mixer.wasm', 'dsp/voice-mixer-simd.wasm',
     'soundfonts/fluidr3-gm', 'licenses', 'PROVENANCE.json'];
   for (const asset of runtime) {

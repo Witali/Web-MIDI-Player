@@ -59,12 +59,12 @@ async function soundFontPreview(data) {
     const url = data.sampleManifestUrl || new URL('./soundfonts/fluidr3-gm/manifest.json', import.meta.url).href;
     if (!browserBanks.has(url)) browserBanks.set(url, new BrowserSoundBank(url));
     prepared = await browserBanks.get(url).load(data.bytes, { effects: data.effects, signal: data.signal,
-      parts: data.parts, partSettings: data.partSettings });
+      parts: data.parts, partSettings: data.partSettings, textEncoding: data.textEncoding });
     bank = prepared.bank;
   }
   data.signal?.throwIfAborted();
   return createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared,
-    releaseVelocityProfiles: data.releaseVelocityProfiles, parts: data.parts, partSettings: data.partSettings });
+    releaseVelocityProfiles: data.releaseVelocityProfiles, parts: data.parts, partSettings: data.partSettings, textEncoding: data.textEncoding });
 }
 async function command(data) {
   if (data.type === 'load' && data.engine !== 'z80') {

@@ -4682,8 +4682,8 @@ var BasicMIDI = class BasicMIDI {
 							this.isKaraokeFile = true;
 							SpessaLog.info("%cKaraoke MIDI detected!", ConsoleColors.recognized);
 						}
-						if (this.isKaraokeFile) e.statusByte = MIDIMessageTypes.text;
-						else this.lyrics.push(e);
+						// Karaoke presentation must not rewrite the stored SMF meta type.
+						if (!this.isKaraokeFile) this.lyrics.push(e);
 					case MIDIMessageTypes.text: {
 						const checkedText = eventText.trim();
 						if (checkedText.startsWith("@KMIDI KARAOKE FILE")) {
