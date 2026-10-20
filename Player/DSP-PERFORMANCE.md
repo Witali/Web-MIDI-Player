@@ -87,7 +87,7 @@ SIMD и сокращение точности не используются. О�
 node Player/tools/benchmark-polyphony.mjs --rounds 5 --seconds 1 --output results.json
 cd Player
 npm run test:core
-npm run build:dsp -- --emsdk /path/to/emsdk
+npm run player:build -- --emsdk /path/to/emsdk
 npm test
 ```
 
