@@ -409,3 +409,25 @@ limitations. [IMPROVEMENT-PLAN.md](IMPROVEMENT-PLAN.md) tracks the prioritized
 improvements and their acceptance criteria. Unmodified official PDFs for
 Standard MIDI Files and MIDI 1.0
 messages are in [specs/](specs/README.md), with source links and SHA-256 hashes.
+
+
+## Manufacturer effects
+
+GS insertion supports Thru, Stereo EQ, Phaser, Auto Wah, Tremolo, Auto Pan,
+Phaser/Auto Wah, Overdrive and Distortion. The new drive models expose their
+published drive, amplifier category/switch, low/high gain, pan, output level
+and effect sends. GS effect DT1 records validate framing/checksum, consume
+all ordered bytes and handle partial type writes. Unsupported types/parameters
+and invalid values appear in `metadata.diagnostics`.
+
+XG **System Variation** supports Delay LCR, Delay LR, Echo and Cross Delay,
+plus No Effect/Thru. Send XG System On before the XG effect setup. It preserves stereo CC94 sends, exact 14-bit delay values
+in 0.1ms units, EQ parameters, feedback, damping, return/pan and sends to Chorus
+and Reverb. System mode ignores insertion-only Dry/Wet. These are host DSP
+models with published parameter maps, rather than hardware DSP reproductions.
+
+XG Insertion before the part's volume/pan, separate insertion slots, Reverb/
+Chorus parameter maps and effect controller modulation remain in progress.
+Selecting an unsupported insertion route produces an explicit Thru notice.
+See [implementation notes](specs/IMPLEMENTATION-NOTES.md) for primary sources,
+algorithm choices, coverage and PCM evidence. The effects plan item stays open.

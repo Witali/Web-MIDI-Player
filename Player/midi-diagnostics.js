@@ -1,3 +1,4 @@
+import { installXGVariation } from './xg-variation.js';
 import { installGSEffects } from './gs-effects.js';
 import { installBankMappings } from './fluid-bank-mappings.js';
 import { installPartControls } from './part-controls.js';
@@ -33,6 +34,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   await synth.processorInitialized;
   installBankMappings(synth, bank);
   installGSEffects(synth);
+  installXGVariation(synth);
   const foundParts = new Map();
   // Run the actual routing/gates even when only collecting metadata. Never
   // allocate audio voices or decode PCM in this independent inspection synth.

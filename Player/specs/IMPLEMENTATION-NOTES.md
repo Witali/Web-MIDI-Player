@@ -470,7 +470,7 @@ parameter addresses/defaults, DT1 type macros and address/data checksum.
 The exact PDF digest is recorded above. Printed pp.93 and216 were also
 visually checked so bold factory values and the block diagram were preserved.
 
-The receiver validates an entire effect record before any mutation, then
+The receiver validates framing/checksum for the entire effect record before any mutation, then
 applies each payload byte in address order. Type bytes form a two-byte
 parameter: an adjacent complete pair selects once; a partial write retains
 the other byte, including a previous unknown type. Resets clear that state.
@@ -495,3 +495,63 @@ example, independent parameter/default values and nonlinear PCM references,
 checksum/range failures, complete and partial DT1 writes, macro ordering,
 unknown-type fallback, effects:false identity, fragmented F0/F7, independent
 MIDI ports and exact seek/checkpoint PCM on JS, scalar WASM and SIMD.
+
+
+## XG System Variation stereo delays (2026-10-20)
+
+Primary references read, with the effect/connection diagrams visually checked:
+
+- [Yamaha MU100 Sound List & MIDI Data](https://usa.yamaha.com/files/download/other_assets/9/318079/MU100E2.pdf),
+  pp.5-10,12,26,30,41-42: types, four delay algorithms, parameter units/ranges,
+  EQ table, CC94, two-byte Variation parameters and System control addresses.
+  1,533,518 bytes; SHA-256: 24d70f9d79cbb18fb2a5d911d0c13780c17be8de94918878bf7d0298c8c90bb0.
+- [Yamaha MU100 Owner's Manual](https://usa.yamaha.com/files/download/other_assets/5/333985/MU100E1.pdf),
+  printed pp.136-141 (PDF pp.133-138): No Effect versus Thru, System-only
+  return/pan/sends, insertion-only Dry/Wet, and stereo connection diagrams.
+  4,420,081 bytes; SHA-256: a53fd5997df276c7ce048cf28e8055189e8f825220d90db2f1adc5772fd962b5.
+
+Supported Variation types are 05/00 Delay LCR, 06/00 Delay LR, 07/00 Echo,
+08/00 Cross Delay, 00/00 No Effect and 40/00 Thru in System mode. Each algorithm
+follows its own feedback/tap diagram. Parameters use exact 14-bit values and
+0.1ms delay units. Partial writes retain the other seven bits; a complete pair
+applies once. Type changes restore defaults before following overrides. The
+published LCR factory defaults are retained; other program defaults are explicit
+host choices. Fractional delay lengths use linear interpolation. Parameter
+ranges/EQ frequencies are transcribed from Yamaha's tables.
+
+CC94 retains channel/port/drum-note sends and stereo position. Variation runs
+before Chorus/Reverb; its sends tap the wet signal before Variation pan/return,
+as shown on p.140. Dry/Wet does not affect this System bus. No Effect mutes the
+bus; unknown types use a diagnosed Thru. Effect1 multi-byte records dispatch
+every byte, including explicit diagnostics for the not-yet-implemented Reverb,
+Chorus, reserved addresses and modulation controls. Framing/7-bit validation
+precedes mutation; semantic range failures leave the processor parameter intact.
+Yamaha's device number is the low four bits of its function/device header;
+Roland/universal device addressing keeps its separate representation.
+
+The signed feedback coefficient law, high-damping LPF, interpolation of
+return/send gains between specified anchors (0=-infinity,96=0dB,127=+6dB), and
+constant-power return pan are host DSP choices. No proprietary Yamaha DSP
+identity is claimed. All delay memory and parameter bytes belong to the synth
+object graph and are restored by exact seek/loop checkpoints. Native voice
+DSP remains unchanged; fresh native voice views feed the stereo send bus even
+after WASM memory growth. New effect DSP runs in JavaScript on every backend.
+
+Insertion is deliberately still reported as unsupported, with a Thru fallback:
+the manufacturer's graph puts it before part volume/pan. The current SF2 voice
+pipeline must be refactored before claiming that routing. Configuring an
+insertion part reports this limitation; merely selecting a type while the part
+is OFF is valid setup. Delay time continues advancing silently during this
+fallback, so a later System switch cannot resume a frozen old tail. XG Reverb,
+Chorus, separate insertion slots, analogue inputs and effect controller
+modulation also remain outside this change. The overall effects plan item
+therefore remains open. Configuring Variation outside XG mode is also
+reported explicitly: send XG System On before its effect setup.
+
+Evidence: tests/xg-variation.test.mjs includes independent impulse diagrams,
+signed feedback/cross-input tests, fractional delays, parameter/default tables,
+all-byte dispatch, partial writes, malformed/range diagnostics, device filtering,
+send/return ordering, all four algorithms through actual MIDI on JS/WASM/SIMD,
+No Effect/fallback/effects:false PCM, F0/F7 and ports, exact seeks/checkpoints,
+an independent delayed dry-stereo PCM reference with live pan changes,
+inactive-mode diagnostics and real Worker selective loading/seek/PCM.

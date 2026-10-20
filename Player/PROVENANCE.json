@@ -31,7 +31,8 @@
       "Timed text metadata and shared lyrics/marker/display UI follow the real PPQN/SMPTE/port timeline; preserve original bytes, encoding and Channel Prefix semantics. Karaoke parsing no longer rewrites Lyric meta events into Text. GS/XG display packets are collected at final F7 and known LCD formats validate bounds/checksum.",
       "Host rate/transpose and exact A/B transport preserve source-time coordinates and ordered commands. In-process synth/DSP checkpoints retain partial PCM, decoder, RNG and effect state without sample copies. Vendor RNG exposes state and sequencer accepts an inclusive loop boundary; default tick processing is unchanged.",
       "Recognize native Yamaha XG SFX percussion bank MSB 126 alongside normal drum banks; unavailable SFX kits retain explicit drum fallback diagnostics.",
-      "GS effect DT1 extension validates checksums, ranges, all ordered payload bytes and partial EFX type writes; explicit unused/unknown parameter diagnostics. Added host overdrive/distortion models with Roland address/default maps, cabinet categories, mono routing, EQ, pan, level and sends; proprietary hardware transfer functions are not claimed."
+      "GS effect DT1 extension validates checksums, ranges, all ordered payload bytes and partial EFX type writes; explicit unused/unknown parameter diagnostics. Added host overdrive/distortion models with Roland address/default maps, cabinet categories, mono routing, EQ, pan, level and sends; proprietary hardware transfer functions are not claimed.",
+      "XG System Variation stereo Delay LCR/LR/Echo/Cross Delay: complete Effect1 byte dispatch, 14-bit units and partial writes, validated parameters, CC94 stereo sends, pre-return/pan sends, unknown Thru and explicit unsupported insertion routing. Yamaha device numbers use the low header nibble; synth-owned JS delay state supports exact checkpoints."
     ]
   },
   "soundfont": {

@@ -6914,6 +6914,7 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 			deferredOscillator ? voice.wavetable : null, voice.tuningRatio,
 			deferredEnvelope ? voice.volEnv : null, gainTarget);
 		voice.isActive = voice.isActive && active;
+		if (enabled) core.xgVariation?.capture(core.voiceBuffer, sampleCount, gainLeft, gainRight, systemParameters.delayGain * (delaySend / 128 / 127));
 		return;
 	}
 	if (this._midiParameters.efxAssign && systemParameters.effectsEnabled && core.insertionActive) {
@@ -6945,6 +6946,7 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 		const chorus = core.chorusInput;
 		for (let i = 0; i < sampleCount; i++) chorus[i] += chorusGain * buffer[i];
 	}
+	core.xgVariation?.capture(buffer, sampleCount, gainLeft, gainRight, systemParameters.delayGain * (this._midiControllers[MIDIControllers.variationDepth] / 128 / 127) * voice.delaySend);
 	if (core.delayActive) {
 		const delaySend = this._midiControllers[MIDIControllers.variationDepth] * voice.delaySend;
 		if (delaySend > 0) {
@@ -14372,7 +14374,8 @@ function rolandSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false
 * @param syx
 * @param channelOffset
 */
-function yamahaSystemExclusive(syx, channelOffset = 0) {
+function yamahaSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false) {
+	if (!singleEffectWrite && this.xgVariation?.receive(syx, channelOffset, packet => yamahaSystemExclusive.call(this, packet, channelOffset, true))) return;
 	if (syx[2] === 76) {
 		const a1 = syx[3];
 		const a2 = syx[4];
@@ -14623,7 +14626,8 @@ function yamahaSystemExclusive(syx, channelOffset = 0) {
 function systemExclusiveInternal(syx, channelOffset = 0) {
 	channelOffset += this.portSelectChannelOffset;
 	const manufacturer = syx[0];
-	if (this.systemParameters.deviceID !== -1 && syx[1] !== 127 && this.systemParameters.deviceID !== syx[1]) return;
+	const deviceID = manufacturer === 67 ? syx[1] & 15 : syx[1];
+	if (this.systemParameters.deviceID !== -1 && (manufacturer === 67 || deviceID !== 127) && this.systemParameters.deviceID !== deviceID) return;
 	switch (manufacturer) {
 		default:
 			SpessaLog.unsupported("System Exclusive", syx, `Unknown manufacturer: ${manufacturer}`);
@@ -20272,6 +20276,7 @@ var SynthesizerCore = class {
 		if (sampleCount > this.maxBufferSize) throw new Error(`Requested ${sampleCount} samples, but maxBufferSize is ${this.maxBufferSize}`);
 		this.reverbInput.fill(0);
 		this.chorusInput.fill(0);
+		if (this.xgVariation?.active) this.xgVariation.begin();
 		if (this.delayActive) this.delayInput.fill(0);
 		if (this.insertionActive) {
 			this.insertionInputL.fill(0);
@@ -20298,6 +20303,7 @@ var SynthesizerCore = class {
 		if (this.systemParameters.effectsEnabled) {
 			const { chorusInput, delayInput, reverbInput, insertionInputR, insertionInputL } = this;
 			if (this.insertionActive) this.insertionProcessor.process(insertionInputL, insertionInputR, effectsLeft, effectsRight, reverbInput, chorusInput, delayInput, startIndex, sampleCount);
+			this.xgVariation?.process(effectsLeft, effectsRight, reverbInput, chorusInput, startIndex, sampleCount);
 			this.chorusProcessor.process(chorusInput, effectsLeft, effectsRight, reverbInput, delayInput, startIndex, sampleCount);
 			if (this.delayActive && this.midiParameters.system !== "xg") this.delayProcessor.process(delayInput, effectsLeft, effectsRight, reverbInput, startIndex, sampleCount);
 			this.reverbProcessor.process(reverbInput, effectsLeft, effectsRight, startIndex, sampleCount);
