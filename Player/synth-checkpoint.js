@@ -16,6 +16,11 @@ export function captureSynthCheckpoint(synth, sequence, midi) {
   // Presets, PCM, parsed events and cached voice recipes are resources, not
   // playback state. Their monotonic caches remain reusable after restoration.
   if (!immutable) { immutable = new Set(); graph(core.soundBankManager, immutable); graph(midi, immutable); resourceGraphs.set(core, immutable); }
+  // Completed SDS waves and constructed banks are immutable resources. Their
+  // mutable address/transfer maps remain part of the restored state.
+  immutable.add(core.sampleDumps.resources);
+  for(const bucket of core.sampleDumps.resources.cache.values())for(const row of bucket){graph(row.words,immutable);graph(row.pcm,immutable);}
+  if(core.sampleDumpBank){immutable.add(core.sampleDumpBank.resources);immutable.add(core.sampleDumpBank.cache);for(const bank of core.sampleDumpBank.resources)graph(bank,immutable);}
   immutable.add(core.cachedVoices);
   for (const recipe of core.cachedVoices.values()) graph(recipe, immutable);
   const native = core.voiceDSP?.checkpoint?.(), nativeBuffer = native?.buffer;

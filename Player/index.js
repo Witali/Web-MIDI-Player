@@ -2,19 +2,24 @@ export { renderMidiDiagnostics } from './diagnostics-view.js';
 export { renderMidiText } from './text-view.js';
 export { renderPlaybackControls } from './playback-view.js';
 export { renderPartControls } from './parts-view.js';
+export { SampleDumpReceiver } from './sample-dump.js';
+export { createSampleDumpBank } from './sample-dump-bank.js';
+import { normalizeSampleDumpMappings } from './sample-dump-settings.js';
 import { defaultPlayback, normalizePlaybackPatch, resolvePlayback } from './playback-settings.js';
 import { MidiTextTimeline, normalizeTextEncoding } from './midi-text.js';
 import { updatePartSettings } from './part-controls.js';
 import { normalizeReleaseVelocityProfiles } from './release-velocity.js';
 // Public transport API. PCM synthesis remains in the Worker/WASM engine.
 export class MidiPlayer extends EventTarget {
-  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, sampleManifestUrl, dsp = 'auto', releaseVelocityProfiles, textEncoding = 'auto', playbackRate = 1, transpose = 0 } = {}) {
+  constructor({ volume = 0.55, engine = 'soundfont', effects = true, soundfontUrl, sampleManifestUrl, dsp = 'auto', releaseVelocityProfiles, textEncoding = 'auto', playbackRate = 1, transpose = 0, sampleDumpMappings } = {}) {
     super();
     this.state = 'empty'; this.currentTime = 0; this.duration = 0;
     this.metadata = null; this._volume = 0.55; this.volume = volume;
     if (!['soundfont', 'z80'].includes(engine)) throw new TypeError('Unknown playback engine.');
     if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
     if (soundfontUrl && sampleManifestUrl) throw new TypeError('Choose soundfontUrl or sampleManifestUrl.');
+    this._sampleDumpMappings = normalizeSampleDumpMappings(sampleDumpMappings);
+    if(engine!=='soundfont'&&this._sampleDumpMappings.length)throw new TypeError('SDS instrument mappings require the SoundFont engine.');
     this._releaseVelocityProfiles = normalizeReleaseVelocityProfiles(releaseVelocityProfiles);
     if (engine !== 'soundfont' && this._releaseVelocityProfiles.length) throw new TypeError('Release velocity profiles require the SoundFont engine.');
     this._textEncoding = normalizeTextEncoding(textEncoding);
@@ -105,7 +110,7 @@ export class MidiPlayer extends EventTarget {
       else throw new TypeError('Load a MIDI URL, File, Blob, ArrayBuffer or typed array.');
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       const metadata = await this._call('load', { bytes, epoch: this._epoch, engine: this._engine,
-        playback: this._playbackDefaults, textEncoding: this._textEncoding, effects: this._effects, soundfontUrl: this._soundfontUrl, sampleManifestUrl: this._sampleManifestUrl, releaseVelocityProfiles: this._releaseVelocityProfiles, dsp: this._dsp }, [bytes.buffer]);
+        sampleDumpMappings: this._sampleDumpMappings, playback: this._playbackDefaults, textEncoding: this._textEncoding, effects: this._effects, soundfontUrl: this._soundfontUrl, sampleManifestUrl: this._sampleManifestUrl, releaseVelocityProfiles: this._releaseVelocityProfiles, dsp: this._dsp }, [bytes.buffer]);
       if (revision !== this._revision) throw new DOMException('Superseded load.', 'AbortError');
       this.metadata = metadata; this.duration = metadata.duration;
       this._textTimeline = new MidiTextTimeline(metadata.text); this._updateText('load');

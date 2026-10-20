@@ -36,7 +36,7 @@ export function describeParts(parts, settings = {}) {
 }
 export function installPartControls(synth, bank, parts, settings = {}) {
   const rows = describeParts(parts, settings), anySolo = rows.some(p => p.solo);
-  const overrides = new Map();
+  const overrides = new Map(), core = synth.synthCore;
   for (const row of rows) {
     while (synth.midiChannels.length <= row.synthChannel) synth.createMIDIChannel();
     const channel = synth.midiChannels[row.synthChannel];
@@ -45,13 +45,14 @@ export function installPartControls(synth, bank, parts, settings = {}) {
     channel.setSystemParameter('pan', row.pan);
     if (row.instrument) {
       const preset = bank.presets.find(p => instrumentKey({ ...p, percussion: !!p.isGMGSDrum }) === instrumentKey(row.instrument));
-      if (!preset) throw new RangeError('Instrument is not available in this SoundFont.');
-      overrides.set(row.synthChannel, preset);
+      const mapping=core.sampleDumpBank?.mappingForPatch(row.instrument);
+      if (!preset&&!mapping) throw new RangeError('Instrument is not available in this SoundFont.');
+      overrides.set(row.synthChannel, mapping?()=>core.sampleDumpBank.presetForAddress(row.instrument)??preset:()=>preset);
     }
   }
-  const core = synth.synthCore, getVoices = core.getVoices.bind(core);
+  const getVoices = core.getVoices.bind(core);
   core.getVoices = (channel, key, velocity) => {
-    const preset = overrides.get(channel);
+    const preset = overrides.get(channel)?.();
     // Select the exact bank preset independently of subsequent GS/XG mode and
     // bank-selection interpretation; MIDI's own patch continues to update.
     return preset ? core.getVoicesForPreset(preset, key, velocity) : getVoices(channel, key, velocity);

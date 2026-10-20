@@ -866,3 +866,85 @@ pitch updates, additive preset/scale behavior, masks/ports/receive routing,
 malformed messages/device IDs, snapshots/reset, legato phase/targets, F0/F7,
 pedals, exact seeks/checkpoints, and actual Worker selective sample preparation.
 The existing transpose fixture now explicitly selects its MTS tuning program.
+
+## Sample Dump Standard receiver and instrument bank (2026-10-20)
+
+Primary reference: the unchanged MIDI1.0 Detailed Specification4.2.1 in this
+folder, printed pp.35-39 (PDF40-44). These pages define the SDS header, exact
+significant-bit packing/offset-binary representation,120-byte packets, XOR,
+packet counter/retries, ACK/NAK/CANCEL/WAIT roles, and multiple-loop messages.
+No waveform/pitch/program relation is specified by SDS. The player therefore
+keeps the actual protocol receiver separate from explicit instrument assignment.
+
+The receiver owns a transfer per source port/device. It decodes the little-endian
+header fields and two/three/four-byte left-justified sample words for every bit
+depth8..28. All original word values are retained as Uint32; Float32 playback is
+normalized around the offset-binary midpoint. High-resolution source words survive
+even where Float32 audio rounds their least significant bits. No partial sample
+is published. A complete sample replaces only the stored address for future
+notes, and existing voices retain their old sample and clocks.
+
+Every data record is framing/size/seven-bit checked, then XOR/packet order/padding
+checked before committing words. Bad packets request retransmission; a byte-identical
+repeat of the preceding packet is acknowledged without adding words. Packet127
+wraps to0. This receiver tracks the required next packet and can request it when
+an out-of-order packet arrives. Final unused words/bits must be zero. CANCEL and
+replacement headers clear only incomplete transfer state; prior committed samples
+survive. Full MIDI reset also cancels partial transfers while retaining committed
+sample memory (the player's documented sampler-memory policy). Incomplete transfers
+are diagnosed at stream end. The unrelated File Dump EOF does not complete SDS.
+
+The standalone receiver can issue framed ACK/NAK/CANCEL through an injected
+onReply callback. No external messages are sent by ordinary file playback.
+Incoming sender-side handshakes, Dump/Loop Requests and later Extended SDS forms
+remain explicit diagnostics until their respective sender/extension is implemented.
+The current work does not claim arbitrary manufacturer patch-dump compatibility.
+
+Loop Point Transmission replaces/deletes individual loop entries, including the
+special delete-all number. Raw positions and every defined loop entry are retained;
+a mapping selects one loop for its instrument, matching the single-loop SoundFont
+rendering model. No endpoint offset is applied in the protocol store. The adapter's
+explicit loopEnd setting chooses inclusive(default) or exclusive endpoint conversion.
+This is a host interpretation policy rather than an extra encoded SDS field.
+Bidirectional loops use an expanded forward-readable cycle without repeated turn
+points. Release continues with the host envelope; its default0.1s duration is
+configurable and is not attributed to the protocol.
+
+sampleDumpMappings requires sample number, rootKey and destination program; it can
+also select source SMF port/device, bank address, percussion status, loop number,
+endpoint convention, display name and release. Destinations are unique. Both
+selective/full-bank paths install the adapter, and metadata/part controls include
+the assigned presets. Preparation observes the actual timeline: a note before
+completion selects the prior instrument, while later notes select the received
+bank. The source SoundFont is unchanged. A prepared result carries its mappings
+into playback and rejects a conflicting mapping configuration.
+
+Completed words/PCM have a content-verified resource cache: hashing locates a
+bucket, but every word is compared before reuse. Constructed banks are cached by
+wave, mapping and selected loop. These caches and native PCM allocations remain
+monotonic across checkpoint restoration. Partial transfer arrays, counters, loops,
+completed addresses and active instrument maps remain mutable checkpoint state.
+Completion never aliases a cache resource to a writable partial transfer buffer.
+This is needed when an older checkpoint resumes receipt after a newer checkpoint
+has already completed it. The64MiB receiver budget counts retained decoded wave
+resources, loop expansions and reservations for pending words/PCM; it is separate
+from the engine's existing voice/metadata/native storage. Completed waves are not
+copied into checkpoints, and repeated identical transfers do not grow the caches.
+
+Evidence: tests/sample-dump.test.mjs independently packs every supported bit depth,
+checks endpoints/zero/padding/XOR/count/order/duplicates/wrap/CANCEL/budgets, ports
+and devices, loop edits and actual constructed waveforms. It compares real PCM
+with an independently constructed bank on JS/WASM/SIMD, preserves held samples
+across replacement, restores partial and completed transfers repeatedly, verifies
+F7 commit timing/real-time exclusion, source-port mapping and public API forwarding,
+selective preparation with zero downloaded bank samples, metadata, Worker, exact
+seek/checkpoints and actual WASM-memory growth. A large wave is retransmitted over
+multiple restores without growing its bank/PCM/native allocations.
+
+A replay with a known header can validate each packet against cached wave
+candidates without reserving another full sample. If the data first differs,
+the already verified prefix is copied into a new pending transfer, subject
+to the memory budget. A genuinely new wave is cancelled when it cannot fit;
+an identical replay remains possible even when the cache is full. Candidate
+state is checkpointed, while immutable resources stay shared. Boundary tests
+cover replay, cancellation/reset and a late data difference at a full budget.

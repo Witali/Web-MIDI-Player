@@ -1,3 +1,4 @@
+import { SampleDumpReceiver } from "../sample-dump.js";
 import { receiveMIDITuning, tuningFor, bindVoiceTuning, updateTuningVoices, selectTuning, tuningSnapshot, applyTuningSnapshot } from "../midi-tuning.js";
 import { StbVorbis } from "./stb-vorbis.js";
 //#region src/utils/byte_functions/big_endian.ts
@@ -5506,7 +5507,7 @@ function setTimeToInternal(time, ticks = void 0) {
 //#region src/sequencer/sequencer.ts
 var SpessaSynthSequencer = class {
 	midiStreams = new Map();
-	finishMIDIStreams() { for (const stream of this.midiStreams.values()) stream.finish(); }
+	finishMIDIStreams() { for (const stream of this.midiStreams.values()) stream.finish(); this.synth.synthCore.sampleDumps?.finish(SpessaLog); }
 	/**
 	* Sequencer's song list.
 	*/
@@ -13594,6 +13595,7 @@ var SoundBankManager = class {
 * @param channelOffset
 */
 function universalSystemExclusive(syx, channelOffset = 0) {
+	if (this.sampleDumps.receive(syx, channelOffset, SpessaLog)) return;
 	switch (syx[2]) {
 		case 4:
 			switch (syx[3]) {
@@ -19889,6 +19891,7 @@ var SynthesizerCore = class {
 	*/
 	tunings = new Float64Array(16384).fill(NaN);
 	tuningPrograms = new Map();
+	sampleDumps = new SampleDumpReceiver();
 	/**
 	* An object indicating if a Global MIDI parameter, at the equivalent key, is locked
 	* (i.e., not allowed changing).
@@ -20213,6 +20216,7 @@ var SynthesizerCore = class {
 		this.setMIDIParameter("fineTune", 0);
 		this.tunings.fill(NaN);
 		this.tuningPrograms.clear();
+		this.sampleDumps.resetTransfers();
 		this.portSelectChannelOffset = 0;
 		this.customChannelNumbers = false;
 		this.setReverbMacro(4);

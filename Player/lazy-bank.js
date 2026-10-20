@@ -69,7 +69,7 @@ export class BrowserSoundBank {
     }
     return bytes;
   }
-  async load(bytes, { effects = true, signal: outerSignal, parts, partSettings, textEncoding } = {}) {
+  async load(bytes, { effects = true, signal: outerSignal, parts, partSettings, textEncoding, sampleDumpMappings } = {}) {
     const abort = new AbortController();
     const signal = outerSignal ? AbortSignal.any([outerSignal, abort.signal]) : abort.signal;
     const workers = [];
@@ -83,7 +83,7 @@ export class BrowserSoundBank {
       const needed = new Set();
       const onSample = sample => { needed.add(sample); if (sample.linkedSample) needed.add(sample.linkedSample); };
       const textCollector = new MidiTextCollector(midi, textEncoding);
-      const diagnostics = await diagnoseMidi(midi, bank, { effects, onSample, signal, parts, partSettings, textCollector });
+      const diagnostics = await diagnoseMidi(midi, bank, { effects, onSample, signal, parts, partSettings, textCollector, sampleDumpMappings });
       if (!diagnostics.complete) throw new Error('Cannot prepare samples: MIDI analysis failed.');
       const entries = bank.samples.map((sample, index) => ({ sample, row: manifest.samples[index] })).filter(({ sample }) => needed.has(sample));
       const files = new Map(entries.map(({ row }) => [row.file, row]));
@@ -110,7 +110,7 @@ export class BrowserSoundBank {
       await Promise.all(workers); signal.throwIfAborted();
       // A missed dependency must be an explicit error, never a silently lost note.
       for (const sample of bank.samples) if (!needed.has(sample)) sample.getAudioData = () => { throw new Error('SoundFont sample was not prepared: ' + sample.name); };
-      return { bank, midi, diagnostics, sampleBank, text: textCollector.finish() };
+      return { bank, midi, diagnostics, sampleBank, sampleDumpMappings:diagnostics.sampleDumpMappings, text: textCollector.finish() };
     } catch (error) {
       abort.abort(error); await Promise.allSettled(workers); throw error;
     }

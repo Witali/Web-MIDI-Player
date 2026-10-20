@@ -1,3 +1,4 @@
+import { installSampleDumpBank } from './sample-dump-bank.js';
 import { installXGVariation } from './xg-variation.js';
 import { installGSEffects } from './gs-effects.js';
 import { installBankMappings } from './fluid-bank-mappings.js';
@@ -17,7 +18,7 @@ const patch = p => `банк ${p.bankMSB}:${p.bankLSB}, программа ${p.p
 // Analyze every event with the pinned engine's own routing and parameter
 // handlers, without generating PCM or allocating audio voices. The playback synth is
 // separate: inspection cannot change its controllers, voices or effects.
-export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 200, onSample, signal, parts = [], partSettings = {}, textCollector } = {}) {
+export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 200, onSample, signal, parts = [], partSettings = {}, textCollector, sampleDumpMappings } = {}) {
   const entries = new Map(), summary = { substituted: 0, unsupported: 0, partial: 0, bankDependent: 0, unverified: 0 };
   let context, omitted = 0, complete = true, scanned = 0;
   const record = (code, status, feature, message, fields = {}) => {
@@ -48,6 +49,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   sequence.preload = sequence.skipToFirstNoteOn = false;
   sequence.loopCount = 0;
   sequence.loadNewSongList([midi]);
+  installSampleDumpBank(synth,sampleDumpMappings,offset=>Number(Object.keys(sequence.midiPortChannelOffsets).find(port=>sequence.midiPortChannelOffsets[port]===offset)));
   installPartControls(synth, bank, parts, partSettings);
   const getVoices = synth.synthCore.getVoices.bind(synth.synthCore);
   synth.synthCore.getVoices = (channel, key, velocity) => {
@@ -58,8 +60,8 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
       if (!row) foundParts.set(channel, row = { id: port + ':' + (channel % 16 + 1), port, channel: channel % 16 + 1,
         synthChannel: channel, tracks: [], sourceInstruments: [] });
       if (!row.tracks.includes(context.track)) row.tracks.push(context.track);
-      const preset = ch.preset;
-      if (preset && !row.sourceInstruments.some(p => p.program === preset.program && p.bankMSB === preset.bankMSB && p.bankLSB === preset.bankLSB && p.percussion === !!preset.isGMGSDrum))
+      const preset = synth.synthCore.sampleDumpBank.presetForChannel(ch) ?? ch.preset;
+      if (preset && !row.sourceInstruments.some(p => p.name === preset.name && p.program === preset.program && p.bankMSB === preset.bankMSB && p.bankLSB === preset.bankLSB && p.percussion === !!preset.isGMGSDrum))
         row.sourceInstruments.push({ name: preset.name, program: preset.program, bankMSB: preset.bankMSB, bankLSB: preset.bankLSB, percussion: !!preset.isGMGSDrum });
     }
     return getVoices(channel, key, velocity);
@@ -135,6 +137,8 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   } finally { synth.stopAllChannels(true); }
   signal?.throwIfAborted();
   return { version: 1, engine: 'soundfont', scope: 'file', complete, eventsScanned: scanned,
+    sampleDumpMappings:synth.synthCore.sampleDumpBank.mappings,
+    sampleDumps: synth.synthCore.sampleDumps.describe().map(row=>({...row,channelOffset:row.port,port:Number(Object.keys(sequence.midiPortChannelOffsets).find(port=>sequence.midiPortChannelOffsets[port]===row.port))})),
     summary, entries: [...entries.values()], omitted, channelCount: synth.midiChannels.length, parts: [...foundParts.values()].sort((a, b) => a.port - b.port || a.channel - b.channel),
     note: 'Отчёт проверяет обработку команд и выбор пресетов. Он не гарантирует совпадение с аппаратным синтезатором; модуляторы и качество звука отдельно не оцениваются.' };
 }

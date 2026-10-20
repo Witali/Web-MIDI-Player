@@ -458,3 +458,40 @@ prior offsets and apply relative to the selected tuning preset. Dump requests
 remain explicitly unsupported until MIDI output is available. See the MTS section
 in [implementation notes](specs/IMPLEMENTATION-NOTES.md) for formats, validation,
 reset/storage policy and the primary MIDI Association specification.
+
+Sample Dump Standard is decoded in the SoundFont path, including exact8–28-bit
+words, ordered/checksummed packets and loop-point edits. It does not specify an
+instrument patch or root pitch. Assign those explicitly when constructing the
+player (programs and MIDI keys are zero-based):
+
+```js
+const player = new MidiPlayer({
+  sampleDumpMappings: [{
+    sample: 1, sourcePort: 0, rootKey: 60,
+    bankMSB: 0, bankLSB: 0, program: 81,
+    loop: 0, loopEnd: 'exclusive'
+  }]
+});
+await player.load(midiFile);
+```
+
+A complete received wave becomes available at its final packet, without replacing
+already sounding voices. Until then, the existing instrument/fallback applies.
+`metadata.sampleDumps` describes received samples; mapped instruments appear in
+the normal part selector. `sourcePort` is the SMF port number; optional `deviceID`
+restricts the source device. Root key and destination program are required.
+`loop` selects a preserved loop number (default0; `null` disables looping).
+The decoder retains raw loop addresses; playback's `loopEnd` policy is explicit:
+`inclusive` by default, or `exclusive` for a one-past-end endpoint. A bidirectional
+loop is expanded into a forward-readable cycle without duplicating endpoints.
+The host envelope releases in0.1s by default (`release`, in seconds, is configurable).
+
+Incomplete transfers, invalid packets and unsupported extensions remain explicit
+compatibility notices. The receiver reserves64MiB for decoded/expanded resources
+and pending data; exhaustion rejects a new transfer instead of publishing partial
+PCM. Identical data and constructed banks are reused during loops/seeks, with
+full-word verification after hashing. The standalone `SampleDumpReceiver` also
+accepts an `onReply` callback for framed ACK/NAK/CANCEL responses and a configurable
+memory budget. File playback has no external MIDI output; outbound dumps and
+Extended SDS are not implied by receiver support. Primary references and detailed
+verification are in [implementation notes](specs/IMPLEMENTATION-NOTES.md).

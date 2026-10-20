@@ -1,9 +1,10 @@
+import { installSampleDumpBank, normalizeSampleDumpMappings, sampleDumpInstruments } from './sample-dump-bank.js';
 import { installXGVariation } from './xg-variation.js';
 import { installGSEffects } from './gs-effects.js';
 import { installBankMappings } from './fluid-bank-mappings.js';
 import { resolvePlayback } from './playback-settings.js';
 import { captureSynthCheckpoint } from './synth-checkpoint.js';
-import { describeParts, describeInstruments, installPartControls } from './part-controls.js';
+import { describeParts, installPartControls } from './part-controls.js';
 import { MidiTextCollector } from './midi-text.js';
 import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from './vendor/spessasynth.js';
 import { normalizeSmpteTiming } from './midi-timing.js';
@@ -13,17 +14,19 @@ import { normalizeReleaseVelocityProfiles, installReleaseVelocityProfiles } from
 
 // Complete SF2 and selectively prepared banks share the same playback path.
 // Stereo, controllers and SoundFont modulators stay in the synth.
-export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared, releaseVelocityProfiles, parts, partSettings = {}, textEncoding, playback: playbackOptions = {} } = {}) {
+export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared, releaseVelocityProfiles, parts, partSettings = {}, textEncoding, playback: playbackOptions = {}, sampleDumpMappings } = {}) {
   if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
   const profiles = normalizeReleaseVelocityProfiles(releaseVelocityProfiles);
+  const mappings = normalizeSampleDumpMappings(sampleDumpMappings ?? prepared?.sampleDumpMappings);
+  if(prepared?.sampleDumpMappings&&JSON.stringify(prepared.sampleDumpMappings)!==JSON.stringify(mappings))throw new Error('Prepared sampleDumpMappings differ from playback configuration.');
   SpessaLog.setLogLevel(false, false, false);
   const midi = prepared?.midi ?? normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
   const textCollector = new MidiTextCollector(midi, textEncoding);
-  const diagnostics = prepared?.diagnostics ?? await diagnoseMidi(midi, bank, { effects, textCollector });
+  const diagnostics = prepared?.diagnostics ?? await diagnoseMidi(midi, bank, { effects, textCollector, sampleDumpMappings: mappings });
   const text = prepared?.text ?? textCollector.finish();
   parts ??= diagnostics.parts;
   const playback = resolvePlayback(playbackOptions, midi.duration), { rate, transpose } = playback;
-  const configuredParts = describeParts(parts, partSettings), instruments = describeInstruments(bank);
+  const configuredParts = describeParts(parts, partSettings), instruments = sampleDumpInstruments(bank,mappings);
   let synth, sequence, frames = 0, renderedFrames = 0, quietTailFrames = 0;
   let pending = [new Float32Array(128), new Float32Array(128)], pendingAt = 128;
   let closed = false;
@@ -72,6 +75,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     sequence.preload = sequence.skipToFirstNoteOn = false; sequence.loopCount = 0;
     sequence.playbackRate = rate;
     sequence.loadNewSongList([midi]);
+    installSampleDumpBank(synth,mappings,offset=>Number(Object.keys(sequence.midiPortChannelOffsets).find(port=>sequence.midiPortChannelOffsets[port]===offset)));
     installPartControls(synth, bank, parts, partSettings); sequence.play();
     frames = renderedFrames = quietTailFrames = 0; pendingAt = 128;
   }
@@ -105,6 +109,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   return {
     get frame() { return frames; },
     get stats() { return { duration: duration * rate, sourceDuration: midi.duration, position: frames / 48000 * rate, playback, channels: 2,
+      sampleDumps: diagnostics.sampleDumps ?? [], sampleDumpMappings: mappings,
       sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, sampleBank: prepared?.sampleBank ?? { mode: 'full' }, warnings: [...warnings], diagnostics, parts: configuredParts, instruments, text, title: midi.getName() }; },
     read,
     flushThrough(seconds) {
