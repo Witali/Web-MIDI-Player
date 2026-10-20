@@ -568,7 +568,9 @@ in [implementation notes](specs/IMPLEMENTATION-NOTES.md) for formats, validation
 reset/storage policy and the primary MIDI Association specification.
 
 Sample Dump Standard is decoded in the SoundFont path, including exact8–28-bit
-words, ordered/checksummed packets and loop-point edits. It does not specify an
+words, ordered/checksummed packets and loop-point edits. CA-019 Extended SDS
+adds 35-bit counts, fractional rates, interleaved channels and sample names.
+SDS does not specify an
 instrument patch or root pitch. Assign those explicitly when constructing the
 player (programs and MIDI keys are zero-based):
 
@@ -592,7 +594,17 @@ restricts the source device. Root key and destination program are required.
 The decoder retains raw loop addresses; playback's `loopEnd` policy is explicit:
 `inclusive` by default, or `exclusive` for a one-past-end endpoint. A bidirectional
 loop is expanded into a forward-readable cycle without duplicating endpoints.
-The host envelope releases in0.1s by default (`release`, in seconds, is configurable).
+These endpoint/expansion rules apply to original SDS. Extended SDS uses its
+specified inclusive endpoint and all ten playback types: forward/backward
+one-shot, unidirectional/bidirectional loops, and distinct sustain/release loops.
+A release loop finishes its current path to the endpoint in the initial
+direction, then plays the remaining tail. A sustain loop keeps looping while
+the envelope releases. `loop: null` disables looping but preserves the source
+playback direction. The host envelope releases in0.1s by default (`release`,
+in seconds, is configurable). Stereo retains left/right channel order; above
+two source channels the stereo host uses an equal-weight centre downmix, with
+gain rounded to the nearest SoundFont centibel. Source channel arrays remain
+separate.
 
 Incomplete transfers, invalid packets and unsupported extensions remain explicit
 compatibility notices. The receiver reserves64MiB for decoded/expanded resources
@@ -600,6 +612,9 @@ and pending data; exhaustion rejects a new transfer instead of publishing partia
 PCM. Identical data and constructed banks are reused during loops/seeks, with
 full-word verification after hashing. The standalone `SampleDumpReceiver` also
 accepts an `onReply` callback for framed ACK/NAK/CANCEL responses and a configurable
-memory budget. File playback has no external MIDI output; outbound dumps and
-Extended SDS are not implied by receiver support. Primary references and detailed
+memory budget. Metadata includes `channels`, per-channel `length`, total
+`wordLength`, exact `rateInteger`/`rateFraction` fields, decoded ASCII `name`,
+raw `nameBytes`/`languageTag`, and loop entries. Unknown future name encodings
+remain raw with an explicit notice. Requests and outbound dumps are outside
+the file-playback plan. Primary references and detailed
 verification are in [implementation notes](specs/IMPLEMENTATION-NOTES.md).

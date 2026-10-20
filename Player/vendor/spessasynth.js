@@ -1,5 +1,6 @@
 import { FIFOQueue, TimedEventQueue } from "../event-queue.js";
 import { OrderedVoicePool } from "../active-voices.js";
+import { processSampleDump } from "../sample-dump-oscillator.js";
 import { SampleDumpReceiver } from "../sample-dump.js";
 import { receiveMIDITuning, tuningFor, bindVoiceTuning, updateTuningVoices, selectTuning, tuningSnapshot, applyTuningSnapshot } from "../midi-tuning.js";
 import { StbVorbis } from "./stb-vorbis.js";
@@ -6864,8 +6865,8 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	}
 	const buffer = core.voiceBuffer;
 	const dsp = core.voiceDSP;
-	const deferredOscillator = dsp && voice.wavetable === voice.oscillators[2];
-	voice.isActive = deferredOscillator || voice.wavetable.process(sampleCount, voice.tuningRatio, buffer);
+	const deferredOscillator = dsp && voice.wavetable === voice.oscillators[2] && !voice.wavetable.sdsPlayback;
+	voice.isActive = deferredOscillator || (voice.wavetable.sdsPlayback ? processSampleDump(voice, sampleCount, voice.tuningRatio, buffer) : voice.wavetable.process(sampleCount, voice.tuningRatio, buffer));
 	let gain = voice.volEnv.outputGain;
 	if (hold2) voice.volEnv.outputGain = gainTarget === voice.hold2Target ? voice.hold2OutputGain : voice.hold2EnvelopeGain * gainTarget;
 	const deferredEnvelope = !hold2 && dsp?.stateful && voice.volEnv._cState;
@@ -8119,6 +8120,9 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 		voice.rootKey = cached.rootKey;
 		voice.loopingMode = cached.loopingMode;
 		voice.wavetable.sampleData = cached.sampleData;
+		voice.wavetable.sdsPlayback = cached.sdsPlayback;
+		voice.wavetable.sdsExit = null;
+		voice.wavetable.sdsInterpolation = voice.oscillators.indexOf(voice.wavetable);
 		voice.wavetable.playbackStep = cached.playbackStep;
 		if (this.dynamicModulators.active) {
 			voice.modulators = [...cached.modulators];
@@ -15485,6 +15489,7 @@ var CachedVoice = class {
 		this.loopStart = sample.loopStart;
 		this.loopEnd = sample.loopEnd;
 		this.sampleData = sample.getAudioData();
+		this.sdsPlayback = sample.sdsPlayback;
 		this.playbackStep = sample.sampleRate / sampleRate * Math.pow(2, sample.pitchCorrection / 1200);
 		this.loopingMode = generators[GeneratorTypes.sampleModes];
 	}

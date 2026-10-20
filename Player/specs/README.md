@@ -56,3 +56,12 @@ MIDI Tuning Updated Specification (CA-020/CA-021/RP-020), read on2026-10-20:
 72,967 bytes; SHA-256:
 `a798ef37dea8369fc40c1cdb2fdf002ba24cbc8f7ea7eb40d1508abaf5595fff`.
 The PDF is used as a reference and is not redistributed with the player.
+
+Sample Dump Size, Rate and Name Extensions (CA-019, revised 2000-12-01),
+read on 2026-10-20 via the
+[official addenda page](https://midi.org/midi-1-0-addenda):
+[official download](https://drive.google.com/file/d/17t3anBz4ImfwAou2bMkLtvhAF-YJjOSw/view).
+57,991 bytes; SHA-256:
+`445d286e1bbd16ef62a4ebc8cec132d38167635f0b0d035fdf82a20110eeb8f1`.
+Pages 2-4 define the extended rate/count/channel fields, loop types and names.
+The PDF is used as a reference and is not redistributed with the player.

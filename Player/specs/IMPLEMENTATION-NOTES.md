@@ -896,8 +896,8 @@ are diagnosed at stream end. The unrelated File Dump EOF does not complete SDS.
 
 The standalone receiver can issue framed ACK/NAK/CANCEL through an injected
 onReply callback. No external messages are sent by ordinary file playback.
-Incoming sender-side handshakes, Dump/Loop Requests and later Extended SDS forms
-remain explicit diagnostics until their respective sender/extension is implemented.
+Incoming sender-side handshakes and Dump/Loop Requests remain explicit diagnostics.
+The later CA-019 Extended SDS forms are implemented in the separate section below.
 The current work does not claim arbitrary manufacturer patch-dump compatibility.
 
 Loop Point Transmission replaces/deletes individual loop entries, including the
@@ -1160,3 +1160,88 @@ view has action/cleanup tests. Both catalog exports include all live modules;
 the dialog and actual browser audio startup/stop were inspected. These tests
 do not prove physical-driver conformance. SMF output routing, transport
 synchronization and MIDI 2.0/UMP remain separate extensions.
+
+## Extended SDS inside MIDI files (2026-10-20)
+
+Primary reference: MIDI Association CA-019, Sample Dump Size, Rate and Name
+Extensions, revision 2000-12-01, pp.2-4. The exact official URL and PDF hash are
+recorded in specs/README.md; the reference PDF is not redistributed.
+
+Incoming subcommands 05/03, 05/05 and 05/06 implement Sample Name Transmission,
+Extended Dump Header and Extended Loop Point Transmission. Framing, seven-bit
+bytes and exact message lengths are checked before state changes. Requests
+05/02, 05/04 and 05/07 remain explicit diagnostics: sending to external samplers
+is outside this file-playback plan. No new external MIDI path is introduced.
+
+The extended header contains four little-endian 7-bit bytes each for the rate's
+integer and fractional parts. The fractional denominator is 2^28. Both original
+28-bit fields are retained as rateInteger/rateFraction; sampleRate is their
+JavaScript Number sum, without integer rounding. This preserves fractional hertz
+in normal audio rates; rates requiring more than 53 significant bits use the
+nearest double for rendering while the complete wire representation remains
+available. Length and both loop addresses use five 7-bit bytes (35 bits), read
+arithmetically. Number of channels must be 1..127. length is the per-channel
+frame count; wordLength = length * channels is the exact interleaved word count.
+Counts and the complete decoded-memory cost are checked before allocation. A
+rejected replacement retains the previous transfer and committed sample.
+
+The existing SDS data-packet decoder receives all interleaved words, even when
+a channel group straddles packet boundaries. Exact Uint32 words and normalized
+interleaved Float32 PCM remain available; multichannel resources also own
+immutable deinterleaved Float32 channel arrays. Rate is metadata, so retransmitting
+an identical waveform at another rate does not duplicate its PCM. The 64 MiB
+budget reserves 8 bytes/word for mono and 12 bytes/word for multichannel resources;
+previous loop-expansion reservations still apply to original SDS. Checkpoints
+exclude all completed channel arrays, restore pending transfer/name/loop maps,
+and retain content-verified resources through repeated seeks and memory growth.
+
+Mono uses one sample voice. Stereo preserves channel 1 as left and channel 2 as
+right. CA-019 specifies no speaker arrangement above two channels. The stereo
+host therefore plays every channel at centre, with the same gain approximating
+1/channelCount (rounded to the nearest SoundFont centibel). This downmix is a
+host policy, not a claimed surround layout. Source channels and exact words are
+retained separately. Root pitch, destination program, selected loop number and
+release envelope remain explicit sampleDumpMappings settings.
+
+CA-019 explicitly makes the loop end the last frame played. For extended forms,
+this inclusive endpoint overrides the legacy loopEnd host policy. Ten playback
+types are distinct: 00/01 forward unidirectional/bidirectional sustain loops;
+02/03 the corresponding loops with release tails; 40/41/42/43 the backward
+counterparts; 7E backward one-shot; 7F forward one-shot. Sustain loops continue
+through envelope release. Release loops follow the current leg to the endpoint
+in the initial playback direction and then play the remaining source tail.
+Bidirectional turn frames are not repeated; a one-frame loop holds that frame.
+The descriptions of 41 and 43 contain a direction-word inconsistency in CA-019;
+the implementation follows their stated endpoint order and the symmetric
+bidirectional traversal of 01/03.
+
+sample-dump-oscillator.js maps an unrolled phase to the original source frames,
+then applies the selected nearest, linear or Hermite interpolation. It preserves
+fractional phase and reads both sides of a turn through the same path mapping.
+This extended oscillator runs in JavaScript on every backend; existing native
+envelopes, filters, mixing, batch rendering and effects still consume its PCM.
+No C source, binary or ABI changed. Ordinary SoundFont/original SDS oscillators
+retain their existing paths. Replaced waveforms and loop edits affect new notes;
+already sounding voices keep their original sampler state. Pedals, Hold 2,
+legato, tuning, transport rate and exact seek use the existing voice lifecycle.
+
+Sample names are retained with their raw nameBytes and languageTag, independently
+of host preset names. An empty language tag decodes as ASCII, as specified.
+Nonempty tags are reserved for future international text in CA-019: raw bytes
+are preserved and the unavailable decoding is diagnosed explicitly. Name changes
+before/after a dump are ordered per source port/device/sample; they do not
+rebuild audio banks or replace voices. metadata.sampleDumps reports the decoded
+name, raw bytes, channels, rate fields and every stored loop. Metadata, receipt,
+playback and seek all use the same actual incoming handlers, including split
+F0/F7 messages and nonzero SMF ports.
+
+Evidence: tests/extended-sds.test.mjs independently encodes all bit depths,
+large 35-bit fields, low/high fractional rates, malformed framing and atomic
+budget failures. Explicit frame lists and a separate direction-switching state
+machine verify every playback type, both release legs, inclusive endpoints and
+backward tails. Independent banks verify stereo, fractional rate, three-channel
+downmix and real PCM on JS/WASM/SIMD. Further tests cover all interpolation modes,
+one-frame loops, dense native batches, sustain, partial/complete checkpoint
+restoration, metadata-only renames, full-budget cache replay, actual Worker,
+selective loading with zero external bank samples, split F0/F7, source ports,
+exact seeks and large deinterleaved resources surviving native memory growth.
