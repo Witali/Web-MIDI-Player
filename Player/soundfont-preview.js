@@ -1,3 +1,4 @@
+import { describeParts, describeInstruments, installPartControls } from './part-controls.js';
 import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from './vendor/spessasynth.js';
 import { normalizeSmpteTiming } from './midi-timing.js';
 import { installVoiceDSP } from './voice-dsp.js';
@@ -6,12 +7,14 @@ import { normalizeReleaseVelocityProfiles, installReleaseVelocityProfiles } from
 
 // Complete SF2 and selectively prepared banks share the same playback path.
 // Stereo, controllers and SoundFont modulators stay in the synth.
-export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared, releaseVelocityProfiles } = {}) {
+export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared, releaseVelocityProfiles, parts, partSettings = {} } = {}) {
   if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
   const profiles = normalizeReleaseVelocityProfiles(releaseVelocityProfiles);
   SpessaLog.setLogLevel(false, false, false);
   const midi = prepared?.midi ?? normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
   const diagnostics = prepared?.diagnostics ?? await diagnoseMidi(midi, bank, { effects });
+  parts ??= diagnostics.parts;
+  const configuredParts = describeParts(parts, partSettings), instruments = describeInstruments(bank);
   let synth, sequence, frames = 0, renderedFrames = 0, quietTailFrames = 0;
   let pending = [new Float32Array(128), new Float32Array(128)], pendingAt = 128;
   let closed = false;
@@ -51,7 +54,8 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     // Samples were selected through the complete ordered command handlers.
     // The upstream approximate program scan must not touch empty regions.
     sequence.preload = sequence.skipToFirstNoteOn = false; sequence.loopCount = 0;
-    sequence.loadNewSongList([midi]); sequence.play();
+    sequence.loadNewSongList([midi]);
+    installPartControls(synth, bank, parts, partSettings); sequence.play();
     frames = renderedFrames = quietTailFrames = 0; pendingAt = 128;
   }
   function renderQuantum() {
@@ -83,7 +87,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
   await reset();
   return {
     get stats() { return { duration, sourceDuration: midi.duration, position: frames / 48000, channels: 2,
-      sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, sampleBank: prepared?.sampleBank ?? { mode: 'full' }, warnings: [...warnings], diagnostics, parts: [], title: midi.getName() }; },
+      sampleRate: 48000, engine: 'soundfont', dsp: synth.synthCore.voiceDSP?.backend || 'js', dspCore: synth.synthCore.voiceDSP?.core || 'js', bank: bank.soundBankInfo.name, sampleBank: prepared?.sampleBank ?? { mode: 'full' }, warnings: [...warnings], diagnostics, parts: configuredParts, instruments, title: midi.getName() }; },
     read,
     reset,
     async seek(seconds, { isCurrent = () => true } = {}) {

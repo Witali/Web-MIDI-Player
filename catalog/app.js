@@ -144,8 +144,8 @@
     constructor() { this.item = null; this.song = null; this.playing = false; this.position = 0; this.token = 0; }
     async initialize() {
       if (this.engine) return this.engine;
-      const { MidiPlayer: SamplePlayer, renderMidiDiagnostics } = await sampleModule;
-      this.renderDiagnostics = renderMidiDiagnostics;
+      const { MidiPlayer: SamplePlayer, renderMidiDiagnostics, renderPartControls } = await sampleModule;
+      this.renderDiagnostics = renderMidiDiagnostics; this.renderParts = renderPartControls;
       const engine = this.engine = new SamplePlayer({ volume: Number($('volume').value) });
       engine.addEventListener('statechange', () => {
         if (this.engine !== engine) return;
@@ -156,6 +156,7 @@
         this.position = event.detail.currentTime; $('seek').value = this.position;
         $('current-time').textContent = time(this.position);
       });
+      engine.addEventListener('partschanged', () => { if (this.engine === engine) this.song = engine.metadata; });
       engine.addEventListener('error', event => { if (this.engine === engine) toast(event.detail.message); });
       return engine;
     }
@@ -186,6 +187,7 @@
     }
     display() {
       $('player').hidden = !this.item;
+      $('player-parts').disabled = !this.song?.parts?.length;
       $('player-diagnostics').disabled = !this.song?.diagnostics;
       const count = this.song?.diagnostics?.entries.length || 0;
       $('player-diagnostics').textContent = count ? `Совместимость · ${count}` : 'Совместимость';
@@ -233,6 +235,12 @@
     $('diagnostics-title').textContent = `Совместимость · ${player.item.title}`;
     $('diagnostics').showModal();
   };
+  $('player-parts').onclick = () => {
+    if (!player.engine?.parts.length) return;
+    player.renderParts($('parts-body'), player.engine, { onError: error => toast(error.message) });
+    $('parts-title').textContent = 'Партии · ' + player.item.title; $('parts').showModal();
+  };
+  $('close-parts').onclick = () => $('parts').close();
   $('close-diagnostics').onclick = () => $('diagnostics').close();
   $('player-toggle').onclick = () => player.toggle(); $('player-close').onclick = () => player.close();
   $('seek').onchange = () => { const position = Number($('seek').value); if (player.song) { player.seek(position); } };
@@ -246,8 +254,8 @@
   };
   document.addEventListener('keydown', event => {
     const editing = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.target.isContentEditable;
-    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open) { event.preventDefault(); $('search').focus(); }
-    if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && player.item) { event.preventDefault(); player.toggle(); }
+    if (event.key === '/' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open) { event.preventDefault(); $('search').focus(); }
+    if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && player.item) { event.preventDefault(); player.toggle(); }
   });
   window.addEventListener('beforeunload', () => { player.clearVoices(); clearInterval(player.timer); });
   update();

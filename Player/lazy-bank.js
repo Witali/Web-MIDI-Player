@@ -66,7 +66,7 @@ export class BrowserSoundBank {
     }
     return bytes;
   }
-  async load(bytes, { effects = true, signal: outerSignal } = {}) {
+  async load(bytes, { effects = true, signal: outerSignal, parts, partSettings } = {}) {
     const abort = new AbortController();
     const signal = outerSignal ? AbortSignal.any([outerSignal, abort.signal]) : abort.signal;
     const workers = [];
@@ -78,7 +78,7 @@ export class BrowserSoundBank {
       if (bank.samples.length !== manifest.samples.length || bank.samples.some((s, i) => s.sampleRate !== manifest.samples[i].sample_rate_hz)) throw invalid();
       const needed = new Set();
       const onSample = sample => { needed.add(sample); if (sample.linkedSample) needed.add(sample.linkedSample); };
-      const diagnostics = await diagnoseMidi(midi, bank, { effects, onSample, signal });
+      const diagnostics = await diagnoseMidi(midi, bank, { effects, onSample, signal, parts, partSettings });
       if (!diagnostics.complete) throw new Error('Cannot prepare samples: MIDI analysis failed.');
       const entries = bank.samples.map((sample, index) => ({ sample, row: manifest.samples[index] })).filter(({ sample }) => needed.has(sample));
       const files = new Map(entries.map(({ row }) => [row.file, row]));

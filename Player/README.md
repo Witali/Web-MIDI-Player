@@ -117,6 +117,50 @@ const { renderMidiDiagnostics } = await import('./Player/index.js');
 renderMidiDiagnostics(document.querySelector('#report'), metadata.diagnostics);
 ```
 
+## Part controls
+
+SoundFont metadata exposes one receiver part per MIDI port/channel that starts
+notes. Tracks sharing a channel share its controls; a timed port change creates
+a separate part. GS/XG receive-channel routing can drive several receiver parts.
+Part IDs are `"port:channel"`: port is the SMF port number (default 0), channel
+is 1–16. Each row includes contributing 1-based tracks and actual source presets.
+Read defensive snapshots from `player.parts` and `player.instruments`.
+
+`await player.setPart(id, changes)` accepts any subset of:
+
+- `muted` and `solo`: booleans, default false. Multiple solos form a union;
+  mute takes priority. Voices and MIDI messages continue to run while silent.
+- `volume`: linear gain 0–1, default 1, multiplied with the file's volume and
+  expression. It does not replace or lock CC7/11.
+- `pan`: relative stereo offset −1 to +1, default 0, added to the file's pan
+  and clamped at the stereo edges. It does not replace or lock CC10.
+- `instrument`: null to follow the file (default), or an exact available
+  `{ program, bankMSB = 0, bankLSB = 0, percussion = false }` address. Program
+  and bank bytes are zero-based 0–127. Choose from `player.instruments`;
+  unavailable addresses are rejected. This selects sample presets independently
+  of GS/XG mode, while MIDI program, bank, drum mode and controllers still run.
+
+```js
+const [part] = player.parts;
+await player.setPart(part.id, { solo: true, volume: 0.7, pan: -0.2 });
+await player.setPart(part.id, { instrument: { program: 73 } }); // flute
+await player.setPart(part.id, { solo: false, instrument: null });
+player.addEventListener('partschanged', event => console.log(event.detail.parts));
+// Optional shared view, also used by the catalog and portable example:
+renderPartControls(document.querySelector('#parts'), player);
+```
+
+Import `renderPartControls` from `index.js` for the last line. Changes are
+configuration for the whole score: the Worker prepares any newly needed sample
+recordings and reconstructs the audible position with those settings, including
+held notes and wet tails. Playback briefly waits; replay cost grows with the
+prefix length. Old queued PCM is discarded using a new transport epoch.
+Settings survive stop/seek and reset on a new load. A failed sample download
+leaves the previous configuration playable and can be retried. Concurrent
+changes are combined; a later seek cancels obsolete reconstruction, retaining
+requested settings. This is host playback policy, not new MIDI commands.
+Compact Z80 part controls remain part of its separate pending expansion.
+
 ## Note Off velocity and instrument profiles
 
 The engine preserves the explicit Note Off velocity (0–127) for each logical

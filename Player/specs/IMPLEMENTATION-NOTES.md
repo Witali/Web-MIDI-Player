@@ -304,3 +304,34 @@ Opt-in PCM equals an independent generator-change reference; ordinary-bank
 PCM is identical across tested velocities. Real audio, exact seeks and the
 Worker path are checked on JS, scalar WASM and SIMD, including selective
 sample loading. The compact Z80 mode remains a separate pending plan item.
+
+## Host part controls (2026-10-20)
+
+MIDI 1.0 p. 13 (PDF 18) separates CC7/11 and CC10 from Bank Select and
+Program Change: Bank Select alone does not switch the program, and a sounding
+note need not change timbre on Program Change. The existing handlers retain
+these rules. Host mute/solo use channel system gain, never the synth's muted
+flag (which rejects Note On). Gain and pan remain independent of MIDI CCs;
+file commands, gates, pedal state and original programs still execute.
+
+An explicit host instrument override selects an actual bank preset at voice
+creation while retaining the file's channel mode and MIDI patch. It does not
+lock or remove Bank Select/Program Change. The UI exposes available presets
+instead of manufacturing fallback addresses. Part identity is the receiver's
+port/channel, with the sequencer's ordered port mapping and GS/XG receive
+routing used during independent no-PCM analysis, including F7 commands.
+
+Changes configure the whole score and reconstruct the audible position from
+the beginning, rather than trying to overwrite voices inside a mixed PCM
+queue. This deliberately revoices held notes under the new configuration and
+regenerates wet tails; it is host policy, not a MIDI-specified operation.
+Lazy-bank analysis applies the same override before region selection. Failed
+preparation retains the old preview; newer seek/load epochs prevent old PCM
+from returning. A new file clears configuration, while exact seek preserves it.
+
+Evidence: Player/tests/part-controls.test.mjs covers metadata, shared tracks,
+timed ports/F7, receive-channel fanout, exact preset selection across modes,
+solo union/mute priority, controllers/reset, preserved silent voices/phase,
+selective samples, PCM against an independent MIDI rewrite on JS/WASM/SIMD,
+exact seeks, Worker updates/cancellation, HTTP failure/retry, and public API
+transport recovery. The catalog and portable example share a DOM-only view.

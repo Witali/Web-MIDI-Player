@@ -1,4 +1,6 @@
 export { renderMidiDiagnostics } from './diagnostics-view.js';
+export { renderPartControls } from './parts-view.js';
+import { updatePartSettings } from './part-controls.js';
 import { normalizeReleaseVelocityProfiles } from './release-velocity.js';
 // Public transport API. PCM synthesis remains in the Worker/WASM engine.
 export class MidiPlayer extends EventTarget {
@@ -18,6 +20,8 @@ export class MidiPlayer extends EventTarget {
     this._revision = 0; this._epoch = 0; this._sequence = 0; this._pending = new Map();
     this._wantsPlayback = false;
   }
+  get parts() { return structuredClone(this.metadata?.parts ?? []); }
+  get instruments() { return structuredClone(this.metadata?.instruments ?? []); }
   get volume() { return this._volume; }
   set volume(value) {
     if (!Number.isFinite(value) || value < 0 || value > 1) throw new RangeError('Volume must be between 0 and 1.');
@@ -25,6 +29,11 @@ export class MidiPlayer extends EventTarget {
     this._gain?.gain.setTargetAtTime(value, this._context.currentTime, 0.01);
   }
   _emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
+  _acceptMetadata(metadata) {
+    const changed = JSON.stringify(this.metadata?.parts) !== JSON.stringify(metadata.parts);
+    this.metadata = metadata; this.duration = metadata.duration;
+    if (changed) this._emit('partschanged', { parts: this.parts });
+  }
   _state(value) { this.state = value; this._emit('statechange', { state: value }); }
   _alive() { if (this.state === 'disposed') throw new Error('Player has been disposed.'); }
   _workerReady() {
@@ -156,11 +165,44 @@ export class MidiPlayer extends EventTarget {
     await this._context?.suspend();
     const result = await this._call('seek', { seconds: Math.max(0, Math.min(seconds, this.duration)), epoch });
     if (revision !== this._revision || epoch !== this._epoch) return;
+    if (result.metadata) this._acceptMetadata(result.metadata);
     this.currentTime = result.seconds;
     this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
     this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration });
     if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
     else this._state('ready');
+  }
+  async setPart(id, changes) {
+    this._alive();
+    if (!this.metadata || this._engine !== 'soundfont') throw new Error('Part controls require a loaded SoundFont song.');
+    if (this.state === 'loading') throw new Error('Wait for the MIDI file to load.');
+    // Reject invalid controls before disturbing the running transport.
+    const normalized = updatePartSettings(this.parts, this.instruments, {}, id, changes)[id];
+    const revision = this._revision, epoch = ++this._epoch, seconds = this.currentTime;
+    this._state('seeking'); await this._context?.suspend();
+    try {
+      const result = await this._call('parts', { part: id, changes: normalized, seconds, epoch });
+      if (revision !== this._revision || epoch !== this._epoch) return;
+      this._acceptMetadata(result.metadata);
+      this.currentTime = result.seconds;
+      this._node?.port.postMessage({ type: 'reset', epoch, offset: result.seconds, running: true });
+      this._emit('timeupdate', { currentTime: this.currentTime, duration: this.duration });
+      if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
+      else this._state('ready');
+      return this.parts.find(p => p.id === id);
+    } catch (error) {
+      if (revision === this._revision && epoch === this._epoch) {
+        // The Worker keeps its previous preview if sample preparation fails.
+        // Restore that transport using the new epoch, then surface the error.
+        const restored = await this._call('seek', { seconds, epoch });
+        this.currentTime = restored.seconds;
+        if (restored.metadata) this._acceptMetadata(restored.metadata);
+        this._node?.port.postMessage({ type: 'reset', epoch, offset: restored.seconds, running: true });
+        if (this._wantsPlayback) { await this._context?.resume(); this._state('playing'); }
+        else this._state('ready');
+      }
+      throw error;
+    }
   }
   async stop() {
     this._alive();

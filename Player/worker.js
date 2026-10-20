@@ -1,10 +1,11 @@
 // The source project renders PCM in C/WASM. Keep it off the website's UI thread.
 import { createStereoPreview } from './stereo-preview.js';
 import { BrowserSoundBank } from './lazy-bank.js';
+import { updatePartSettings } from './part-controls.js';
 let enginePromise, preview, port, epoch = 0, queue = Promise.resolve();
 let latestSeek = 0, changing = false;
 const soundfonts = new Map(), browserBanks = new Map();
-let loadAbort;
+let loadAbort, source;
 async function soundfont(url, signal) {
   const location = url || new URL('./soundfonts/FluidR3_GM.sf2', import.meta.url).href;
   if (!soundfonts.has(location)) soundfonts.set(location, (async () => {
@@ -50,22 +51,40 @@ function render(data) {
     port.postMessage({ epoch, channels, duration: stats.duration, done: stats.position >= stats.duration }, channels.map(samples => samples.buffer));
   } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
 }
+async function soundFontPreview(data) {
+  const { createSoundFontPreview } = await import('./soundfont-preview.js');
+  let prepared, bank;
+  if (data.soundfontUrl) bank = await soundfont(data.soundfontUrl, data.signal);
+  else {
+    const url = data.sampleManifestUrl || new URL('./soundfonts/fluidr3-gm/manifest.json', import.meta.url).href;
+    if (!browserBanks.has(url)) browserBanks.set(url, new BrowserSoundBank(url));
+    prepared = await browserBanks.get(url).load(data.bytes, { effects: data.effects, signal: data.signal,
+      parts: data.parts, partSettings: data.partSettings });
+    bank = prepared.bank;
+  }
+  data.signal?.throwIfAborted();
+  return createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared,
+    releaseVelocityProfiles: data.releaseVelocityProfiles, parts: data.parts, partSettings: data.partSettings });
+}
 async function command(data) {
   if (data.type === 'load' && data.engine !== 'z80') {
     data.signal?.throwIfAborted();
-    preview?.close(); preview = null;
-    const { createSoundFontPreview } = await import('./soundfont-preview.js');
-    let prepared, bank;
-    if (data.soundfontUrl) bank = await soundfont(data.soundfontUrl, data.signal);
-    else {
-      const url = data.sampleManifestUrl || new URL('./soundfonts/fluidr3-gm/manifest.json', import.meta.url).href;
-      if (!browserBanks.has(url)) browserBanks.set(url, new BrowserSoundBank(url));
-      prepared = await browserBanks.get(url).load(data.bytes, { effects: data.effects, signal: data.signal });
-      bank = prepared.bank;
-    }
-    data.signal?.throwIfAborted();
-    preview = await createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared, releaseVelocityProfiles: data.releaseVelocityProfiles });
+    preview?.close(); preview = null; source = null;
+    const options = { ...data, partSettings: {} };
+    preview = await soundFontPreview(options);
+    source = options; source.parts = preview.stats.parts;
     epoch = data.epoch; return preview.stats;
+  }
+  if (data.type === 'parts') {
+    if (!source || !preview) throw new Error('Part controls require a loaded SoundFont song.');
+    const settings = updatePartSettings(source.parts, preview.stats.instruments, source.partSettings, data.part, data.changes);
+    // Build before replacing the active preview. Failed or aborted downloads
+    // leave the previous song/settings usable. The encoded cache is shared.
+    const next = await soundFontPreview({ ...source, partSettings: settings });
+    preview.close(); preview = next; source.partSettings = settings;
+    const result = await preview.seek(data.seconds, { isCurrent: () => data.epoch === latestSeek });
+    if (!result.cancelled) epoch = data.epoch;
+    return { ...result, metadata: preview.stats };
   }
   if (data.type === 'seek') {
     if (data.epoch !== latestSeek) return { cancelled: true };
@@ -73,7 +92,7 @@ async function command(data) {
     if (preview.seek) {
       const result = await preview.seek(data.seconds, { isCurrent: () => data.epoch === latestSeek });
       if (!result.cancelled) epoch = data.epoch;
-      return result;
+      return { ...result, metadata: preview.stats };
     }
     await preview.reset(); epoch = data.epoch;
     let remaining = Math.round(Math.min(data.seconds, preview.stats.duration) * 48000), blocks = 0;
@@ -90,6 +109,7 @@ async function command(data) {
   }
   const { engine, bank, players } = await resources();
   if (data.type === 'load') {
+    source = null;
     data.signal?.throwIfAborted();
     const score = engine.parseMidi(unwrapMidi(data.bytes));
     if (!score.notes.length) throw new Error('No supported notes in this MIDI.');
@@ -109,7 +129,7 @@ self.onmessage = ({ data }) => {
   if (data.type === 'load') {
     loadAbort?.abort(); loadAbort = new AbortController(); data.signal = loadAbort.signal;
   }
-  if (data.type === 'seek' || data.type === 'load') latestSeek = data.epoch;
+  if (data.type === 'seek' || data.type === 'parts' || data.type === 'load') latestSeek = data.epoch;
   if (data.type === 'connect') {
     port?.close(); port = data.port; port.onmessage = ({ data }) => render(data); port.start(); return;
   }

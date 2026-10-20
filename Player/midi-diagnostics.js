@@ -1,3 +1,4 @@
+import { installPartControls } from './part-controls.js';
 import { SpessaLog, SpessaSynthProcessor, SpessaSynthSequencer } from './vendor/spessasynth.js';
 
 // These controllers have transport/parameter behavior or standard synth routing.
@@ -13,7 +14,7 @@ const patch = p => `банк ${p.bankMSB}:${p.bankLSB}, программа ${p.p
 // Analyze every event with the pinned engine's own routing and parameter
 // handlers, without generating PCM or allocating audio voices. The playback synth is
 // separate: inspection cannot change its controllers, voices or effects.
-export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 200, onSample, signal } = {}) {
+export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 200, onSample, signal, parts = [], partSettings = {} } = {}) {
   const entries = new Map(), summary = { substituted: 0, unsupported: 0, partial: 0, bankDependent: 0, unverified: 0 };
   let context, omitted = 0, complete = true, scanned = 0;
   const record = (code, status, feature, message, fields = {}) => {
@@ -28,20 +29,35 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   synth.onMissingPreset = (requested, system) => bank.getPreset(requested, system);
   synth.soundBankManager.addSoundBank(bank, 'diagnostics');
   await synth.processorInitialized;
-  if (onSample) {
-    // Execute the real routing, key shifts, tuning, velocity and mono key logic,
-    // collecting region dependencies where the synth would construct voices.
-    synth.setSystemParameter('blackMIDIMode', false);
-    synth.setSystemParameter('monophonicRetrigger', false);
-    synth.synthCore.getVoicesForPreset = (preset, key, velocity) => {
-      for (const voice of preset.getVoiceParameters(key, velocity)) onSample(voice.sample);
-      return [];
-    };
-  } else synth.noteOn = synth.noteOff = () => {};
+  const foundParts = new Map();
+  // Run the actual routing/gates even when only collecting metadata. Never
+  // allocate audio voices or decode PCM in this independent inspection synth.
+  synth.setSystemParameter('blackMIDIMode', false);
+  synth.setSystemParameter('monophonicRetrigger', false);
+  synth.synthCore.getVoicesForPreset = (preset, key, velocity) => {
+    if (onSample) for (const voice of preset.getVoiceParameters(key, velocity)) onSample(voice.sample);
+    return [];
+  };
   const sequence = new SpessaSynthSequencer(synth);
   sequence.preload = sequence.skipToFirstNoteOn = false;
   sequence.loopCount = 0;
   sequence.loadNewSongList([midi]);
+  installPartControls(synth, bank, parts, partSettings);
+  const getVoices = synth.synthCore.getVoices.bind(synth.synthCore);
+  synth.synthCore.getVoices = (channel, key, velocity) => {
+    if (context) {
+      const ch = synth.midiChannels[channel], offset = Math.floor(channel / 16) * 16;
+      const port = Number(Object.keys(sequence.midiPortChannelOffsets).find(p => sequence.midiPortChannelOffsets[p] === offset));
+      let row = foundParts.get(channel);
+      if (!row) foundParts.set(channel, row = { id: port + ':' + (channel % 16 + 1), port, channel: channel % 16 + 1,
+        synthChannel: channel, tracks: [], sourceInstruments: [] });
+      if (!row.tracks.includes(context.track)) row.tracks.push(context.track);
+      const preset = ch.preset;
+      if (preset && !row.sourceInstruments.some(p => p.program === preset.program && p.bankMSB === preset.bankMSB && p.bankLSB === preset.bankLSB && p.percussion === !!preset.isGMGSDrum))
+        row.sourceInstruments.push({ name: preset.name, program: preset.program, bankMSB: preset.bankMSB, bankLSB: preset.bankLSB, percussion: !!preset.isGMGSDrum });
+    }
+    return getVoices(channel, key, velocity);
+  };
   let seconds = 0, previousTick = 0;
   try {
     for (const { tr, ev } of midi.timeline) {
@@ -108,6 +124,6 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   } finally { synth.stopAllChannels(true); }
   signal?.throwIfAborted();
   return { version: 1, engine: 'soundfont', scope: 'file', complete, eventsScanned: scanned,
-    summary, entries: [...entries.values()], omitted,
+    summary, entries: [...entries.values()], omitted, parts: [...foundParts.values()].sort((a, b) => a.port - b.port || a.channel - b.channel),
     note: 'Отчёт проверяет обработку команд и выбор пресетов. Он не гарантирует совпадение с аппаратным синтезатором; модуляторы и качество звука отдельно не оцениваются.' };
 }
