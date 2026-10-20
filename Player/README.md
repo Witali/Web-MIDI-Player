@@ -34,6 +34,9 @@ can show the actual FluidR3 GS presets selected.
 
 ## Live MIDI devices
 
+See [the Russian device and connection guide](../EXTERNAL-MIDI.md) for supported
+device categories, routing, a complete optional page and troubleshooting.
+
 This optional capability is preserved in the source repository: external MIDI
 input/output, MIDI Thru and keyboard playback through the local sound bank.
 It is disabled in the normal player, both catalogs and the portable example.
