@@ -1,3 +1,4 @@
+import { installBankMappings } from './fluid-bank-mappings.js';
 import { installPartControls } from './part-controls.js';
 import { SpessaLog, SpessaSynthProcessor, SpessaSynthSequencer } from './vendor/spessasynth.js';
 
@@ -29,6 +30,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   synth.onMissingPreset = (requested, system) => bank.getPreset(requested, system);
   synth.soundBankManager.addSoundBank(bank, 'diagnostics');
   await synth.processorInitialized;
+  installBankMappings(synth, bank);
   const foundParts = new Map();
   // Run the actual routing/gates even when only collecting metadata. Never
   // allocate audio voices or decode PCM in this independent inspection synth.
@@ -78,7 +80,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
         if (detail.kind === 'substituted') {
           record('preset-substitution', 'substituted', 'Bank Select / Program Change',
             `Запрошен ${patch(detail.requested)}; выбран «${detail.actual.name}» (${patch(detail.actual)}).`,
-            { requested: detail.requested, actual: detail.actual, system: detail.system });
+            { requested: detail.requested, actual: detail.actual, system: detail.system, ...(detail.mapping ? { mapping: detail.mapping } : {}) });
         } else {
           unsupported = true;
           const isEffect = /effect|EFX|Reverb|Chorus|Variation/i.test(detail.feature);

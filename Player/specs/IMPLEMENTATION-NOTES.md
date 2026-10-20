@@ -423,3 +423,39 @@ JS/WASM/SIMD, ordered B commands versus later commands (including a 300-tempo-ch
 regression), whole-song End Of Track, partial SysEx, wet
 state, RNG, memory/pool growth, exact seeks, Worker cancellation/sample reuse,
 public API/defaults, audible lyrics and 44.1 kHz output timing/underruns/EOF.
+
+
+## Additional timbres and explicit bank mappings (2026-10-20)
+
+MIDI 1.0 p.13 (PDF 18) and GM2 v1.2a pp.5-6 (PDF 9-10) require Bank Select
+to wait for Program Change. Existing held notes retain their original preset.
+GM2 melody bank MSB 121 uses LSB variations; rhythm bank MSB 120 changes the
+channel type when Program Change selects its preset. Appendix A pp.25-31
+and Appendix B pp.32-34 define the categories, variations and percussion.
+GS MSB variation numbers cannot simply be copied to a GM2/XG LSB.
+
+The verified MIT FluidR3 GS supplement adds actual GS-addressed presets.
+The host profile implements only published category correspondences, reports
+each substitution and keeps the requested MIDI patch/controllers intact.
+Native exact patches take precedence. It does not claim to reproduce hardware
+recordings or to supply every defined GM2/GS/XG voice. XG SFX MSB 126 is now
+recognized as percussion; an unavailable key map is reported as a drum fallback,
+not represented as the GS SFX map or an unrelated melodic preset.
+
+Primary references read and visually checked:
+
+- [GM2 v1.2a, RP-024](https://midi.org/general-midi-2), official download
+  [General_MIDI_Level_2_07-2-6_1.2a.pdf](https://drive.google.com/file/d/1OzXk-AshTcb1xyIEHBTA3HcUb-KnLNIR/view),
+  185,203 bytes; SHA-256: 56af9df9d9da3cbca39e743af0595a8441246124cdaa3f70736071ced164996e.
+- [Yamaha PSR-2000/1000 Data List](https://usa.yamaha.com/files/download/other_assets/7/321057/PSR2000E2.pdf),
+  pp.7-11, 361,790 bytes; SHA-256: 6e9aa74aef77f4e2df56838206d22ef936d35a55061072bfa676fb96fe299262.
+- [Roland SC-8850 manual](https://cdn.roland.com/assets/media/pdf/SC-8850_OM.pdf),
+  pp.146-147, 5,031,818 bytes; SHA-256: ec1b2c9a76bee49969fdebf2ebd7fe6f217eaad250468105c5bd5cd41dbe667d.
+
+The source license/preset inventory, exact mapping limits, deployment and tests
+are documented in [BANK-COVERAGE.md](../BANK-COVERAGE.md). SoundFont source
+and package hashes are pinned in PROVENANCE.json; the MIT notice is retained.
+Every original GM recording's PCM identity, native rate, frame count and
+encoded-file digest remains unchanged. Sample indexes are rebuilt consistently
+with preset/instrument links. PCM regression compares all GM programs against
+independent original SF2 maps, with the unchanged encoded recordings.

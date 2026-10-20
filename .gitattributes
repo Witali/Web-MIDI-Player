@@ -8,3 +8,5 @@ Player/soundfonts/fluidr3-gm/samples/*.pcm filter=lfs diff=lfs merge=lfs -text
 
 # Preserve upstream SoundFont license bytes.
 Player/soundfonts/fluidr3-gm/LICENSE.txt -text -diff
+
+Player/soundfonts/FluidR3_GS.sf2 filter=lfs diff=lfs merge=lfs -text

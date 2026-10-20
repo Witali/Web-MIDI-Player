@@ -1,3 +1,4 @@
+import { FLUID_MAPPINGS } from '../fluid-bank-mappings.js';
 // Keep SF2 mapping/loops intact; encode original native-rate PCM for the browser.
 import fs from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -7,13 +8,20 @@ import {pathToFileURL} from 'node:url';
 import {SoundBankLoader,BasicSoundBank,SpessaLog} from '../vendor/spessasynth.js';
 import {fileURLToPath} from 'node:url';
 const ROOT=fileURLToPath(new URL('../',import.meta.url));
-const FONT_SHA=JSON.parse(fs.readFileSync(join(ROOT,'PROVENANCE.json'))).soundfont.sha256;
+const PROVENANCE=JSON.parse(fs.readFileSync(join(ROOT,'PROVENANCE.json')));
+const FONT_SHA=PROVENANCE.soundfont.sha256;
 const hash=b=>createHash('sha256').update(b).digest('hex');
 export async function buildBrowserBank({ffmpeg='ffmpeg'}={}){
   SpessaLog.setLogLevel(false,false,false);
   const source=fs.readFileSync(join(ROOT,'soundfonts/FluidR3_GM.sf2'));
   if(hash(source)!==FONT_SHA)throw Error('Unexpected source SoundFont');
-  const bank=SoundBankLoader.fromArrayBuffer(source.buffer.slice(source.byteOffset,source.byteOffset+source.byteLength));
+  const base=SoundBankLoader.fromArrayBuffer(source.buffer.slice(source.byteOffset,source.byteOffset+source.byteLength));
+  const extensions=(PROVENANCE.soundfontExtensions??[]).map(row=>{
+    const data=fs.readFileSync(join(ROOT,row.file));if(hash(data)!==row.sha256)throw Error('Unexpected source SoundFont: '+row.name);
+    return SoundBankLoader.fromArrayBuffer(data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength));
+  });
+  const bank=extensions.length?BasicSoundBank.mergeSoundBanks(base,...extensions):base;
+  bank.soundBankInfo.name='FluidR3 GM + GS 3.1';
   await BasicSoundBank.isSF3DecoderReady;
   const output=join(ROOT,'soundfonts/fluidr3-gm');
   fs.mkdirSync(join(output,'samples'),{recursive:true});
@@ -21,12 +29,12 @@ export async function buildBrowserBank({ffmpeg='ffmpeg'}={}){
   fs.writeFileSync(join(output,'LICENSE.txt'),license);
   const version=spawnSync(ffmpeg,['-version'],{encoding:'utf8',windowsHide:true});
   if(version.status!==0)throw Error(version.error?.message||'FFmpeg with libvorbis is required');
-  const manifest={schema:1,id:'fluidr3-browser',source_sha256:FONT_SHA,license:'MIT',license_sha256:hash(license),codec:'Ogg Vorbis',settings:{bitrate_bps:128000,low_rate_quality:8,pcm_below_bytes:4096,resampling:'none; original native sample rate'},encoder:version.stdout.split(/\r?\n/)[0],generator_sha256_lf:hash(fs.readFileSync(new URL(import.meta.url),'utf8').replaceAll('\r\n','\n')),samples:[]};
+  const manifest={schema:1,id:'fluidr3-browser',source_sha256:FONT_SHA,supplements:(PROVENANCE.soundfontExtensions??[]).map(({name,sha256})=>({name,sha256})),profile:'fluidr3-gm-gs-v1',license:'MIT',license_sha256:hash(license),codec:'Ogg Vorbis',settings:{bitrate_bps:128000,low_rate_quality:8,pcm_below_bytes:4096,resampling:'none; original native sample rate'},encoder:version.stdout.split(/\r?\n/)[0],generator_sha256_lf:hash(fs.readFileSync(new URL(import.meta.url),'utf8').replaceAll('\r\n','\n')),samples:[]};
   const encoded=new Map();
   const previous=new Map();
   try{
     const saved=JSON.parse(fs.readFileSync(join(output,'manifest.json')));
-    if(saved.source_sha256===FONT_SHA&&JSON.stringify(saved.settings)===JSON.stringify(manifest.settings))
+    if(JSON.stringify(saved.settings)===JSON.stringify(manifest.settings))
       for(const row of saved.samples)previous.set(`${row.sample_rate_hz}:${row.source_pcm_sha256}`,row);
   }catch{}
   let totalSource=0;
@@ -73,6 +81,12 @@ export async function buildBrowserBank({ffmpeg='ffmpeg'}={}){
     if(!retained.has(file)&&/^[a-f0-9]{64}\.(ogg|pcm)$/.test(name)&&hash(fs.readFileSync(join(output,file)))===name.split('.')[0])fs.unlinkSync(join(output,file));
   }
   fs.writeFileSync(join(output,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
+  const address=p=>({program:p.program,bankMSB:p.bankMSB,bankLSB:p.bankLSB,isGMGSDrum:!!p.isGMGSDrum,name:p.name});
+  const presets=bank.presets.map(address);
+  const table=FLUID_MAPPINGS.map(row=>{const source=presets.find(p=>p.program===row.source.program&&p.isGMGSDrum===row.source.isGMGSDrum&&(p.isGMGSDrum||(p.bankMSB===row.source.bankMSB&&p.bankLSB===row.source.bankLSB)));if(!source)throw Error('Mapping has no source preset');return{...row,source};});
+  fs.writeFileSync(join(output,'mappings.json'),JSON.stringify({profile:manifest.profile,programBase:0,policy:'category-equivalent substitutions; not hardware emulation',mappings:table},null,2)+'\n');
+  fs.writeFileSync(join(ROOT,'soundfonts/inventory.json'),JSON.stringify({bank:bank.soundBankInfo.name,license:'MIT',gmPrograms:128,drumPresets:presets.filter(p=>p.isGMGSDrum).length,samples:bank.samples.length,presets:presets.map(({program,bankMSB,bankLSB,name,isGMGSDrum})=>({program:program+1,bankMSB,bankLSB,name,drum:isGMGSDrum}))},null,2)+'\n');
+  fs.writeFileSync(join(output,'presets.csv'),'bankMSB,bankLSB,programZeroBased,percussion,name\n'+presets.map(p=>[p.bankMSB,p.bankLSB,p.program,p.isGMGSDrum,JSON.stringify(p.name)].join(',')).join('\n')+'\n');
   console.log(JSON.stringify(manifest.total));
   return manifest;
 }

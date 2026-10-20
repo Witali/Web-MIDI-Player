@@ -29,7 +29,8 @@
       "Note Off velocity preserved across SMF/F7, raw/scheduled MIDI, routed ports, per-key voice identities, pedals and events; Note On zero uses 64. Explicit preset response curves adjust release envelope times without reinterpreting SF2 sources or changing unconfigured banks. Forced drum release targets the owed Note On identity.",
       "Host SoundFont part controls preserve ordered MIDI processing: receiver-port metadata, independent gain/pan and exact preset override, sample preparation, transport reconstruction and shared catalog/example UI; no upstream vendor changes.",
       "Timed text metadata and shared lyrics/marker/display UI follow the real PPQN/SMPTE/port timeline; preserve original bytes, encoding and Channel Prefix semantics. Karaoke parsing no longer rewrites Lyric meta events into Text. GS/XG display packets are collected at final F7 and known LCD formats validate bounds/checksum.",
-      "Host rate/transpose and exact A/B transport preserve source-time coordinates and ordered commands. In-process synth/DSP checkpoints retain partial PCM, decoder, RNG and effect state without sample copies. Vendor RNG exposes state and sequencer accepts an inclusive loop boundary; default tick processing is unchanged."
+      "Host rate/transpose and exact A/B transport preserve source-time coordinates and ordered commands. In-process synth/DSP checkpoints retain partial PCM, decoder, RNG and effect state without sample copies. Vendor RNG exposes state and sequencer accepts an inclusive loop boundary; default tick processing is unchanged.",
+      "Recognize native Yamaha XG SFX percussion bank MSB 126 alongside normal drum banks; unavailable SFX kits retain explicit drum fallback diagnostics."
     ]
   },
   "soundfont": {
@@ -88,7 +89,8 @@
     ],
     "changes": [
       "Paths adapted to standalone Player; ordered real MIDI dispatch selects key/velocity regions, linked samples, timed ports and F7 messages",
-      "Verified samples load before playback with cancellation, bounded encoded LRU and independent per-song decoded banks"
+      "Verified samples load before playback with cancellation, bounded encoded LRU and independent per-song decoded banks",
+      "Merge the MIT FluidR3 GS supplement without replacing GM presets or recordings; explicit profile mappings preserve MIDI state and report real source patches, with generated CSV/JSON address tables."
     ],
     "codec": "Ogg Vorbis",
     "settings": {
@@ -98,13 +100,30 @@
       "resampling": "none; original native sample rate"
     },
     "license": "MIT",
-    "samples": 1418,
-    "encodedBytes": 31812967,
+    "samples": 1466,
+    "encodedBytes": 32475433,
     "metadata": {
       "file": "bank.sf3",
-      "bytes": 202588,
-      "sha256": "0af5bc85e0eb588f5bb87235d014c64fae6e0d57eff413fef886fbb28ed05e05"
+      "bytes": 213034,
+      "sha256": "10ec218aefbc78c448573a3be481f020367b66123487e2fd4d5439d8e14f6f5d"
     },
-    "builder": "tools/build-browser-bank.mjs"
-  }
+    "builder": "tools/build-browser-bank.mjs",
+    "profile": "fluidr3-gm-gs-v1"
+  },
+  "soundfontExtensions": [
+    {
+      "name": "FluidR3 GS",
+      "version": "3.1",
+      "license": "MIT",
+      "author": "Frank Wen and contributors",
+      "file": "soundfonts/FluidR3_GS.sf2",
+      "bytes": 3201926,
+      "sha256": "aadb5597fb95ea5f7d336999e3c68ad32aa6357027aed7d4d9ff0ac75f2988e6",
+      "packageUrl": "https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gs_3.1-5.3_all.deb",
+      "packageSha256": "f9c5b171ce1cd6c05c5dd65e2ada61c0951ef491f1c67d077aaecd6c9d6ef3e4",
+      "licenseUrl": "https://sources.debian.org/src/fluid-soundfont/3.1-5.3/COPYING/",
+      "presets": 33,
+      "samples": 48
+    }
+  ]
 }

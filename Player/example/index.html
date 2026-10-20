@@ -13,7 +13,7 @@ details{margin:24px 0;padding:16px;border:1px solid #3a4858;border-radius:8px;fo
 </style>
 <h1>Web-MIDI-Player</h1>
 <p>Самостоятельный стереоплеер. Тестовая мелодия перемещается слева в центр и вправо. Все MIDI в примере создаются на странице.</p>
-<div class="buttons"><button id="prepare">Загрузить пример</button><button id="play">▶ Воспроизвести</button><button id="stop">Остановить</button><button id="all">128 инструментов</button></div>
+<div class="buttons"><button id="prepare">Загрузить пример</button><button id="sfx-demo">Загрузить GS/XG-пример</button><button id="play">▶ Воспроизвести</button><button id="stop">Остановить</button><button id="all">128 инструментов</button></div>
 <p id="status" role="status">Готов к загрузке</p>
 <label>Позиция <output id="time">0.0 / 0.0 с</output><input id="seek" type="range" min="0" max="1" step="0.1" value="0"></label>
 <label>Громкость<input id="volume" type="range" min="0" max="1" step="0.01" value="0.55"></label>
@@ -22,16 +22,17 @@ details{margin:24px 0;padding:16px;border:1px solid #3a4858;border-radius:8px;fo
 <details id="text" hidden><summary>Текст и метки</summary><div id="text-body" class="midi-text-report"></div></details>
 <details id="parts" hidden><summary>Партии</summary><div id="parts-body"></div></details>
 <details id="diagnostics" hidden><summary>Совместимость воспроизведения</summary><div id="diagnostics-body"></div></details>
-<small>FluidR3 GM · 128 инструментов · стереопанорама CC10 · <span id="backend">DSP выбирается при загрузке</span><br><a href="../README.md">API и установка</a> · <a href="./benchmark.html">Сравнить скорость JS / WASM / SIMD</a></small>
+<small>FluidR3 GM + GS · 128 инструментов · стереопанорама CC10 · <span id="backend">DSP выбирается при загрузке</span><br><a href="../README.md">API и установка</a> · <a href="./benchmark.html">Сравнить скорость JS / WASM / SIMD</a></small>
 <script type="module">
 import { MidiPlayer, renderMidiDiagnostics, renderPartControls, renderMidiText, renderPlaybackControls } from '../index.js';
 const $=id=>document.getElementById(id),player=new MidiPlayer({effects:false});
 const vlq=n=>{const a=[n&127];while(n=Math.floor(n/128))a.unshift((n&127)|128);return a;};
 function score(all=false){
-  const events=[];
+  const events=[],sfx=all==='sfx';
+  if(sfx)events.push(0,240,8,67,16,76,0,0,126,0,247,0,176,0,64,0,176,32,0);
   const text=(type,value)=>{const bytes=[...new TextEncoder().encode(value)];events.push(0,255,type,...vlq(bytes.length),...bytes);};
-  text(3,'Web-MIDI-Player demo'); text(6,'Начало');
-  for(let i=0;i<(all?128:6);i++){if(!all)text(5,['Сле','ва ','В ','центре ','Спра','ва'][i]);events.push(0,0xc0,all?i:81,0,0xb0,10,all?64:[0,0,64,64,127,127][i],0,0x90,60+(i%6)*2,105,...vlq(all?240:480),0x80,60+(i%6)*2,0);}
+  text(3,sfx?'GS/XG SFX demo':'Web-MIDI-Player demo'); text(6,'Начало');
+  for(let i=0;i<(sfx?4:all?128:6);i++){if(sfx)text(6,['Дождь','Гром','Двигатель','Смех'][i]);else if(!all)text(5,['Сле','ва ','В ','центре ','Спра','ва'][i]);const key=sfx?60:60+(i%6)*2;events.push(0,0xc0,sfx?[32,33,80,96][i]:all?i:81,0,0xb0,10,all?64:[0,0,64,64,127,127][i],0,0x90,key,105,...vlq(sfx?1920:all?240:480),0x80,key,0);}
   text(7,'Завершение');
   events.push(0,255,47,0);const out=new Uint8Array(22+events.length);out.set([77,84,104,100,0,0,0,6,0,0,0,1,1,224,77,84,114,107,0,0,0,0]);new DataView(out.buffer).setUint32(18,events.length);out.set(events,22);return out;
 }
@@ -46,7 +47,8 @@ player.addEventListener('loaded',event=>{ $('diagnostics').hidden=!event.detail.
 player.addEventListener('statechange',()=>{if(player.state==='loading'){$('diagnostics').hidden=true;$('parts').hidden=true;$('text').hidden=true;textCleanup?.();textCleanup=null;$('playback').hidden=true;playbackCleanup?.();playbackCleanup=null;}});
 player.addEventListener('loaded',event=>$('backend').textContent=`DSP: ${event.detail.dspCore==='c'?'C / ':''}${event.detail.dsp==='wasm-simd'?'WASM SIMD128':event.detail.dsp==='wasm'?'WASM':'JavaScript'}`);
 $('play').onclick=()=>action(async()=>{if(player.state==='playing')return player.pause();await player.unlock();if(!player.metadata)await player.load(source);await player.play();});
-$('prepare').onclick=()=>action(()=>player.load(source));
+$('prepare').onclick=()=>action(async()=>{source=score();await player.load(source);});
+$('sfx-demo').onclick=()=>action(async()=>{source=score('sfx');await player.load(source);});
 $('stop').onclick=()=>action(()=>player.stop());
 $('seek').onchange=()=>action(()=>player.seek(Number($('seek').value)));
 $('volume').oninput=()=>player.volume=Number($('volume').value);

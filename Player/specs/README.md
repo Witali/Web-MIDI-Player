@@ -44,3 +44,8 @@ the exact references used.
   33,669 bytes; SHA-256: 0b1b75e84ea9ed7429e81a9101afe33683f53914e8161eb6c3dd637b1542e5c5.
 - [CA-026: Modulation Depth Range RPN](https://drive.google.com/file/d/1V_zUZ7ZNOV_ySDwN6aYOFJipq4Jk0en6/view),
   48,489 bytes; SHA-256: 49be1c7b497827a889374028e789198649ca8d94ae92afc395c66d3929c3ecba.
+
+GM2 v1.2a (RP-024) and the manufacturer bank-address tables used on
+2026-10-20 are identified with URLs, hashes and printed page numbers in
+[implementation notes](IMPLEMENTATION-NOTES.md#additional-timbres-and-explicit-bank-mappings-2026-10-20).
+They are not redistributed with the player.

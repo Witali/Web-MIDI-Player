@@ -15,6 +15,7 @@
 *.sf2
 *.sf3
 !/Player/soundfonts/FluidR3_GM.sf2
+!/Player/soundfonts/FluidR3_GS.sf2
 *.deb
 *.tgz
 # The scraper stays available locally, outside version control

@@ -8,17 +8,15 @@ import { verifyBrowserBank } from './verify-browser-bank.mjs';
 import { buildBrowserBank } from './build-browser-bank.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const url = 'https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gm_3.1-5.3_all.deb';
-const expected = '6f531493ac4e4d9772fd96b2488ea1790af81c196135fbdd25997da0781fc60e';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const destination = path.join(root, 'soundfonts', 'FluidR3_GM.sf2');
 const manifest = JSON.parse(await fs.readFile(path.join(root, 'PROVENANCE.json'), 'utf8'));
-const expectedFont = manifest.soundfont.sha256;
-async function ensureOriginalBank() {
+async function ensureOriginalBank(config) {
+  const destination = path.join(root, config.file), expectedFont = config.sha256;
+  const url = config.packageUrl, expected = config.packageSha256;
   try {
-    if (hash(await fs.readFile(destination)) === expectedFont) { console.log('FluidR3 GM is already present and verified.'); return; }
+    if (hash(await fs.readFile(destination)) === expectedFont) { console.log(config.name + ' is already present and verified.'); return; }
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  console.log('Downloading the MIT-licensed FluidR3 GM bank (114 MiB package)…');
+  console.log('Downloading the MIT-licensed ' + config.name + ' bank…');
   console.log(`Source: ${url}`);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
@@ -37,19 +35,20 @@ async function ensureOriginalBank() {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'midi-player-assets-'));
   try {
     const packed = path.join(temporary, 'data.tar.xz'); await fs.writeFile(packed, payload);
-    const entry = './usr/share/sounds/sf2/FluidR3_GM.sf2';
+    const entry = './usr/share/sounds/sf2/' + path.basename(config.file);
     const result = spawnSync('tar', ['-xf', packed, '-C', temporary, entry], { encoding: 'utf8', windowsHide: true });
     if (result.status !== 0) throw new Error(result.stderr || 'The tar program is required to extract the bank.');
     const font = await fs.readFile(path.join(temporary, entry));
     if (hash(font) !== expectedFont) throw new Error('Extracted SoundFont checksum mismatch.');
     await fs.mkdir(path.dirname(destination), { recursive: true }); await fs.writeFile(destination, font);
-    console.log('FluidR3 GM installed; both checksums verified.');
+    console.log(config.name + ' installed; both checksums verified.');
   } finally {
     if (path.dirname(temporary) !== path.resolve(os.tmpdir()) || !path.basename(temporary).startsWith('midi-player-assets-')) throw new Error('Unexpected temporary path.');
     await fs.rm(temporary, { recursive: true, force: true });
   }
 }
-await ensureOriginalBank();
+await ensureOriginalBank(manifest.soundfont);
+for (const extension of manifest.soundfontExtensions ?? []) await ensureOriginalBank(extension);
 try {
   const browser = verifyBrowserBank();
   console.log(`Browser samples verified: ${browser.total.unique_files} files, ${browser.total.encoded_bytes} bytes.`);

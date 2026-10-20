@@ -28,13 +28,17 @@ updated, so site seek controls can follow it. Playback waits for inactive
 voices and 250 ms below −120 dBFS, with at least two seconds of ending headroom.
 
 The sample page is `example/index.html`. It generates its own short test score;
-no copyrighted or downloaded MIDI is included.
+no copyrighted or downloaded MIDI is included. Its GS/XG demo requests rain,
+thunder, engine and laughter through XG addresses so the compatibility view
+can show the actual FluidR3 GS presets selected.
 
 ## Sound and instrument coverage
 
-The default SoundFont engine uses **FluidR3 GM**, a complete MIT-licensed bank.
+The default SoundFont engine uses **FluidR3 GM + GS**, two MIT-licensed banks.
 All 128 bank-zero GM programs and standard percussion keys 35–81 are tested for
 audible output. `soundfonts/inventory.json` lists every available preset.
+The GS supplement adds 33 presets. Explicit GM2/XG substitutions and the
+complete address tables are documented in [BANK-COVERAGE.md](BANK-COVERAGE.md).
 Bank selects, program changes, sustain, expression, pitch bend and stereo CC10
 are processed by **SpessaSynth core 4.3.22** (Apache-2.0). Each SoundFont may add
 its own stereo image; reverb and chorus can place a wet tail in both channels.
@@ -343,8 +347,8 @@ the exact boundary between the C audio core and JavaScript control logic.
 ## Assets and deployment
 
 The default engine loads FluidR3 **as separate recordings** from
-`soundfonts/fluidr3-gm/`: a 198-KiB metadata map, a JSON manifest and
-1,418 independent sample files (30.3 MiB for the entire set). Each MIDI loads
+`soundfonts/fluidr3-gm/`: a compact metadata map, a JSON manifest and
+1,454 independent sample files (31.0 MiB for the entire set; 1,466 sample entries). Each MIDI loads
 only its required key/velocity regions and linked stereo recordings, including
 later bank/program changes, drum kits, timed ports and escaped MIDI messages.
 The complete ordered MIDI handlers select the dependencies; playback executes
@@ -367,13 +371,14 @@ may also cache content-addressed sample files. `metadata.sampleBank` reports
 selected sample/file counts, encoded bytes, newly downloaded sample bytes and
 cache hits. `metadata.sampleBank.mode` is `samples` or `full`.
 
-The original 142-MiB SF2 and browser recordings are tracked with **Git LFS**
+The original 142-MiB GM SF2, 3.1-MiB GS supplement and browser recordings are tracked with **Git LFS**
 under MIT. Install Git LFS before cloning, or run `git lfs pull` in an existing
 clone. Keep `licenses/FluidR3-MIT.txt` and the sample bank's `LICENSE.txt`.
-`npm run setup` verifies the original bank and every browser asset. It restores
+`npm run setup` verifies both original banks and every browser asset. It restores
 missing original SF2 from the pinned
 [FluidR3 GM 3.1 Debian package](https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gm_3.1-5.3_all.deb)
-(114 MiB package), checking both archive and extracted-bank SHA-256. If the
+(114 MiB package) and [GS supplement](https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gs_3.1-5.3_all.deb)
+(2.4 MiB package), checking archive and extracted-bank SHA-256. If the
 browser assets are missing, setup rebuilds them with FFmpeg/libvorbis; use
 `git lfs pull` to retrieve the ready files without encoding. Node.js 22+ and
 `tar` are required for setup; FFmpeg is needed only for rebuilding samples.

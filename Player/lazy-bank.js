@@ -1,3 +1,4 @@
+import { fluidProfile } from './fluid-bank-mappings.js';
 import { MidiTextCollector } from './midi-text.js';
 import { BasicMIDI, BasicSoundBank, SoundBankLoader, SpessaLog } from './vendor/spessasynth.js';
 import { normalizeSmpteTiming } from './midi-timing.js';
@@ -46,9 +47,10 @@ export class BrowserSoundBank {
           !['pcm16', 'vorbis'].includes(row.format) ||
           row.file !== 'samples/' + row.sha256 + (row.format === 'vorbis' ? '.ogg' : '.pcm') ||
           (row.format === 'pcm16' && row.bytes !== row.frames * 2))) throw invalid();
+    const profile = fluidProfile(manifest);
     const metadata = await this.verified(manifest.metadata, signal);
     signal?.throwIfAborted();
-    this.description = { manifest, metadata }; return this.description;
+    this.description = { manifest, metadata, profile }; return this.description;
   }
   async sample(row, signal, stats) {
     const cached = this.cache.get(row.sha256);
@@ -74,8 +76,9 @@ export class BrowserSoundBank {
     try {
       SpessaLog.setLogLevel(false, false, false);
       const midi = normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
-      const { manifest, metadata } = await this.assets(signal);
+      const { manifest, metadata, profile } = await this.assets(signal);
       const bank = SoundBankLoader.fromArrayBuffer(metadata.slice(0));
+      bank.hostProfile = profile;
       if (bank.samples.length !== manifest.samples.length || bank.samples.some((s, i) => s.sampleRate !== manifest.samples[i].sample_rate_hz)) throw invalid();
       const needed = new Set();
       const onSample = sample => { needed.add(sample); if (sample.linkedSample) needed.add(sample.linkedSample); };

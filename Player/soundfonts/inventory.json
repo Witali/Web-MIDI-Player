@@ -1,9 +1,9 @@
 {
-  "bank": "FluidR3 GM 3.1",
+  "bank": "FluidR3 GM + GS 3.1",
   "license": "MIT",
   "gmPrograms": 128,
-  "drumPresets": 31,
-  "samples": 1418,
+  "drumPresets": 32,
+  "samples": 1466,
   "presets": [
     {
       "program": 1,
@@ -1326,6 +1326,237 @@
       "bankMSB": 0,
       "bankLSB": 0,
       "name": "Orchestra Kit",
+      "drum": true
+    },
+    {
+      "program": 121,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Gtr. Cut Noise",
+      "drum": false
+    },
+    {
+      "program": 121,
+      "bankMSB": 2,
+      "bankLSB": 0,
+      "name": "String Slap",
+      "drum": false
+    },
+    {
+      "program": 122,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Fl. Key Click",
+      "drum": false
+    },
+    {
+      "program": 123,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Rain",
+      "drum": false
+    },
+    {
+      "program": 123,
+      "bankMSB": 2,
+      "bankLSB": 0,
+      "name": "Thunder",
+      "drum": false
+    },
+    {
+      "program": 123,
+      "bankMSB": 3,
+      "bankLSB": 0,
+      "name": "Wind",
+      "drum": false
+    },
+    {
+      "program": 123,
+      "bankMSB": 4,
+      "bankLSB": 0,
+      "name": "Stream/River",
+      "drum": false
+    },
+    {
+      "program": 123,
+      "bankMSB": 5,
+      "bankLSB": 0,
+      "name": "Bubble",
+      "drum": false
+    },
+    {
+      "program": 124,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Dog",
+      "drum": false
+    },
+    {
+      "program": 124,
+      "bankMSB": 2,
+      "bankLSB": 0,
+      "name": "Horse Gallop",
+      "drum": false
+    },
+    {
+      "program": 124,
+      "bankMSB": 3,
+      "bankLSB": 0,
+      "name": "Bird  2",
+      "drum": false
+    },
+    {
+      "program": 125,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Telephone 2",
+      "drum": false
+    },
+    {
+      "program": 125,
+      "bankMSB": 2,
+      "bankLSB": 0,
+      "name": "Door Creaking",
+      "drum": false
+    },
+    {
+      "program": 125,
+      "bankMSB": 3,
+      "bankLSB": 0,
+      "name": "Door Slam",
+      "drum": false
+    },
+    {
+      "program": 125,
+      "bankMSB": 4,
+      "bankLSB": 0,
+      "name": "Scratch",
+      "drum": false
+    },
+    {
+      "program": 125,
+      "bankMSB": 5,
+      "bankLSB": 0,
+      "name": "Wind Chimes",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Car-Engine",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 2,
+      "bankLSB": 0,
+      "name": "Car-Stop",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 3,
+      "bankLSB": 0,
+      "name": "Car-Pass",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 4,
+      "bankLSB": 0,
+      "name": "Car-Crash",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 5,
+      "bankLSB": 0,
+      "name": "Siren",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 6,
+      "bankLSB": 0,
+      "name": "Train",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 7,
+      "bankLSB": 0,
+      "name": "Jet Plane",
+      "drum": false
+    },
+    {
+      "program": 126,
+      "bankMSB": 8,
+      "bankLSB": 0,
+      "name": "StarShip",
+      "drum": false
+    },
+    {
+      "program": 127,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Laughs",
+      "drum": false
+    },
+    {
+      "program": 127,
+      "bankMSB": 2,
+      "bankLSB": 0,
+      "name": "Screaming",
+      "drum": false
+    },
+    {
+      "program": 127,
+      "bankMSB": 3,
+      "bankLSB": 0,
+      "name": "Punch",
+      "drum": false
+    },
+    {
+      "program": 127,
+      "bankMSB": 4,
+      "bankLSB": 0,
+      "name": "Heart Beat",
+      "drum": false
+    },
+    {
+      "program": 127,
+      "bankMSB": 5,
+      "bankLSB": 0,
+      "name": "Footsteps",
+      "drum": false
+    },
+    {
+      "program": 128,
+      "bankMSB": 1,
+      "bankLSB": 0,
+      "name": "Machine Gun",
+      "drum": false
+    },
+    {
+      "program": 128,
+      "bankMSB": 2,
+      "bankLSB": 0,
+      "name": "Lazergun",
+      "drum": false
+    },
+    {
+      "program": 128,
+      "bankMSB": 3,
+      "bankLSB": 0,
+      "name": "Explosion",
+      "drum": false
+    },
+    {
+      "program": 57,
+      "bankMSB": 0,
+      "bankLSB": 0,
+      "name": "SFX",
       "drum": true
     }
   ]

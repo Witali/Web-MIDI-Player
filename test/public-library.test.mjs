@@ -97,7 +97,10 @@ test('public export includes verified standalone sample files and omits the full
   writeCatalog(output, buildPublicLibrary(f.directory));
   assert.ok(fs.existsSync(path.join(output, 'player/lazy-bank.js')));
   assert.ok(!fs.existsSync(path.join(output, 'player/soundfonts/FluidR3_GM.sf2')));
+  assert.ok(!fs.existsSync(path.join(output, 'player/soundfonts/FluidR3_GS.sf2')));
+  assert.ok(fs.existsSync(path.join(output, 'player/fluid-bank-mappings.js')));
+  assert.ok(fs.existsSync(path.join(output, 'player/soundfonts/fluidr3-gm/mappings.json')));
   const bank = verifyBrowserBank(path.join(output, 'player/soundfonts/fluidr3-gm'));
-  assert.equal(bank.total.unique_files, 1418);
+  assert.equal(bank.total.unique_files, 1454);
   assert.ok(fs.existsSync(path.join(output, 'player/licenses/FluidR3-MIT.txt')));
 });

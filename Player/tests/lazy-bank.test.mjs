@@ -33,10 +33,10 @@ async function fullCompressedBank() {
 }
 
 test('browser bank has authenticated independent recordings and complete maps without embedded PCM', () => {
-  assert.equal(verifyBrowserBank().total.samples, 1418);
-  assert.equal(manifest.total.presets, 189); assert.equal(manifest.total.unique_files, 1418);
+  assert.equal(verifyBrowserBank().total.samples, 1466);
+  assert.equal(manifest.total.presets, 222); assert.equal(manifest.total.unique_files, 1454);
   assert.ok(manifest.total.encoded_bytes < manifest.total.source_pcm_bytes / 4);
-  const bank = parseMetadata(); assert.equal(bank.presets.length, 189);
+  const bank = parseMetadata(); assert.equal(bank.presets.length, 222);
   assert.ok(bank.samples.every(sample => sample.getRawData(true).length === 0));
 });
 

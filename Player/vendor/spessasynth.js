@@ -1421,7 +1421,7 @@ var BankSelectHacks = class {
 	* Checks if this bank number is XG drums.
 	*/
 	static isXGDrum(bankMSB) {
-		return bankMSB === 120 || bankMSB === 127;
+		return bankMSB === 120 || bankMSB === 126 || bankMSB === 127;
 	}
 	/**
 	* Checks if this MSB is a valid XG MSB
