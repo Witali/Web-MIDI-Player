@@ -350,6 +350,11 @@ voices keep the single-voice path. Current dense tests show an advantage for
 SIMD; the full scalar/SIMD comparison and small-score tradeoffs are documented
 in DSP-PERFORMANCE.md.
 
+Future-event and repeated-note queues advance a head cursor and compact pending
+storage, retaining every message and equal-time arrival order. Ordinary SMF
+playback already advances its timeline index. Queue checkpoints and both
+standalone catalogs retain the same PCM/note-analysis output.
+
 [DSP-PERFORMANCE.md](DSP-PERFORMANCE.md) records the successful experiment branch,
 reproducible benchmarks and bit-identical audio checks. The browser comparison
 page is `example/benchmark.html`. Portable C sources and native tests are in

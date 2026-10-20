@@ -1,4 +1,5 @@
-// Small, dependency-free SMF/RMID reader shared by the catalog builder and player.
+import { FIFOQueue } from '../Player/event-queue.js';
+// SMF/RMID reader shared by the catalog builder and player, with no external dependencies.
 export const INSTRUMENT_FAMILIES = ['Фортепиано', 'Клавишная перкуссия', 'Орган',
   'Гитара', 'Бас', 'Струнные', 'Хор', 'Духовые', 'Синтезатор', 'Народные', 'Ударные', 'Эффекты'];
 
@@ -135,12 +136,12 @@ export function readMidi(input, { includeNotes = true } = {}) {
       }
     } else if (kind === 9 && b) {
       instruments.add(instrumentFamily(state.program, channel)); noteCount++;
-      const queue = state.held.get(a) || [];
+      const queue = state.held.get(a) || new FIFOQueue();
       queue.push({ tick, pitch: a, velocity: b / 127 * state.volume / 127 * state.expression / 127, program: state.program, channel });
       state.held.set(a, queue);
     } else {
       const queue = state.held.get(a);
-      const note = queue?.shift();
+      const note = queue?.take();
       if (note) { if (state.pedal) state.sustained.push(note); else finish(note, tick); }
     }
   }

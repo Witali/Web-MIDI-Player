@@ -1069,3 +1069,50 @@ envelope/capture/cursor/activity bytes, mixed flags, 2053 voices, memory growth
 and dependent ranges. Actual synth tests confirm pair use and compare both
 exports through XG/control changes, Hold2/sustain/release and repeated checkpoints.
 The full MIDI/Worker/seek suite and paired actual-player benchmarks also apply.
+
+
+## Event queues without front removal (20 October 2026)
+
+MIDI 1.0 v4.2.1 Appendix A-4/A-5 (PDF pages 67–68) is the repeated-note/receiver
+FIFO reference. SMF 1.0 Track Chunks, printed page 6 (PDF page 8), defines delta
+amounts before events, including zero deltas for simultaneous events. This
+change preserves the existing timeline and arrival policies. The SMF sequencer
+already advances an index and calls the synth directly; it does not use the
+future timestamp queue in ordinary file playback.
+
+Core processMessage/processMessages still execute current/past timestamps
+immediately and defer future ones to the first eligible audio-block start.
+The same <=currentTime boundary and channelOffset/raw message identities are
+retained. Equal timestamps keep arrival order across ports and message kinds.
+Every queued entry is dispatched; no controller folding, deduplication or new
+message filtering is introduced. MIDI interpretation remains in the original
+handler, so existing diagnostics/support boundaries remain applicable.
+
+The shared FIFOQueue stores items, head and logical length in ordinary fields.
+Take clears its consumed reference, advances the head and occasionally copies
+only the pending suffix. At least 1024 consumed positions and a consumed half
+trigger compaction; this is a storage threshold, not a message/note limit.
+TimedEventQueue appends a monotonic stream without sorting. A disordered burst
+is stably sorted at the next observation, after removing its consumed prefix.
+Reentrant scheduling retains equal-time arrival order. Checkpoints capture
+head/length/order flags, pending bytes and array state through the existing
+ordinary-object walker; restoration works after later compaction/growth.
+
+BasicMIDI.getNoteTimes and the catalog SMF reader use the same FIFO for their
+first-unfinished repeated-note policy. Index 0 remains valid; zero-velocity
+Note On still matches Note Off. EOF/channel-note traversal sees only pending
+entries. Their previous analysis outputs are retained exactly. The catalog
+builder embeds the helper into its standalone script; the Player runtime
+ships it as a local module. Bank-merge and generated initialization callback
+shifts are outside MIDI event queues and are unchanged.
+
+Evidence: tests/event-queue.test.mjs checks reference release, constant head
+access before compaction, stable lazy sorting, randomized sort/shift parity,
+all raw message identities/order, ports, immediate times, SysEx, controls,
+reentrant insertion, repeated-note/EOF matching, checkpoint payload mutation,
+later voice/native-memory growth and standalone script execution. The full
+suite passes 297 tests. Real previous/current modules process saved SMF files
+with 1000/4000/16000 controllers; every scheduled message is checked by identity
+and order. 30 full PCM pairs and 30 complete note-analysis JSON pairs match.
+The ordinary SMF path is measured separately and has no claimed queue speedup;
+see DSP-PERFORMANCE.md for phase timings and observed overhead.

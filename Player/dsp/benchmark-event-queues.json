@@ -1,0 +1,824 @@
+{
+  "date": "2026-10-20T18:26:58.517Z",
+  "cpu": "AMD Ryzen 5 5600X 6-Core Processor             ",
+  "node": "v22.22.3",
+  "rounds": 5,
+  "counts": [
+    1000,
+    4000,
+    16000
+  ],
+  "dsp": "wasm",
+  "explicitGc": true,
+  "baselineRoot": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-baseline\\Player",
+  "baselineCommit": "88d2cee9fa1794bb0b50ef2f3d6603ad840f9fcc",
+  "scope": "Actual previous/current code; source SMF files saved under .cache/event-queue-fixtures. Scheduled API measures enqueue, first observation block and due burst block separately; full 60000-frame PCM and every raw message identity/order checked. Direct SMF measures complete render without using the future queue. Note readers compare full JSON. Parsing/initialization/GC excluded except catalog reader includes its own parse. Modes rotate between rounds.",
+  "sourceHashes": {
+    "beforeVendor": "390d2f2e2111c25bb315dc0580c29b3c5d9facebd75b8bb5d131cd820996eac1",
+    "afterVendor": "a622e258fdc55915270f3e74761272c2b9e1eb5aa7cab14fb7c2b4c248beaa93",
+    "beforeMetadata": "c335293596d9f1bcb512a445c6e940ac2821dbe6dec26ceafc268081b756a64f",
+    "afterMetadata": "f98606005d54fbb18fd99646987a4352b40fbe5da133e56b9c2e5a9204d1d3b5",
+    "queue": "ef61342a5c3cd20074cc9896708204c8e0c6f70aadf860e8bcb84990413a94d5",
+    "bank": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+  },
+  "cases": [
+    {
+      "kind": "scheduled-api",
+      "count": 1000,
+      "commands": 1005,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\controllers-1000.mid",
+      "fileBytes": 4055,
+      "fileSha256": "e55c943ef2bfd058ced61f68b902f3249eb13d7377a3f2aa4cc4a596c213edaf",
+      "times": {
+        "before": [
+          {
+            "enqueue": 11.791600000000017,
+            "firstBlock": 1.938600000000008,
+            "dispatch": 5.66840000000002,
+            "totalQueuePhases": 19.398600000000044
+          },
+          {
+            "enqueue": 7.957899999999995,
+            "firstBlock": 0.3225999999999658,
+            "dispatch": 5.379399999999919,
+            "totalQueuePhases": 13.65989999999988
+          },
+          {
+            "enqueue": 9.518500000000017,
+            "firstBlock": 0.12839999999994234,
+            "dispatch": 4.884500000000003,
+            "totalQueuePhases": 14.531399999999962
+          },
+          {
+            "enqueue": 11.412800000000061,
+            "firstBlock": 0.4574000000000069,
+            "dispatch": 4.697599999999966,
+            "totalQueuePhases": 16.567800000000034
+          },
+          {
+            "enqueue": 7.687000000000012,
+            "firstBlock": 0.129099999999994,
+            "dispatch": 5.1544999999999845,
+            "totalQueuePhases": 12.97059999999999
+          }
+        ],
+        "after": [
+          {
+            "enqueue": 3.497199999999907,
+            "firstBlock": 1.345700000000079,
+            "dispatch": 5.7012999999999465,
+            "totalQueuePhases": 10.544199999999933
+          },
+          {
+            "enqueue": 1.0775999999999613,
+            "firstBlock": 0.12389999999993506,
+            "dispatch": 5.870300000000043,
+            "totalQueuePhases": 7.071799999999939
+          },
+          {
+            "enqueue": 1.5555000000000518,
+            "firstBlock": 0.46289999999999054,
+            "dispatch": 6.3933000000000675,
+            "totalQueuePhases": 8.41170000000011
+          },
+          {
+            "enqueue": 0.7016999999999598,
+            "firstBlock": 0.1350999999999658,
+            "dispatch": 5.088300000000004,
+            "totalQueuePhases": 5.925099999999929
+          },
+          {
+            "enqueue": 1.1340999999999894,
+            "firstBlock": 0.2857999999999947,
+            "dispatch": 8.220000000000027,
+            "totalQueuePhases": 9.639900000000011
+          }
+        ]
+      },
+      "medians": {
+        "enqueue": {
+          "before": 9.518500000000017,
+          "after": 1.1340999999999894
+        },
+        "firstBlock": {
+          "before": 0.3225999999999658,
+          "after": 0.2857999999999947
+        },
+        "dispatch": {
+          "before": 5.1544999999999845,
+          "after": 5.870300000000043
+        },
+        "totalQueuePhases": {
+          "before": 14.531399999999962,
+          "after": 8.41170000000011
+        }
+      },
+      "pairedSpeedup": {
+        "enqueue": 6.778061899303486,
+        "firstBlock": 1.440588541279553,
+        "dispatch": 0.9163756537144404,
+        "totalQueuePhases": 1.8397412795660333
+      },
+      "exactPCM": true,
+      "exactJSON": false,
+      "outputSha256": "50d55bd5e3b77204d25099a234cea67089975839389b53fcd1423cfc9e7a7fec"
+    },
+    {
+      "kind": "direct-smf",
+      "count": 1000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\controllers-1000.mid",
+      "fileBytes": 4055,
+      "fileSha256": "e55c943ef2bfd058ced61f68b902f3249eb13d7377a3f2aa4cc4a596c213edaf",
+      "times": {
+        "before": [
+          {
+            "render": 14.997899999999959
+          },
+          {
+            "render": 17.237799999999993
+          },
+          {
+            "render": 13.687000000000012
+          },
+          {
+            "render": 16.60419999999999
+          },
+          {
+            "render": 14.170299999999997
+          }
+        ],
+        "after": [
+          {
+            "render": 16.737700000000018
+          },
+          {
+            "render": 15.513399999999933
+          },
+          {
+            "render": 15.695699999999988
+          },
+          {
+            "render": 14.601799999999912
+          },
+          {
+            "render": 17.750099999999975
+          }
+        ]
+      },
+      "medians": {
+        "render": {
+          "before": 14.997899999999959,
+          "after": 15.695699999999988
+        }
+      },
+      "pairedSpeedup": {
+        "render": 0.8960550135323218
+      },
+      "exactPCM": true,
+      "exactJSON": false,
+      "outputSha256": "44801a6aac11cefec5f8979b23926b576cb07c558a79271b1f9acc33afeb7a25"
+    },
+    {
+      "kind": "basic-note-times",
+      "count": 1000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\repeated-1000.mid",
+      "fileBytes": 7033,
+      "fileSha256": "16a5d7257d4e4a69f3a51b0fce3cf06df4d72aae1b574bd1f3260b598a37d4fb",
+      "times": {
+        "before": [
+          {
+            "read": 2.3047999999998865
+          },
+          {
+            "read": 2.0226000000000113
+          },
+          {
+            "read": 1.152900000000045
+          },
+          {
+            "read": 1.1607000000001335
+          },
+          {
+            "read": 1.0511999999998807
+          }
+        ],
+        "after": [
+          {
+            "read": 1.968499999999949
+          },
+          {
+            "read": 1.1240999999999985
+          },
+          {
+            "read": 1.1403000000000247
+          },
+          {
+            "read": 1.197499999999991
+          },
+          {
+            "read": 0.539299999999912
+          }
+        ]
+      },
+      "medians": {
+        "read": {
+          "before": 1.1607000000001335,
+          "after": 1.1403000000000247
+        }
+      },
+      "pairedSpeedup": {
+        "read": 1.170840741681456
+      },
+      "exactPCM": false,
+      "exactJSON": true,
+      "outputSha256": "f174493ebf501fa006d14b31033450d8921ff34a34a14f3651072672e7ea89a0"
+    },
+    {
+      "kind": "catalog-note-times",
+      "count": 1000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\repeated-1000.mid",
+      "fileBytes": 7033,
+      "fileSha256": "16a5d7257d4e4a69f3a51b0fce3cf06df4d72aae1b574bd1f3260b598a37d4fb",
+      "times": {
+        "before": [
+          {
+            "read": 2.5780999999999494
+          },
+          {
+            "read": 1.0718000000001666
+          },
+          {
+            "read": 0.9973999999999705
+          },
+          {
+            "read": 1.1751999999999043
+          },
+          {
+            "read": 1.0407999999999902
+          }
+        ],
+        "after": [
+          {
+            "read": 2.048599999999851
+          },
+          {
+            "read": 1.1159999999999854
+          },
+          {
+            "read": 1.6911999999999807
+          },
+          {
+            "read": 1.0385000000001128
+          },
+          {
+            "read": 0.9810999999999694
+          }
+        ]
+      },
+      "medians": {
+        "read": {
+          "before": 1.0718000000001666,
+          "after": 1.1159999999999854
+        }
+      },
+      "pairedSpeedup": {
+        "read": 1.060850066252189
+      },
+      "exactPCM": false,
+      "exactJSON": true,
+      "outputSha256": "d5ab8d10aba50e0deda2f79c822224354751e802a0e0fb16eae3d62a3ff80165"
+    },
+    {
+      "kind": "scheduled-api",
+      "count": 4000,
+      "commands": 4005,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\controllers-4000.mid",
+      "fileBytes": 16055,
+      "fileSha256": "7676d4a014caa6bf3af4ed09d6f0a19e8b0417c79578a41c9951e1f3a9622614",
+      "times": {
+        "before": [
+          {
+            "enqueue": 108.87670000000003,
+            "firstBlock": 0.3183999999998832,
+            "dispatch": 13.261600000000044,
+            "totalQueuePhases": 122.45669999999996
+          },
+          {
+            "enqueue": 112.59730000000013,
+            "firstBlock": 0.32369999999991705,
+            "dispatch": 12.23109999999997,
+            "totalQueuePhases": 125.15210000000002
+          },
+          {
+            "enqueue": 113.49239999999986,
+            "firstBlock": 0.15419999999994616,
+            "dispatch": 19.791200000000117,
+            "totalQueuePhases": 133.43779999999992
+          },
+          {
+            "enqueue": 134.6623999999997,
+            "firstBlock": 0.3251000000000204,
+            "dispatch": 13.681500000000142,
+            "totalQueuePhases": 148.66899999999987
+          },
+          {
+            "enqueue": 112.6556999999998,
+            "firstBlock": 0.22460000000000946,
+            "dispatch": 12.482100000000173,
+            "totalQueuePhases": 125.36239999999998
+          }
+        ],
+        "after": [
+          {
+            "enqueue": 1.566300000000183,
+            "firstBlock": 0.28539999999998145,
+            "dispatch": 9.576999999999998,
+            "totalQueuePhases": 11.428700000000163
+          },
+          {
+            "enqueue": 1.0966000000000804,
+            "firstBlock": 0.08529999999996107,
+            "dispatch": 9.448899999999867,
+            "totalQueuePhases": 10.630799999999908
+          },
+          {
+            "enqueue": 2.68529999999987,
+            "firstBlock": 0.3996999999999389,
+            "dispatch": 16.24219999999991,
+            "totalQueuePhases": 19.32719999999972
+          },
+          {
+            "enqueue": 1.522399999999834,
+            "firstBlock": 0.1354999999998654,
+            "dispatch": 15.587500000000091,
+            "totalQueuePhases": 17.24539999999979
+          },
+          {
+            "enqueue": 1.6550000000002,
+            "firstBlock": 0.24359999999978754,
+            "dispatch": 9.403099999999995,
+            "totalQueuePhases": 11.301699999999983
+          }
+        ]
+      },
+      "medians": {
+        "enqueue": {
+          "before": 112.6556999999998,
+          "after": 1.566300000000183
+        },
+        "firstBlock": {
+          "before": 0.3183999999998832,
+          "after": 0.24359999999978754
+        },
+        "dispatch": {
+          "before": 13.261600000000044,
+          "after": 9.576999999999998
+        },
+        "totalQueuePhases": {
+          "before": 125.36239999999998,
+          "after": 11.428700000000163
+        }
+      },
+      "pairedSpeedup": {
+        "enqueue": 69.5120347315248,
+        "firstBlock": 1.1156271899085632,
+        "dispatch": 1.2944469726634997,
+        "totalQueuePhases": 10.714840708041878
+      },
+      "exactPCM": true,
+      "exactJSON": false,
+      "outputSha256": "7353b3cfe6a197afa7beb64945d5f3f04aa686344147c8344fb9698d1a798f91"
+    },
+    {
+      "kind": "direct-smf",
+      "count": 4000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\controllers-4000.mid",
+      "fileBytes": 16055,
+      "fileSha256": "7676d4a014caa6bf3af4ed09d6f0a19e8b0417c79578a41c9951e1f3a9622614",
+      "times": {
+        "before": [
+          {
+            "render": 18.82029999999986
+          },
+          {
+            "render": 19.687600000000202
+          },
+          {
+            "render": 19.364599999999882
+          },
+          {
+            "render": 19.58030000000008
+          },
+          {
+            "render": 19.44699999999966
+          }
+        ],
+        "after": [
+          {
+            "render": 21.904399999999896
+          },
+          {
+            "render": 20.275100000000293
+          },
+          {
+            "render": 21.31829999999991
+          },
+          {
+            "render": 20.363400000000183
+          },
+          {
+            "render": 22.16760000000022
+          }
+        ]
+      },
+      "medians": {
+        "render": {
+          "before": 19.44699999999966,
+          "after": 21.31829999999991
+        }
+      },
+      "pairedSpeedup": {
+        "render": 0.9083557319298426
+      },
+      "exactPCM": true,
+      "exactJSON": false,
+      "outputSha256": "8f7397f541c9ae37cf371ea4345fde7b5a354ebbf1a577e55e29c5616bc10446"
+    },
+    {
+      "kind": "basic-note-times",
+      "count": 4000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\repeated-4000.mid",
+      "fileBytes": 28033,
+      "fileSha256": "4011e3d817b9e37f4152e3a184f17f9656d175c0984690848d8afc4a2648147e",
+      "times": {
+        "before": [
+          {
+            "read": 4.497499999999945
+          },
+          {
+            "read": 3.0523999999995794
+          },
+          {
+            "read": 2.4254000000000815
+          },
+          {
+            "read": 3.467999999999847
+          },
+          {
+            "read": 2.3440999999997985
+          }
+        ],
+        "after": [
+          {
+            "read": 4.18080000000009
+          },
+          {
+            "read": 1.94820000000027
+          },
+          {
+            "read": 2.4398000000001048
+          },
+          {
+            "read": 1.9948999999996886
+          },
+          {
+            "read": 2.0086999999998625
+          }
+        ]
+      },
+      "medians": {
+        "read": {
+          "before": 3.0523999999995794,
+          "after": 2.0086999999998625
+        }
+      },
+      "pairedSpeedup": {
+        "read": 1.166973664559147
+      },
+      "exactPCM": false,
+      "exactJSON": true,
+      "outputSha256": "907f8aff34375db1154f973bd48f59e4a38b678141729b06e553183d480081ac"
+    },
+    {
+      "kind": "catalog-note-times",
+      "count": 4000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\repeated-4000.mid",
+      "fileBytes": 28033,
+      "fileSha256": "4011e3d817b9e37f4152e3a184f17f9656d175c0984690848d8afc4a2648147e",
+      "times": {
+        "before": [
+          {
+            "read": 5.541600000000017
+          },
+          {
+            "read": 4.999299999999948
+          },
+          {
+            "read": 4.321100000000115
+          },
+          {
+            "read": 4.218600000000151
+          },
+          {
+            "read": 4.100400000000263
+          }
+        ],
+        "after": [
+          {
+            "read": 5.283599999999751
+          },
+          {
+            "read": 4.926300000000083
+          },
+          {
+            "read": 4.012900000000172
+          },
+          {
+            "read": 4.326599999999871
+          },
+          {
+            "read": 3.864799999999832
+          }
+        ]
+      },
+      "medians": {
+        "read": {
+          "before": 4.321100000000115,
+          "after": 4.326599999999871
+        }
+      },
+      "pairedSpeedup": {
+        "read": 1.0488303429480426
+      },
+      "exactPCM": false,
+      "exactJSON": true,
+      "outputSha256": "d8629dc4413307135416985b3b39402c4ed64c82512044fa81db414422c73228"
+    },
+    {
+      "kind": "scheduled-api",
+      "count": 16000,
+      "commands": 16005,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\controllers-16000.mid",
+      "fileBytes": 64055,
+      "fileSha256": "ad5db4dc831c4f311ad76ba43be79958a7303a6c8fa84a01c1203becb4a2d658",
+      "times": {
+        "before": [
+          {
+            "enqueue": 1792.8438000000006,
+            "firstBlock": 0.31599999999980355,
+            "dispatch": 100.73760000000038,
+            "totalQueuePhases": 1893.8974000000007
+          },
+          {
+            "enqueue": 1808.5681000000004,
+            "firstBlock": 0.4353000000000975,
+            "dispatch": 94.61570000000029,
+            "totalQueuePhases": 1903.6191000000008
+          },
+          {
+            "enqueue": 1839.5275999999994,
+            "firstBlock": 0.14470000000073924,
+            "dispatch": 110.45349999999962,
+            "totalQueuePhases": 1950.1257999999998
+          },
+          {
+            "enqueue": 1836.9490999999998,
+            "firstBlock": 0.36269999999967695,
+            "dispatch": 95.9466999999986,
+            "totalQueuePhases": 1933.258499999998
+          },
+          {
+            "enqueue": 1800.4568,
+            "firstBlock": 0.17669999999998254,
+            "dispatch": 96.23090000000047,
+            "totalQueuePhases": 1896.8644000000004
+          }
+        ],
+        "after": [
+          {
+            "enqueue": 4.178100000000086,
+            "firstBlock": 0.2614999999996144,
+            "dispatch": 16.841599999999744,
+            "totalQueuePhases": 21.281199999999444
+          },
+          {
+            "enqueue": 2.3015000000004875,
+            "firstBlock": 0.0860000000002401,
+            "dispatch": 15.678299999999581,
+            "totalQueuePhases": 18.06580000000031
+          },
+          {
+            "enqueue": 5.0328000000008615,
+            "firstBlock": 0.32299999999850115,
+            "dispatch": 20.685300000001007,
+            "totalQueuePhases": 26.04110000000037
+          },
+          {
+            "enqueue": 3.5502999999989697,
+            "firstBlock": 0.15580000000045402,
+            "dispatch": 17.279099999999744,
+            "totalQueuePhases": 20.985199999999168
+          },
+          {
+            "enqueue": 3.9924000000009983,
+            "firstBlock": 0.2899999999990541,
+            "dispatch": 15.882800000001225,
+            "totalQueuePhases": 20.165200000001278
+          }
+        ]
+      },
+      "medians": {
+        "enqueue": {
+          "before": 1808.5681000000004,
+          "after": 3.9924000000009983
+        },
+        "firstBlock": {
+          "before": 0.31599999999980355,
+          "after": 0.2614999999996144
+        },
+        "dispatch": {
+          "before": 96.23090000000047,
+          "after": 16.841599999999744
+        },
+        "totalQueuePhases": {
+          "before": 1903.6191000000008,
+          "after": 20.985199999999168
+        }
+      },
+      "pairedSpeedup": {
+        "enqueue": 450.97104498535964,
+        "firstBlock": 1.2084130019130765,
+        "dispatch": 5.981474444233441,
+        "totalQueuePhases": 92.12485465947786
+      },
+      "exactPCM": true,
+      "exactJSON": false,
+      "outputSha256": "9b666141706acc8c4899d3cf4891f9b735bce0c620621b6a89d651b4f437e789"
+    },
+    {
+      "kind": "direct-smf",
+      "count": 16000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\controllers-16000.mid",
+      "fileBytes": 64055,
+      "fileSha256": "ad5db4dc831c4f311ad76ba43be79958a7303a6c8fa84a01c1203becb4a2d658",
+      "times": {
+        "before": [
+          {
+            "render": 32.83530000000064
+          },
+          {
+            "render": 31.963700000000244
+          },
+          {
+            "render": 31.59770000000026
+          },
+          {
+            "render": 33.76050000000032
+          },
+          {
+            "render": 30.785799999999654
+          }
+        ],
+        "after": [
+          {
+            "render": 33.47099999999955
+          },
+          {
+            "render": 33.009799999999814
+          },
+          {
+            "render": 33.37489999999889
+          },
+          {
+            "render": 38.15010000000075
+          },
+          {
+            "render": 31.143299999999726
+          }
+        ]
+      },
+      "medians": {
+        "render": {
+          "before": 31.963700000000244,
+          "after": 33.37489999999889
+        }
+      },
+      "pairedSpeedup": {
+        "render": 0.968309411144582
+      },
+      "exactPCM": true,
+      "exactJSON": false,
+      "outputSha256": "546ed93f999600d159883d83177e50501b067a0eaefd3e09378c75235aafb348"
+    },
+    {
+      "kind": "basic-note-times",
+      "count": 16000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\repeated-16000.mid",
+      "fileBytes": 112033,
+      "fileSha256": "f355be8c97e29b65c994c3461c8b8c3898395dade135d1dd571a1639e4144c8e",
+      "times": {
+        "before": [
+          {
+            "read": 18.711199999999735
+          },
+          {
+            "read": 18.61910000000171
+          },
+          {
+            "read": 14.553200000000288
+          },
+          {
+            "read": 17.77049999999872
+          },
+          {
+            "read": 14.46270000000004
+          }
+        ],
+        "after": [
+          {
+            "read": 7.328299999999217
+          },
+          {
+            "read": 11.776100000000952
+          },
+          {
+            "read": 10.275799999999435
+          },
+          {
+            "read": 7.777899999999136
+          },
+          {
+            "read": 7.195299999999406
+          }
+        ]
+      },
+      "medians": {
+        "read": {
+          "before": 17.77049999999872,
+          "after": 7.777899999999136
+        }
+      },
+      "pairedSpeedup": {
+        "read": 2.01002043000309
+      },
+      "exactPCM": false,
+      "exactJSON": true,
+      "outputSha256": "74a0bb23bf726024eb085c8d2bd8d8b6f97a61892b67a91eed3923078a9226e1"
+    },
+    {
+      "kind": "catalog-note-times",
+      "count": 16000,
+      "sourceFile": "C:\\Work\\Web-MIDI-Player\\.cache\\event-queue-fixtures\\repeated-16000.mid",
+      "fileBytes": 112033,
+      "fileSha256": "f355be8c97e29b65c994c3461c8b8c3898395dade135d1dd571a1639e4144c8e",
+      "times": {
+        "before": [
+          {
+            "read": 23.08510000000024
+          },
+          {
+            "read": 29.77180000000044
+          },
+          {
+            "read": 15.421999999998661
+          },
+          {
+            "read": 22.958800000000338
+          },
+          {
+            "read": 21.8112000000001
+          }
+        ],
+        "after": [
+          {
+            "read": 13.566399999999703
+          },
+          {
+            "read": 9.527000000000044
+          },
+          {
+            "read": 12.360499999998865
+          },
+          {
+            "read": 7.018899999999121
+          },
+          {
+            "read": 11.964799999999741
+          }
+        ]
+      },
+      "medians": {
+        "read": {
+          "before": 22.958800000000338,
+          "after": 11.964799999999741
+        }
+      },
+      "pairedSpeedup": {
+        "read": 1.8229473121155866
+      },
+      "exactPCM": false,
+      "exactJSON": true,
+      "outputSha256": "d7e772f679a25f13123783c1dae24558e21f61cd17736137ed71ef1b2faf3cee"
+    }
+  ]
+}

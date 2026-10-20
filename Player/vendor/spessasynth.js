@@ -1,3 +1,4 @@
+import { FIFOQueue, TimedEventQueue } from "../event-queue.js";
 import { OrderedVoicePool } from "../active-voices.js";
 import { SampleDumpReceiver } from "../sample-dump.js";
 import { receiveMIDITuning, tuningFor, bindVoiceTuning, updateTuningVoices, selectTuning, tuningSnapshot, applyTuningSnapshot } from "../midi-tuning.js";
@@ -3032,7 +3033,7 @@ function getNoteTimesInternal(midi, minDrumLength = 0) {
 	const noteOff = (midiNote, channel) => {
 		const noteIndexes = unfinishedNotes[channel].get(midiNote);
 		if (noteIndexes === void 0) return;
-		const noteIndex = noteIndexes.shift();
+		const noteIndex = noteIndexes.take();
 		if (noteIndex === void 0) return;
 		const note = noteTimes[channel][noteIndex];
 		const time = elapsedTime - note.start;
@@ -3060,7 +3061,7 @@ function getNoteTimesInternal(midi, minDrumLength = 0) {
 				const times = noteTimes[channel];
 				times.push(noteTime);
 				const unfinishedChannel = unfinishedNotes[channel];
-				if (!unfinishedChannel.has(midiNote)) unfinishedChannel.set(midiNote, []);
+				if (!unfinishedChannel.has(midiNote)) unfinishedChannel.set(midiNote, new FIFOQueue());
 				unfinishedNotes[channel].get(midiNote)?.push(times.length - 1);
 				unfinished++;
 			}
@@ -20030,7 +20031,7 @@ var SynthesizerCore = class {
 	/**
 	* Synth's event queue from the main thread
 	*/
-	eventQueue = [];
+	eventQueue = new TimedEventQueue();
 	/**
 	* The time of a single sample, in seconds.
 	*/
@@ -20165,7 +20166,6 @@ var SynthesizerCore = class {
 				channelOffset,
 				time
 			});
-			this.eventQueue.sort((e1, e2) => e1.time - e2.time);
 		} else this.processMessageInternal(raw, channelOffset);
 	}
 	/**
@@ -20288,8 +20288,8 @@ var SynthesizerCore = class {
 	processSplit(outputs, effectsLeft, effectsRight, startIndex = 0, samples = 0) {
 		if (this.eventQueue.length > 0) {
 			const time = this.currentTime;
-			while (this.eventQueue[0]?.time <= time) {
-				const q = this.eventQueue.shift();
+			while (this.eventQueue.peek()?.time <= time) {
+				const q = this.eventQueue.take();
 				if (q) this.processMessageInternal(q.message, q.channelOffset);
 			}
 		}
