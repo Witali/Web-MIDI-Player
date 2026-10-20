@@ -612,3 +612,36 @@ No Effect/effects:false identity and a real selectively loaded Worker. The prior
 XG Variation stereo-delay suite remains active. Variation algorithms, Insertion
 routing, separate insertion slots and controller modulation remain unfinished;
 the overall effects plan item is still open.
+
+
+## Expanded XG Variation models (2026-10-20)
+
+MU100 Sound List & MIDI Data printed pp.5-14,41-42 provides the membership,
+block-specific diagrams, mid-EQ applicability and paired parameter addresses.
+Variation now accepts exactly the eight Reverb, eleven modulation and four
+delay programs implemented above. Unknown subtypes still use a diagnosed Thru;
+a known MSB alone is not sufficient. The first ten parameters always retain the
+MSB/LSB memory representation from Effect1, including seven-bit-valued controls.
+Out-of-range combined writes do not clamp the processor parameter; subsequent
+partial writes use the retained pair. Algorithm-specific ranges still apply.
+
+Reverb's Variation diagram sums the stereo input before HPF/LPF and ER, unlike
+the independent System Reverb inputs. The host uses an arithmetic mean to
+normalize that sum. The common late/early model then runs in that configuration.
+Variation Chorus/Celeste/Flanger enable the documented mid EQ (frequency data
+14..54, gain 52..76, width 10..120); System Chorus retains these fields but ignores
+them as specified. The host peak filter uses the RBJ formula with width/10 as Q;
+the detailed Yamaha coefficient/bandwidth law is not published. The physical
+gain, frequency lookup and width values are retained, without claiming Yamaha
+hardware filter identity. Insertion-only Dry/Wet remains inaudible in System
+connection. Variation Reverb's insertion parameter default is a documented host
+choice of 64 instead of System Reverb's unused 0. Insertion routing is still an
+explicit diagnosed Thru until the pre-volume/pan pipeline is implemented.
+
+Evidence: tests/xg-variation-models.test.mjs checks all 23 exact addresses and
+invalid subtypes, 14-bit partial writes for seven-bit algorithms, anti-phase
+cancellation before Variation Reverb input filters, mid-EQ dB/width behavior
+and System inapplicability, every added family through real MIDI, an independent
+doubled-dry PCM reference on JS/WASM/SIMD, live F0/F7/ports, allocation-crossing
+exact checkpoints/seeks and real selectively loaded Worker PCM. The existing
+System and delay suites remain unchanged in scope and also pass.

@@ -10,8 +10,8 @@ const early=[0,.007,.011,.019,.029,.037,.043,.053];
 // A host eight-line orthogonal FDN, not a reconstruction of Yamaha's DSP.
 // Per-line gain 10^(-3*delay/RT60) supplies the requested low-frequency decay.
 export class XGReverb {
-  constructor(sampleRate,type=1,lsb=0){
-    this.sampleRate=sampleRate;this.type=type;this.lsb=lsb;this.parameters=reverbDefaults();
+  constructor(sampleRate,type=1,lsb=0,block='system'){
+    this.sampleRate=sampleRate;this.block=block;this.type=type;this.lsb=lsb;this.parameters=reverbDefaults();if(block!=='system')this.parameters[9]=64;
     this.scale=type===1?(lsb?1.2:1):type===2?[.45,.6,.8][lsb]:type===3?(lsb?1.1:.9):.75;
     this.left=new Float32Array(Math.ceil(sampleRate*.23)+4);this.right=new Float32Array(this.left.length);
     this.revDelay=new Float32Array(Math.ceil(sampleRate*.11)+4);
@@ -43,7 +43,8 @@ export class XGReverb {
     const earlyGain=p[12]<=64?1:(127-p[12])/63,lateGain=p[12]>=64?1:(p[12]-1)/63;
     const values=this.values;
     for(let frame=0;frame<count;frame++){
-      const l=this.lpL.process(this.hpL.process(inputL[frame])),r=this.lpR.process(this.hpR.process(inputR[frame]));
+      const mono=(inputL[frame]+inputR[frame])*.5;
+      const l=this.lpL.process(this.hpL.process(this.block==='system'?inputL[frame]:mono)),r=this.lpR.process(this.hpR.process(this.block==='system'?inputR[frame]:mono));
       const firstL=this.tap(this.left,this.position,this.initialDelay,l),firstR=this.tap(this.right,this.position,this.initialDelay,r);
       this.left[this.position]=l+firstL*feedback;this.right[this.position]=r+firstR*feedback;
       let erL=0,erR=0;

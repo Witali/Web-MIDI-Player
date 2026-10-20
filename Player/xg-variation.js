@@ -2,7 +2,7 @@ import { XGSystemEffects } from './xg-system-effects.js';
 import { xgLevel } from './xg-effect-values.js';
 export { xgLevel } from './xg-effect-values.js';
 import { SpessaLog } from './vendor/spessasynth.js';
-import { XGDelay,delayDefaults,delayParameterRange } from './xg-delay.js';
+import { createXGEffect,xgEffectRange } from './xg-effect-types.js';
 
 // MU100 Effect1 pp.41-42 and Owner's Manual pp.136-141. Return/send anchors
 // are specified; interpolation below 0 dB is an explicit host gain curve.
@@ -21,10 +21,10 @@ class XGVariation {
   begin() { this.inputL.fill(0);this.inputR.fill(0); }
   select(msb,lsb,report=true) {
     this.raw[0x40]=msb;this.raw[0x41]=lsb;this.type=(msb<<8)|lsb;
-    this.processor=lsb===0 && msb>=5 && msb<=8 ? new XGDelay(this.core.sampleRate,msb):null;
-    this.mode=this.processor?'delay':msb===0&&lsb===0?'off':'thru';
+    this.processor=createXGEffect(this.core.sampleRate,msb,lsb);
+    this.mode=this.processor?'effect':msb===0&&lsb===0?'off':'thru';
     this.parameters=this.processor?.parameters??new Int32Array(16);
-    const defaults=this.processor?delayDefaults(msb):new Int32Array(16);
+    const defaults=this.processor?.parameters??new Int32Array(16);
     for(let p=1;p<=16;p++) {
       if(p<=10) {this.raw[0x42+(p-1)*2]=defaults[p-1]>>7;this.raw[0x43+(p-1)*2]=defaults[p-1]&127;}
       else this.raw[0x70+p-11]=defaults[p-1];
@@ -57,7 +57,7 @@ class XGVariation {
         if(address<=0x55){parameter=Math.floor((address-0x42)/2)+1;const at=0x42+(parameter-1)*2;
           if(address===at && i+1<data.length)this.raw[at+1]=data[++i];decoded=(this.raw[at]<<7)|this.raw[at+1];
         }else{parameter=address-0x70+11;decoded=value;}
-        const range=this.processor && delayParameterRange(this.type>>8,parameter);
+        const range=this.processor && xgEffectRange(this.processor,parameter);
         if(!range){fail('Variation parameter',[parameter,decoded],'Parameter is reserved, unused, or its effect type is unavailable.');continue;}
         if(decoded<range[0] || decoded>range[1]){fail('Variation parameter',[parameter,decoded],'Value outside documented range '+range.join('..')+'.');continue;}
         this.enabled=true;this.processor.setParameter(parameter,decoded);SpessaLog.xgInfo('Variation parameter '+parameter,decoded);continue;

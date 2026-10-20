@@ -1,7 +1,7 @@
 import { Biquad } from './effect-dsp.js';
 import { XG_EQ_FREQUENCY, XG_DELAY_OFFSET, XG_LFO_FREQUENCY } from './xg-effect-values.js';
 
-// MU100 pp.13-14: System Chorus/Celeste/Flanger. The hardware modulation
+// MU100 pp.13-14: System and Variation Chorus/Celeste/Flanger. The hardware modulation
 // depth/gain curves are not published; these are deterministic host models.
 export function chorusRange(type, parameter) {
   if(parameter===1||parameter===2)return [0,127];
@@ -26,12 +26,12 @@ export function chorusDefaults(type, lsb=0) {
   return p;
 }
 export class XGChorus {
-  constructor(sampleRate,type=0x41,lsb=0){
-    this.sampleRate=sampleRate;this.type=type;this.lsb=lsb;this.parameters=chorusDefaults(type,lsb);
+  constructor(sampleRate,type=0x41,lsb=0,block='system'){
+    this.sampleRate=sampleRate;this.block=block;this.type=type;this.lsb=lsb;this.parameters=chorusDefaults(type,lsb);
     this.left=new Float32Array(Math.ceil(sampleRate*.09)+4);this.right=new Float32Array(this.left.length);
-    this.lowL=new Biquad();this.lowR=new Biquad();this.highL=new Biquad();this.highR=new Biquad();this.clear();this.update();
+    this.midL=new Biquad();this.midR=new Biquad();this.lowL=new Biquad();this.lowR=new Biquad();this.highL=new Biquad();this.highR=new Biquad();this.clear();this.update();
   }
-  clear(){this.left.fill(0);this.right.fill(0);this.position=0;this.phase=0;this.feedbackL=this.feedbackR=0;for(const name of ['lowL','lowR','highL','highR'])this[name].clear();}
+  clear(){this.left.fill(0);this.right.fill(0);this.position=0;this.phase=0;this.feedbackL=this.feedbackR=0;for(const name of ['lowL','lowR','highL','highR','midL','midR'])this[name].clear();}
   setParameter(parameter,value){this.parameters[parameter-1]=value;this.update();}
   update(){
     const p=this.parameters;this.frequency=XG_LFO_FREQUENCY[p[0]];this.offset=XG_DELAY_OFFSET[p[3]]*this.sampleRate/1000;
@@ -39,6 +39,8 @@ export class XGChorus {
     this.phaseDifference=this.type===0x43?(p[13]-64)*Math.PI/60:Math.PI/2;
     this.lowL.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[5]],p[6]-64);this.lowR.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[5]],p[6]-64);
     this.highL.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[7]],p[8]-64,true);this.highR.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[7]],p[8]-64,true);
+    this.midL.peak(this.sampleRate,XG_EQ_FREQUENCY[p[10]],this.block==='system'?0:p[11]-64,p[12]/10);
+    this.midR.peak(this.sampleRate,XG_EQ_FREQUENCY[p[10]],this.block==='system'?0:p[11]-64,p[12]/10);
   }
   tap(buffer,delay,current){
     if(delay<1)return current*(1-delay)+buffer[(this.position+buffer.length-1)%buffer.length]*delay;
@@ -48,7 +50,7 @@ export class XGChorus {
   process(inputL,inputR,outputL,outputR,count){
     const p=this.parameters,mono=this.type!==0x43&&p[14]===0,feedback=(p[2]-64)/64,taps=this.type===0x42?3:1;
     for(let i=0;i<count;i++){
-      let l=this.highL.process(this.lowL.process(inputL[i])),r=this.highR.process(this.lowR.process(inputR[i]));
+      let l=this.midL.process(this.highL.process(this.lowL.process(inputL[i]))),r=this.midR.process(this.highR.process(this.lowR.process(inputR[i])));
       if(mono)l=r=(l+r)*.5;
       const writeL=l+feedback*this.feedbackL,writeR=r+feedback*this.feedbackR;
       let outL=0,outR=0;

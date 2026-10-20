@@ -433,8 +433,11 @@ mono or stereo; Celeste uses three LFO phases; Flanger controls their relative
 phase. Stereo Variation/Chorus sends precede the corresponding pan and return.
 System-only and insertion-only parameters retain their specified applicability.
 
-XG Variation with those types, Insertion before the part's volume/pan, separate
-insertion slots and effect controller modulation remain in progress.
+XG Variation in System mode supports all those families (23 programs). Its
+Reverb input is summed before HPF/LPF/early reflections; Chorus/Celeste/Flanger
+enable the documented mid EQ. Parameter pairs remain 14-bit even for controls
+whose valid value fits in seven bits. Insertion before the part's volume/pan,
+separate insertion slots and effect controller modulation remain in progress.
 Selecting an unsupported insertion route produces an explicit Thru notice.
 See [implementation notes](specs/IMPLEMENTATION-NOTES.md) for primary sources,
 algorithm choices, coverage and PCM evidence. The effects plan item stays open.

@@ -16,6 +16,12 @@ export class Biquad {
       s * 2 * (A - 1 - s * (A + 1) * c) / a0,
       (A + 1 - s * (A - 1) * c - t) / a0];
   }
+  peak(sampleRate, frequency, decibels, q) {
+    if (!decibels) { this.coefficients = [1, 0, 0, 0, 0]; return; }
+    const a=10**(decibels/40),w=2*Math.PI*Math.min(frequency,sampleRate*.45)/sampleRate;
+    const c=Math.cos(w),alpha=Math.sin(w)/(2*q),a0=1+alpha/a;
+    this.coefficients=[(1+alpha*a)/a0,-2*c/a0,(1-alpha*a)/a0,-2*c/a0,(1-alpha/a)/a0];
+  }
   filter(sampleRate, frequency, highpass = false) {
     if (!frequency) { this.coefficients = [1, 0, 0, 0, 0]; return; }
     const w = 2 * Math.PI * Math.min(frequency, sampleRate * .45) / sampleRate;
