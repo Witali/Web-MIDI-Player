@@ -79,8 +79,6 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
           }
           if (status === 0xa0) record('bank-dependent-pressure', 'bankDependent', 'Poly Pressure',
             'Полифонический aftertouch распознаётся; изменение звука зависит от модуляторов инструмента.');
-          if (status === 0x80 && event.data[1] !== 0) record('note-off-velocity', 'partial', 'Note Off velocity',
-            'Нота отпускается, но скорость отпускания не передаётся синтезатору.');
           if (ignoredSystem.has(event.statusByte)) record('system-synchronization', 'unsupported', `MIDI ${hex([event.statusByte])}`,
             'Системная синхронизация или команда внешнего устройства не используется файловым плеером.', { statusByte: event.statusByte });
         };

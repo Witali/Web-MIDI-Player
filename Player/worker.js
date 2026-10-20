@@ -64,7 +64,7 @@ async function command(data) {
       bank = prepared.bank;
     }
     data.signal?.throwIfAborted();
-    preview = await createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared });
+    preview = await createSoundFontPreview(data.bytes, bank, { effects: data.effects, dsp: data.dsp, prepared, releaseVelocityProfiles: data.releaseVelocityProfiles });
     epoch = data.epoch; return preview.stats;
   }
   if (data.type === 'seek') {

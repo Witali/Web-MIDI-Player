@@ -269,3 +269,38 @@ cache bounds, deduplication, cancellation, retry and browser fetch invocation.
 Browser Worker verification rendered real PCM, sought to 20.13 seconds and
 reloaded Mozart without downloading its 26 recordings again. The Vorbis bank
 is lossy relative to original SF2; the full SF2 path remains available.
+
+## Note Off velocity (2026-10-20)
+
+MIDI 1.0 pp. 10–11 (PDF 15–16) defines explicit Note Off velocity and the
+Note On zero alternative, which uses release velocity 64. Velocity's audible
+interpretation belongs to the receiving instrument. SF2 2.04 section 8.2.1
+(PDF 39) defines Note On velocity but no Note Off velocity modulator source;
+reserved sources must not be repurposed.
+[SoundFont specification](https://www.synthfont.com/sfspec24.pdf).
+
+Explicit values 0–127 now reach the actual logical Note On identity through
+SMF, F7, raw/scheduled messages, port routing and external helper output. The
+voice stores release velocity separately from attack velocity; Note On zero
+and omitted values use 64. Sustain/sostenuto/Hold 2 retain that value while
+release is pending. Generated CC123 releases use 64 for still-pressed keys.
+CC120 preserves owed identities. Forced drum Note Off now targets the matched
+identity, so an old release cannot terminate a newer press after CC120.
+
+The host can opt an actual preset into explicit volume/modulation release
+curves with 128 timecent offsets. This is a documented receiver extension,
+not a new SF2 source or a MIDI-prescribed curve. Unconfigured banks retain
+their former PCM; attack velocity and key/velocity region selection stay
+unchanged. Profiles are captured at attack, including cached voices, and
+remain attached through program changes and legato. Forced choke/fast release
+overrides them. JS computes release parameters once; the existing C-state
+bridge receives the same values without changing the native audio kernels.
+
+Evidence: Player/tests/release-velocity.test.mjs covers all 128 velocity values,
+zero-Note-On/64 equivalence, invalid input without state mutation, F7, routed
+ports, raw MIDI, external output, overlapping keys, all three pedals, CC123/121,
+CC120 and forced drum identities, program/profile changes, legato and choke.
+Opt-in PCM equals an independent generator-change reference; ordinary-bank
+PCM is identical across tested velocities. Real audio, exact seeks and the
+Worker path are checked on JS, scalar WASM and SIMD, including selective
+sample loading. The compact Z80 mode remains a separate pending plan item.

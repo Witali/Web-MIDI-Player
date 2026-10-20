@@ -25,7 +25,8 @@
       "CC66 sostenuto captures per-voice key-down state only on pedal-on, preserves independent repeated notes, combines with CC64 and respects All Notes Off, reset and exact seeking",
       "CC68 monophonic legato overlays channel mode, retunes existing sample layers without restarting DSP/envelopes, uses an independent portamento clock, and preserves per-key Note On/Off identities and sostenuto capture during fallback",
       "Removed artificial 30 ms Note Off and 70 ms exclusive-class gate extensions; CC120 silences voices without consuming the sender's owed Note Off identities or changing pedals/controllers",
-      "CC69 Hold 2 freezes existing volume/modulation envelopes, preserves independent pedals and controllers, defers Note Off release until OFF and resumes ongoing release; native state stays synchronized"
+      "CC69 Hold 2 freezes existing volume/modulation envelopes, preserves independent pedals and controllers, defers Note Off release until OFF and resumes ongoing release; native state stays synchronized",
+      "Note Off velocity preserved across SMF/F7, raw/scheduled MIDI, routed ports, per-key voice identities, pedals and events; Note On zero uses 64. Explicit preset response curves adjust release envelope times without reinterpreting SF2 sources or changing unconfigured banks. Forced drum release targets the owed Note On identity."
     ]
   },
   "soundfont": {

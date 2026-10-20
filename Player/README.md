@@ -88,7 +88,7 @@ The catalog's **Совместимость** button and the sample page display 
 its JSON export is available in the same view.
 
 The report distinguishes actual preset substitutions (requested and selected
-bank/program/name), unsupported commands, partial pedal/Note Off velocity
+bank/program/name), unsupported commands, partial feature support
 handling, bank-dependent CC/poly pressure and SysEx whose execution could not
 be confirmed. Recognizing a message is not treated as implementing it. Standard
 GM commands do not receive speculative warnings. Missing dedicated CC behavior
@@ -116,6 +116,46 @@ console.log(metadata.diagnostics.summary, metadata.diagnostics.entries);
 const { renderMidiDiagnostics } = await import('./Player/index.js');
 renderMidiDiagnostics(document.querySelector('#report'), metadata.diagnostics);
 ```
+
+## Note Off velocity and instrument profiles
+
+The engine preserves the explicit Note Off velocity (0–127) for each logical
+key press, independently of the Note On velocity. Note On with velocity zero,
+engine calls omitting release velocity, and generated All Notes Off releases
+use 64. The engine's `noteOff` event includes `velocity`. Sustain, sostenuto
+and Hold 2 retain the key's value until release can begin; program changes do
+not replace an already started voice's instrument response.
+
+MIDI leaves the audible response to the receiver. SF2 2.04 defines Note On
+velocity as a modulator source, with no standard Note Off velocity source.
+Consequently ordinary SF2 banks, including FluidR3, keep their original audio.
+An instrument can opt into a host-defined response using this example:
+
+```js
+// Example receiver policy: slower release at 0, unchanged at 64, faster at 127.
+const volumeRelease = Array.from({ length: 128 }, (_, velocity) =>
+  1200 * (64 - velocity) / (velocity <= 64 ? 64 : 63));
+const player = new MidiPlayer({
+  releaseVelocityProfiles: [{ program: 0, volumeRelease }]
+});
+```
+
+Each profile matches an **actual selected preset**, using zero-based
+`program`, `bankMSB`/`bankLSB` (default 0) and `percussion` (default false).
+This also applies to fallback instruments and additional MIDI ports. Optional
+`volumeRelease` and `modulationRelease` curves each contain exactly 128 finite
+timecent offsets, indexed by release velocity, from −12000 to +12000. At least
+one curve is required; duplicate preset matches are rejected. An offset of
++1200 doubles the bank's release time, and −1200 halves it, subject to the
+engine's existing release-time floor. These curves affect release only;
+the attack velocity and its sample/velocity-region selection are retained.
+Forced choke/fast termination takes priority over the curves.
+
+Settings are copied on construction. Existing voices retain the profile from
+their attack; reset and exact seek reapply the configured profiles. Profiles
+work with full and selectively loaded banks on JS, scalar WASM and SIMD.
+They are an explicit player extension, rather than a reserved SF2 modulator
+encoding. They are unavailable in the compact Z80 engine.
 
 ## WASM voice DSP
 

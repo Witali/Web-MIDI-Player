@@ -5050,7 +5050,7 @@ function processEventInternal(event, trackIndex, decoded = false) {
 				while (this.playingNotes.length <= channel) this.playingNotes.push(/* @__PURE__ */ new Map());
 				playingNotes = this.playingNotes[channel];
 			}
-			this.synth.noteOff(channel, event.data[0]);
+			this.synth.noteOff(channel, event.data[0], event.data[1]);
 			playingNotes.delete(event.data[0]);
 			break;
 		}
@@ -5880,16 +5880,16 @@ var SpessaSynthSequencer = class {
 			velocity
 		]);
 	}
-	sendMIDINoteOff(channel, midiNote) {
+	sendMIDINoteOff(channel, midiNote, velocity = 64) {
 		if (!this.externalMIDIPlayback) {
-			this.synth.noteOff(channel, midiNote);
+			this.synth.noteOff(channel, midiNote, velocity);
 			return;
 		}
 		channel %= 16;
 		this.sendMIDIMessage([
 			MIDIMessageTypes.noteOff | channel,
 			midiNote,
-			64
+			velocity
 		]);
 	}
 	sendMIDICC(channel, type, value) {
@@ -8039,6 +8039,7 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 		voice.wavetable = voice.oscillators[this._systemParameters.interpolationType ?? this.synthCore.systemParameters.interpolationType];
 		voice.targetKey = cached.targetKey;
 		voice.velocity = cached.velocity;
+		voice.releaseVelocityProfile = cached.releaseVelocityProfile;
 		voice.generators.set(cached.generators);
 		voice.exclusiveClass = exclusiveOverride || cached.exclusiveClass;
 		voice.rootKey = cached.rootKey;
@@ -8125,18 +8126,21 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 * If the note is in high performance mode and the channel is not a drum channel,
 * it kills the note instead of releasing it.
 * @param midiNote The MIDI note number to release (0-127).
+* @param velocity Release velocity (0-127), default 64.
 */
-function noteOff(midiNote) {
+function noteOff(midiNote, velocity = 64) {
 	if (midiNote > 127 || midiNote < 0) return;
+	if (!Number.isInteger(velocity) || velocity < 0 || velocity > 127) throw new RangeError("Note Off velocity must be an integer from 0 to 127.");
 	const noteID = this.noteOffID[midiNote];
 	if (noteID < this.noteOnID[midiNote]) this.noteOffID[midiNote]++;
 	this.playingNotes[midiNote] = this.noteOffID[midiNote] < this.noteOnID[midiNote];
 	const index = this.keyPresses.findIndex(k => k.midiNote === midiNote && k.noteID === noteID);
 	if (index >= 0) this.keyPresses.splice(index, 1);
 	if (this.synthCore.systemParameters.blackMIDIMode && !this._drumChannel || this._drumChannel && this.drumParams[midiNote].rxNoteOff) {
-		this.killNote(midiNote);
+		this.killNote(midiNote, -12e3, noteID, velocity);
 		this.synthCore.callEvent("noteOff", {
 			midiNote,
+			velocity,
 			channel: this.channel
 		});
 		return;
@@ -8152,7 +8156,7 @@ function noteOff(midiNote) {
 	}
 	if (this._voiceCount > 0 && !returnToKey) {
 		for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && v.noteID === noteID && !v.isInRelease) {
-			v.keyDown = false;
+			v.keyDown = false; v.releaseVelocity = velocity;
 			if (sustain || v.isSostenuto) v.isHeld = true;
 			else v.releaseVoice(this.synthCore.currentTime);
 			if (++vc >= this._voiceCount) break;
@@ -8160,6 +8164,7 @@ function noteOff(midiNote) {
 	}
 	this.synthCore.callEvent("noteOff", {
 		midiNote,
+		velocity,
 		channel: this.channel
 	});
 	if (mono && !legato) {
@@ -12782,6 +12787,7 @@ var MIDIChannel = class {
 	* If the note is in high performance mode and the channel is not a drum channel,
 	* it kills the note instead of releasing it.
 	* @param midiNote The MIDI note number to release (0-127).
+	* @param velocity Release velocity (0-127), default 64.
 	* @internal
 	*/
 	noteOff = noteOff.bind(this);
@@ -13208,11 +13214,12 @@ var MIDIChannel = class {
 	* @param releaseTime in timecents, defaults to -12000 (very short release).
 	* @internal
 	*/
-	killNote(midiNote, releaseTime = -12e3) {
+	killNote(midiNote, releaseTime = -12e3, noteID = undefined, velocity = undefined) {
 		let vc = 0;
 		// A fast release does not cancel the sender's still-owed Note Offs.
 		if (this._voiceCount > 0) {
-			for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote) {
+			for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && (noteID === undefined || v.noteID === noteID)) {
+				if (velocity !== undefined) v.releaseVelocity = velocity;
 				resumeHold2(v, this.synthCore.currentTime);
 				v.keyDown = false;
 				v.overrideReleaseVolEnv = releaseTime;
@@ -14736,7 +14743,7 @@ var VolumeEnvelope = class {
 	*/
 	startRelease(voice) {
 		this.releaseStartTimeSamples = this.sampleTime;
-		const timecents = voice.overrideReleaseVolEnv || voice.modulatedGenerators[GeneratorTypes.releaseVolEnv];
+		const timecents = voice.overrideReleaseVolEnv || (voice.modulatedGenerators[GeneratorTypes.releaseVolEnv] + (voice.releaseVelocityProfile?.volumeRelease?.[voice.releaseVelocity] ?? 0));
 		this.releaseDuration = this.timecentsToSamples(Math.max(-7200, timecents));
 		if (this.enteredRelease) this.releaseStartCb = this.attenuationCb;
 		else {
@@ -14942,7 +14949,8 @@ var ModulationEnvelope = class {
 	startRelease(voice) {
 		this.releaseStartLevel = this.currentValue;
 		this.enteredRelease = true;
-		const releaseTime = this.tc2Sec(Math.max(voice.modulatedGenerators[GeneratorTypes.releaseModEnv], -7200));
+		const offset = voice.overrideReleaseVolEnv ? 0 : (voice.releaseVelocityProfile?.modulationRelease?.[voice.releaseVelocity] ?? 0);
+		const releaseTime = this.tc2Sec(Math.max(voice.modulatedGenerators[GeneratorTypes.releaseModEnv] + offset, -7200));
 		this.releaseDuration = releaseTime * this.releaseStartLevel;
 	}
 	/**
@@ -15248,6 +15256,9 @@ var Voice = class {
 	* MIDI Note On velocity is only used for zone filtering.
 	*/
 	velocity = 0;
+	// Note Off is per logical key press, independent of the attack velocity.
+	releaseVelocity = 64;
+	releaseVelocityProfile;
 	/**
 	* The root key of the voice.
 	*/
@@ -15363,6 +15374,7 @@ var Voice = class {
 		this.envelopeTarget = 1;
 		this.releaseStartTime = Infinity;
 		this.pressure = 0;
+		this.releaseVelocity = 64; this.releaseVelocityProfile = undefined;
 		this.overrideReleaseVolEnv = 0;
 		this.portamentoDuration = 0;
 		this.portamentoFromKey = -1;
@@ -20036,12 +20048,12 @@ var SynthesizerCore = class {
 		}
 		this.midiChannels[channel + this.portSelectChannelOffset].noteOn(midiNote, velocity);
 	}
-	noteOff(channel, midiNote) {
+	noteOff(channel, midiNote, velocity = 64) {
 		if (this.customChannelNumbers) {
-			for (const ch of this.midiChannels) if (ch.midiParameters.rxChannel === channel) ch.noteOff(midiNote);
+			for (const ch of this.midiChannels) if (ch.midiParameters.rxChannel === channel) ch.noteOff(midiNote, velocity);
 			return;
 		}
-		this.midiChannels[channel + this.portSelectChannelOffset].noteOff(midiNote);
+		this.midiChannels[channel + this.portSelectChannelOffset].noteOff(midiNote, velocity);
 	}
 	polyPressure(channel, midiNote, pressure) {
 		if (this.customChannelNumbers) {
@@ -20302,7 +20314,9 @@ var SynthesizerCore = class {
 				SpessaLog.warn(`Discarding invalid sample: ${sample.name}`);
 				continue;
 			}
-			voices.push(new CachedVoice(voiceParams, midiNote, velocity, this.sampleRate));
+			const voice = new CachedVoice(voiceParams, midiNote, velocity, this.sampleRate);
+			voice.releaseVelocityProfile = this.releaseVelocityProfileForPreset?.(preset);
+			voices.push(voice);
 		}
 		this.setCachedVoice(preset, midiNote, velocity, voices);
 		return voices;
@@ -20664,7 +20678,7 @@ var SynthesizerCore = class {
 				break;
 			}
 			case MIDIMessageTypes.noteOff:
-				this.noteOff(channel, message[1]);
+				this.noteOff(channel, message[1], message[2]);
 				break;
 			case MIDIMessageTypes.pitchWheel:
 				this.pitchWheel(channel, message[2] << 7 | message[1]);
@@ -20817,6 +20831,7 @@ var SpessaSynthProcessor = class {
 	* Stops playing a note.
 	* @param channel The MIDI channel to send the note off.
 	* @param midiNote The MIDI note number to stop playing.
+	* @param velocity Release velocity (0-127), default 64.
 	*/
 	noteOff;
 	/**

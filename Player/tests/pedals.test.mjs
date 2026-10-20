@@ -65,7 +65,7 @@ test('sostenuto PCM matches delayed Note Offs and exact seeks before/after pedal
  for(const dsp of ['js','wasm','wasm-simd']){
   const a=await createSoundFontPreview(source,bank,{effects:false,dsp}),b=await createSoundFontPreview(reference,bank,{effects:false,dsp});
   try{
-   assert.equal(a.stats.diagnostics.summary.partial,2,'Only Note Off velocity remains partial in this fixture');
+   assert.equal(a.stats.diagnostics.summary.partial,0,'Pedals and Note Off velocity are handled');
    while(a.stats.position<1.1)assert.deepEqual(a.read(128),b.read(128));
    for(const time of [.43,.8,.2]){await a.seek(time);await b.seek(time);assert.deepEqual(a.read(2048),b.read(2048));}
   }finally{a.close();b.close();}

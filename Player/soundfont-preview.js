@@ -2,11 +2,13 @@ import { BasicMIDI, SpessaSynthProcessor, SpessaSynthSequencer, SpessaLog } from
 import { normalizeSmpteTiming } from './midi-timing.js';
 import { installVoiceDSP } from './voice-dsp.js';
 import { diagnoseMidi } from './midi-diagnostics.js';
+import { normalizeReleaseVelocityProfiles, installReleaseVelocityProfiles } from './release-velocity.js';
 
 // Complete SF2 and selectively prepared banks share the same playback path.
 // Stereo, controllers and SoundFont modulators stay in the synth.
-export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared } = {}) {
+export async function createSoundFontPreview(bytes, bank, { effects = true, dsp = 'auto', prepared, releaseVelocityProfiles } = {}) {
   if (!['auto', 'wasm', 'wasm-simd', 'js'].includes(dsp)) throw new TypeError('Unknown voice DSP backend.');
+  const profiles = normalizeReleaseVelocityProfiles(releaseVelocityProfiles);
   SpessaLog.setLogLevel(false, false, false);
   const midi = prepared?.midi ?? normalizeSmpteTiming(BasicMIDI.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
   const diagnostics = prepared?.diagnostics ?? await diagnoseMidi(midi, bank, { effects });
@@ -25,6 +27,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     };
     synth.soundBankManager.addSoundBank(bank, 'main');
     await synth.processorInitialized;
+    installReleaseVelocityProfiles(synth, profiles);
     // The initial pool is reusable storage, not a musical voice limit. Grow
     // instead of stealing old notes, and retain each instrument's envelopes.
     synth.setSystemParameter('autoAllocateVoices', true);
