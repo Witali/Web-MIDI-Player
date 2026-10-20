@@ -59,6 +59,8 @@ test('one C batch preserves mixed interpolation, original voice order, partial b
       same(a, b, n, backend);
       const after = a.synthCore.voiceDSP.batchStats;
       assert.equal(after.calls - before.calls, 1);
+      assert.equal(after.simdPairsLastBatch * 2 + after.scalarVoicesLastBatch, after.lastVoices);
+      if (backend === 'wasm-simd') assert.ok(after.simdPairsLastBatch > 0);
       assert.equal(after.voices - before.voices, a.synthCore.voices.filter(v => v.isActive).length);
     }
     assert.ok(a.synthCore.voiceDSP.batchStats.capacity >= 362);
@@ -115,4 +117,34 @@ test('automatic sparse fallback switches to/from batches without losing filter h
     assert.equal(a.synthCore.activeVoices.filter(v => v.channel === 9).length, 0);
     a.stopAllChannels(true); b.stopAllChannels(true);
   }
+});
+
+
+test('actual SIMD batches and scalar batches in the same module preserve controls, XG captures and checkpoints', async () => {
+  const a = await synth('wasm-simd', true), b = await synth('wasm-simd', true);
+  b.synthCore.voiceDSP.independentSIMD = false;
+  for (const s of [a, b]) {
+    s.systemExclusive(xg(0, 0, 0x7e, 0)); s.systemExclusive(xg(2, 1, 0x40, 6, 0)); s.systemExclusive(xg(2, 1, 0x5a, 0, 0));
+    for (let ch = 0; ch < 4; ch++) { s.programChange(ch, 81); s.controllerChange(ch, 91, 70); s.controllerChange(ch, 93, 50); }
+    for (let i = 0; i < 37; i++) s.noteOn(i % 4, 48 + i % 36, 70 + i % 30);
+  }
+  same(a, b, 127);
+  assert.ok(a.synthCore.voiceDSP.batchStats.simdPairsLastBatch > 0);
+  assert.equal(b.synthCore.voiceDSP.batchStats.simdPairsLastBatch, 0);
+  const checkpoints = [a, b].map(s => captureSynthCheckpoint(s, {}, {}));
+  let expected;
+  for (let repeat = 0; repeat < 2; repeat++) {
+    checkpoints.forEach(c => c.restore());
+    for (const s of [a, b]) {
+      s.controllerChange(0, 69, 127); s.controllerChange(1, 64, 127); s.controllerChange(1, 123, 0);
+      s.pitchWheel(2, 12000); s.channelPressure(2, 80); s.controllerChange(2, 74, 30);
+      s.noteOff(0, 48, 96); s.controllerChange(3, 120, 0); s.systemExclusive(xg(2, 1, 0x5a, 1, 127));
+    }
+    for (const n of [1, 3, 127, 128, 37, 128]) same(a, b, n);
+    const pcm = render(a, 127); assert.deepEqual(pcm, render(b, 127));
+    if (expected) assert.deepEqual(pcm, expected); else expected = pcm;
+    for (const s of [a, b]) { s.controllerChange(0, 69, 0); s.controllerChange(1, 64, 0); }
+    for (let n = 0; n < 16; n++) same(a, b, 128);
+  }
+  a.stopAllChannels(true); b.stopAllChannels(true);
 });

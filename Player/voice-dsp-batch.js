@@ -79,7 +79,8 @@ export function installVoiceBatch(core, api, arena, memory, samplePointer) {
     if (!running) return;
     stats.lastVoices = used;
     if (!used) return;
-    if (api.dsp_process_batch(pointer, used, count) !== 0) throw new Error('Invalid C voice batch.');
+    const process = core.voiceDSP.independentSIMD === false && api.dsp_process_batch_scalar ? api.dsp_process_batch_scalar : api.dsp_process_batch;
+    if (process(pointer, used, count) !== 0) throw new Error('Invalid C voice batch.');
     stats.calls++; stats.voices += used;
     for (let i = 0; i < used; i++) {
       const entry = entries[i], active = words[i * WORDS + 11] !== 0;

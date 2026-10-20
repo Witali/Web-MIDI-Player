@@ -87,3 +87,36 @@ filter/envelope states remain checkpointed. Main stereo rendering uses batches
 at 16 listed voices and above, with immediate rendering below that threshold.
 This threshold does not remove voices or change MIDI scheduling. See
 [performance measurements](../DSP-PERFORMANCE.md) for the measured limits.
+
+## Independent voice filters in SIMD128
+
+The SIMD module processes adjacent independent filtered voices two at a time.
+Its f64x2 lanes represent two different filters. Each lane retains sequential
+sample-by-sample feedback, Float64 history and the existing gain-ramp arithmetic.
+The stable per-voice arena/descriptor layout is transposed into SoA registers
+at pair entry and written back once. Unfiltered voices, an unmatched final
+voice and dependent memory ranges keep the existing single-voice kernel.
+
+Oscillator cache lookups still run in original voice order. Two temporary
+waveforms feed the paired filter; each resulting sample is rounded to Float32
+at the same point as before. Mixing and capture execute for voice A and then B,
+with the original per-voice Float32 accumulation. Pair eligibility checks the
+filter/envelope/capture writes against the other voice's reads and writes,
+including input/table buffers, command descriptors and the shared scratch region. Shared or partly
+overlapping histories and cross-voice capture/input dependencies fall back
+without changing their original execution semantics. An input buffer is copied
+before its own envelope is updated, preserving intra-voice aliases as well.
+
+The base ABI and batch descriptor version/size stay unchanged. The optional
+`dsp_process_batch_scalar` export runs sequential voice filters in the same
+module (the existing SIMD sample mixer remains available). This provides an
+in-module reference. `dsp_get_voice_simd_stats` returns pair and scalar-voice
+counts from the last valid batch; invalid batches leave these unchanged.
+The internal host flag `voiceDSP.independentSIMD=false` selects that reference.
+Ordinary playback uses independent SIMD when the batch/module supports it.
+
+Tests compare native per-voice golden output, every PCM/state byte between the
+two exports, odd/partial blocks, EOF/release captures, mixed routing, 2053 voices,
+aliased ranges, later memory growth, actual XG/control handling and checkpoints.
+Measurements against both the previous committed module and the sequential
+export are recorded in [DSP-PERFORMANCE.md](../DSP-PERFORMANCE.md).

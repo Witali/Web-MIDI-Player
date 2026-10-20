@@ -1,0 +1,363 @@
+{
+  "date": "2026-10-20T17:51:36.226Z",
+  "cpu": "AMD Ryzen 5 5600X 6-Core Processor             ",
+  "node": "v22.22.3",
+  "rounds": 5,
+  "notes": 1024,
+  "seconds": 1,
+  "frames": 48000,
+  "warmSparseFrames": 65536,
+  "beforeScalarBatch": false,
+  "explicitGc": true,
+  "baselineRoot": "C:\\Work\\Web-MIDI-Player\\.cache\\independent-simd-baseline\\Player",
+  "baselineCommit": "22c8584fcdf36114f70684a30363eea4d836aabf",
+  "sourceHashes": {
+    "before": "390d2f2e2111c25bb315dc0580c29b3c5d9facebd75b8bb5d131cd820996eac1",
+    "after": "95e3dd20b379cc370529c456c4faaf306ed422b6bd103fcf0eddf7caa6f817a3",
+    "activePool": "d064d3156e3ea38c8034cd6738a83e8978d12be828aa596b0a8bb9f37556555a",
+    "voiceDSPBefore": "4156c834a9b48cf072c1318b606374cab351ec4722a99c06af0d1db7413ee7d3",
+    "voiceDSPAfter": "3750e112c3a1ba343ca40c2d1867a315bb9a8e05ef0827531291e423fd7858c3",
+    "voiceBatch": "617c3d35754515f13ae952a212f34a02c1ff353ff28dd6e7693a53a77d23bd8c",
+    "scalarWasm": "50dc3493f74211c165623f62a3dbb10c933830ef257aee16b1c6479205e7bc12",
+    "simdWasm": "fb8b79905c1dec2fa1667fdd8b5da7903af4bed0dd968da716663e0520354596"
+  },
+  "scope": "Actual before/after synth/DSP modules and shared parsed bank; paired128-frame blocks alternate order; initialization/warmup and explicit GC excluded; exact full PCM checked on every pair. CPU time is the combined pair because the host timer is coarse.",
+  "cases": [
+    {
+      "dsp": "wasm-simd",
+      "effects": false,
+      "scenario": "dense",
+      "poolSize": 2048,
+      "activeVoices": 2048,
+      "times": {
+        "before": [
+          1063.597400000002,
+          835.6149000000078,
+          893.3962999999976,
+          823.5790000000034,
+          903.9073000000226
+        ],
+        "after": [
+          964.4081999999996,
+          746.8324999999968,
+          795.7972999999893,
+          872.0930999999828,
+          732.2081000000089
+        ]
+      },
+      "pairCpuMilliseconds": [
+        1952,
+        1563,
+        1750,
+        1766,
+        1641
+      ],
+      "medians": {
+        "before": 893.3962999999976,
+        "after": 795.7972999999893
+      },
+      "pairedSpeedup": 1.1188785972758435,
+      "pcmSha256": "1f3f16d1544648c3e434301c82035fbdeea309229a1b80c5b5ba6cfe212b940c",
+      "exactPCM": true,
+      "batchCalls": 375,
+      "batchVoices": 768000,
+      "simdPairsLastBatch": 1024,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": false,
+      "scenario": "sparse-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          5.03220000003239,
+          4.081800000005387,
+          4.221799999997529,
+          4.233799999999974,
+          6.717700000008335
+        ],
+        "after": [
+          4.99960000000101,
+          4.197899999993751,
+          4.13680000000204,
+          4.2313999999933,
+          6.124300000004951
+        ]
+      },
+      "pairCpuMilliseconds": [
+        0,
+        16,
+        78,
+        0,
+        31
+      ],
+      "medians": {
+        "before": 4.233799999999974,
+        "after": 4.2313999999933
+      },
+      "pairedSpeedup": 1.0065205216480064,
+      "pcmSha256": "615122cbce2fd98b84fac455fe77eb739bf1445e5abbeb2682230c30d4f639c0",
+      "exactPCM": true,
+      "batchCalls": 0,
+      "batchVoices": 0,
+      "simdPairsLastBatch": 0,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": false,
+      "scenario": "controls-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          11.587900000002264,
+          5.437400000009802,
+          5.563600000014048,
+          5.247299999989991,
+          5.780799999996816
+        ],
+        "after": [
+          11.285099999982776,
+          5.40120000000752,
+          5.40640000001622,
+          5.19810000000507,
+          5.716999999971449
+        ]
+      },
+      "pairCpuMilliseconds": [
+        94,
+        15,
+        15,
+        16,
+        78
+      ],
+      "medians": {
+        "before": 5.563600000014048,
+        "after": 5.40640000001622
+      },
+      "pairedSpeedup": 1.0111596991474,
+      "pcmSha256": "f76a96090c12fc3515bc8d9ca8eab967110f102cc4cc2f702e282a645152e293",
+      "exactPCM": true,
+      "batchCalls": 0,
+      "batchVoices": 0,
+      "simdPairsLastBatch": 0,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": false,
+      "scenario": "silence-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 0,
+      "times": {
+        "before": [
+          0.3354999999901338,
+          0.2572000000054686,
+          0.2685999999939668,
+          0.2863999999608495,
+          0.2933000000230095
+        ],
+        "after": [
+          0.2716000000018539,
+          0.27550000001429,
+          0.28980000002047746,
+          0.2724000000016531,
+          0.32030000000668224
+        ]
+      },
+      "pairCpuMilliseconds": [
+        0,
+        0,
+        0,
+        16,
+        0
+      ],
+      "medians": {
+        "before": 0.2863999999608495,
+        "after": 0.27550000001429
+      },
+      "pairedSpeedup": 0.9335753175757816,
+      "pcmSha256": "fec9afb531a8e036eba1d81651896e1b2c1f78b0234dbadc8e7549563f09407b",
+      "exactPCM": true,
+      "batchCalls": 0,
+      "batchVoices": 0,
+      "simdPairsLastBatch": 0,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": true,
+      "scenario": "dense",
+      "poolSize": 2048,
+      "activeVoices": 2048,
+      "times": {
+        "before": [
+          897.3543999999929,
+          809.9028999999791,
+          958.2804999999717,
+          868.1413999999822,
+          1063.0114999999969
+        ],
+        "after": [
+          703.3484000000099,
+          814.0421000000133,
+          746.0560000000187,
+          927.1831999999886,
+          830.5937000000304
+        ]
+      },
+      "pairCpuMilliseconds": [
+        1578,
+        1641,
+        1766,
+        1859,
+        1829
+      ],
+      "medians": {
+        "before": 897.3543999999929,
+        "after": 814.0421000000133
+      },
+      "pairedSpeedup": 1.2758320058735904,
+      "pcmSha256": "1f47ed9cb21de2f85f5e874956c2bf2bd36749906f5f9682f7cda344c17de375",
+      "exactPCM": true,
+      "batchCalls": 375,
+      "batchVoices": 768000,
+      "simdPairsLastBatch": 1024,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": true,
+      "scenario": "sparse-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          9.554000000036467,
+          9.500899999951798,
+          9.244200000059209,
+          8.35140000001411,
+          8.435199999952602
+        ],
+        "after": [
+          9.585400000003574,
+          9.699599999981729,
+          9.140199999947072,
+          8.447400000004563,
+          8.379800000006071
+        ]
+      },
+      "pairCpuMilliseconds": [
+        16,
+        16,
+        94,
+        78,
+        16
+      ],
+      "medians": {
+        "before": 9.244200000059209,
+        "after": 9.140199999947072
+      },
+      "pairedSpeedup": 0.9967241847009937,
+      "pcmSha256": "945a106c4251a5b0923ff51b66b82c0c49200b10dbda026ed9a48e41c5c4faab",
+      "exactPCM": true,
+      "batchCalls": 0,
+      "batchVoices": 0,
+      "simdPairsLastBatch": 0,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": true,
+      "scenario": "controls-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          10.616900000008172,
+          9.992699999977049,
+          10.031599999994796,
+          10.265500000019529,
+          10.055299999967247
+        ],
+        "after": [
+          10.432700000033947,
+          10.024499999959517,
+          10.156499999968219,
+          10.161300000025221,
+          10.000500000027387
+        ]
+      },
+      "pairCpuMilliseconds": [
+        15,
+        16,
+        32,
+        94,
+        16
+      ],
+      "medians": {
+        "before": 10.055299999967247,
+        "after": 10.156499999968219
+      },
+      "pairedSpeedup": 1.0054797260076707,
+      "pcmSha256": "d2af77ab70691281dec6280205f5b44afceb51740d1a98b8cbf273aee7d00959",
+      "exactPCM": true,
+      "batchCalls": 0,
+      "batchVoices": 0,
+      "simdPairsLastBatch": 0,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": true,
+      "scenario": "silence-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 0,
+      "times": {
+        "before": [
+          5.717499999995198,
+          4.269300000050862,
+          5.126400000026479,
+          5.672500000011496,
+          5.8064000000704254
+        ],
+        "after": [
+          5.748700000007375,
+          4.310100000024249,
+          5.07499999999709,
+          5.587299999973766,
+          5.813899999997375
+        ]
+      },
+      "pairCpuMilliseconds": [
+        15,
+        15,
+        0,
+        16,
+        16
+      ],
+      "medians": {
+        "before": 5.672500000011496,
+        "after": 5.587299999973766
+      },
+      "pairedSpeedup": 0.9987099881444551,
+      "pcmSha256": "15c7f67d8853ac1c3f91291b99131a7fdc335afbf4cb74dcea284f773015b128",
+      "exactPCM": true,
+      "batchCalls": 0,
+      "batchVoices": 0,
+      "simdPairsLastBatch": 0,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    }
+  ]
+}

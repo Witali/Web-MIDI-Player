@@ -37,6 +37,8 @@ uint32_t dsp_batch_abi_version(void);
 uint32_t dsp_voice_command_size(void);
 /* Invalid descriptors reject the entire batch before changing DSP state. */
 int dsp_process_batch(DspVoiceCommand *commands, uint32_t voices, uint32_t count);
+int dsp_process_batch_scalar(DspVoiceCommand *commands, uint32_t voices, uint32_t count);
+const uint32_t *dsp_get_voice_simd_stats(void); /* independent pairs, scalar voices in last valid batch */
 int dsp_process_voice(uint32_t count, int filtered, double gain, double increment,
     double left, double right, double reverb, double chorus, double delay, int insertion,
     const float *samples, int looping, int loop_end, int loop_length, int end,

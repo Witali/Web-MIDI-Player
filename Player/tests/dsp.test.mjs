@@ -91,7 +91,7 @@ test('prebuilt WASM is tied to the C sources and does not import a JavaScript DS
       const module = await WebAssembly.compile(data);
       assert.deepEqual(WebAssembly.Module.imports(module), []);
       const names = WebAssembly.Module.exports(module).map(item => item.name);
-      for (const name of ['dsp_process_batch', 'dsp_batch_abi_version', 'dsp_voice_command_size', 'dsp_process_voice', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro']) {
+      for (const name of ['dsp_process_batch_scalar', 'dsp_get_voice_simd_stats', 'dsp_process_batch', 'dsp_batch_abi_version', 'dsp_voice_command_size', 'dsp_process_voice', 'dsp_volume_envelope', 'dsp_modulation_envelope', 'dsp_chorus', 'dsp_delay_line', 'dsp_dattorro']) {
         assert.ok(names.includes(name), `Missing C DSP export: ${name}`);
       }
     }

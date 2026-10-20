@@ -1035,3 +1035,37 @@ tests/voice-batch.test.mjs compares exact actual PCM/state through mixed
 interpolation, XG routing changes, pedals, sample EOF, sparse/dense transitions,
 late sample allocation, descriptor/payload/pool growth and repeated checkpoints
 on scalar/SIMD. Full MIDI/Worker/seek regression tests remain applicable.
+
+
+## SIMD across independent voice filters (20 October 2026)
+
+MIDI 1.0 v4.2.1 Appendix A-4/A-5 remains the voice/hold/order reference. This
+change is inside the ordered C audio batch; it does not alter MIDI parsing,
+event times, assignment policies, pedal/release processing or transport.
+Pairs are adjacent existing commands, with a scalar remainder. No regrouping
+by timbre, pitch or channel occurs, and every original command still executes.
+
+The existing AoS per-voice filter histories stay bound and checkpointable.
+At pair entry, corresponding coefficients/history/gain fields are transposed
+into f64x2 SoA registers, one independent voice per lane. Recurrence advances
+in original sample order within each lane. Filter history remains Float64;
+processed PCM is explicitly demoted to Float32 after gain at the original
+rounding point. Dry/insertion/send buffers are accumulated in voice A/B order.
+C/WASM flags still prohibit fast math, contraction and relaxed SIMD.
+
+The paired path requires disjoint mutable states and no cross-voice read/write
+dependencies. Range checks include partly overlapping filter/envelope states,
+capture/input aliases, source/table/descriptor reads and scratch aliases. Input is copied before
+its own volume envelope is updated, retaining the original intra-voice order. A dependent or
+unfiltered command retains ordinary sequential processing, including its last
+EOF/release block. The descriptor retains batch extension 1 and its 136-byte wasm32 layout. Optional
+exports provide a sequential-filter reference and last-valid-batch pair counts.
+The non-SIMD module and direct single-voice renderer retain their existing DSP.
+
+Evidence: native golden hashes come from five independent ordinary C voice calls
+with rational source/lookup inputs, at block sizes 1/3/127/128. The SIMD result
+matches them exactly. Separate same-module tests compare complete PCM/filter/
+envelope/capture/cursor/activity bytes, mixed flags, 2053 voices, memory growth
+and dependent ranges. Actual synth tests confirm pair use and compare both
+exports through XG/control changes, Hold2/sustain/release and repeated checkpoints.
+The full MIDI/Worker/seek suite and paired actual-player benchmarks also apply.

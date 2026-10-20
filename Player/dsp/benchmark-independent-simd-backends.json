@@ -1,0 +1,369 @@
+{
+  "cpu": "AMD Ryzen 5 5600X 6-Core Processor             ",
+  "node": "v22.22.3",
+  "date": "2026-10-20T17:56:04.539Z",
+  "rounds": 5,
+  "seconds": 0.5,
+  "scenario": "mixed",
+  "warmupSeconds": 0.5,
+  "measuredFrames": 24000,
+  "explicitGc": true,
+  "manifests": {
+    "before": {
+      "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+      "sources": [
+        "native/dsp.c",
+        "native/dsp.h",
+        "native/envelopes.c",
+        "native/effects.c"
+      ],
+      "sourceHashNormalization": "LF",
+      "flags": [
+        "-O3",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-ffp-contract=off",
+        "-fno-fast-math",
+        "--no-entry",
+        "-sSTANDALONE_WASM=1",
+        "-sALLOW_MEMORY_GROWTH=1",
+        "-sINITIAL_MEMORY=1048576",
+        "-sSTACK_SIZE=65536",
+        "-sMAXIMUM_MEMORY=2147483648",
+        "-Wl,--export=__heap_base",
+        "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_begin_block\",\"_dsp_get_cache_stats\",\"_dsp_batch_abi_version\",\"_dsp_voice_command_size\",\"_dsp_process_batch\",\"_dsp_process_batch_scalar\",\"_dsp_get_voice_simd_stats\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
+      ],
+      "simdFlags": [
+        "-msimd128"
+      ],
+      "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
+      "sha256": {
+        "native/dsp.c": "7a8ab03b4b7fea45b30c35e9261321c0c65a84307c1576be12f1709c399672ee",
+        "native/dsp.h": "d70d1833d33e7769d9ff80eab4db76e728a4c13c3b8741c71776491f820e721f",
+        "native/envelopes.c": "1bb2ff84844c91a421a451da0933f0ddf4b96764ef01e13c1f47c79a79fcf91d",
+        "native/effects.c": "5470936284f52ca04fcbd15374254b90249eb2a92d32b5463b0051e254729670",
+        "dsp/voice-mixer.wasm": "50dc3493f74211c165623f62a3dbb10c933830ef257aee16b1c6479205e7bc12",
+        "dsp/voice-mixer-simd.wasm": "fb8b79905c1dec2fa1667fdd8b5da7903af4bed0dd968da716663e0520354596"
+      }
+    },
+    "after": {
+      "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+      "sources": [
+        "native/dsp.c",
+        "native/dsp.h",
+        "native/envelopes.c",
+        "native/effects.c"
+      ],
+      "sourceHashNormalization": "LF",
+      "flags": [
+        "-O3",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-ffp-contract=off",
+        "-fno-fast-math",
+        "--no-entry",
+        "-sSTANDALONE_WASM=1",
+        "-sALLOW_MEMORY_GROWTH=1",
+        "-sINITIAL_MEMORY=1048576",
+        "-sSTACK_SIZE=65536",
+        "-sMAXIMUM_MEMORY=2147483648",
+        "-Wl,--export=__heap_base",
+        "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_begin_block\",\"_dsp_get_cache_stats\",\"_dsp_batch_abi_version\",\"_dsp_voice_command_size\",\"_dsp_process_batch\",\"_dsp_process_batch_scalar\",\"_dsp_get_voice_simd_stats\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
+      ],
+      "simdFlags": [
+        "-msimd128"
+      ],
+      "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
+      "sha256": {
+        "native/dsp.c": "7a8ab03b4b7fea45b30c35e9261321c0c65a84307c1576be12f1709c399672ee",
+        "native/dsp.h": "d70d1833d33e7769d9ff80eab4db76e728a4c13c3b8741c71776491f820e721f",
+        "native/envelopes.c": "1bb2ff84844c91a421a451da0933f0ddf4b96764ef01e13c1f47c79a79fcf91d",
+        "native/effects.c": "5470936284f52ca04fcbd15374254b90249eb2a92d32b5463b0051e254729670",
+        "dsp/voice-mixer.wasm": "50dc3493f74211c165623f62a3dbb10c933830ef257aee16b1c6479205e7bc12",
+        "dsp/voice-mixer-simd.wasm": "fb8b79905c1dec2fa1667fdd8b5da7903af4bed0dd968da716663e0520354596"
+      }
+    }
+  },
+  "cases": [
+    {
+      "notes": 64,
+      "effects": false,
+      "milliseconds": {
+        "after": [
+          44.25100000000003,
+          36.407100000000014,
+          37.32800000000009,
+          37.241199999999935,
+          36.987499999999955
+        ],
+        "simd": [
+          35.45659999999998,
+          35.17280000000005,
+          35.34829999999988,
+          35.12130000000002,
+          36.07989999999995
+        ]
+      },
+      "cpuMilliseconds": {
+        "after": [
+          63,
+          32,
+          31,
+          32,
+          47
+        ],
+        "simd": [
+          31,
+          31,
+          31,
+          31,
+          32
+        ]
+      },
+      "medians": {
+        "after": 37.241199999999935,
+        "simd": 35.34829999999988
+      },
+      "cpuMedians": {
+        "after": 32,
+        "simd": 31
+      },
+      "pairedSpeedup": null,
+      "medianSpeedup": null
+    },
+    {
+      "notes": 64,
+      "effects": true,
+      "milliseconds": {
+        "after": [
+          42.28800000000001,
+          41.396600000000035,
+          40.634700000000066,
+          41.81919999999991,
+          41.36429999999973
+        ],
+        "simd": [
+          39.130100000000084,
+          39.731399999999894,
+          39.5338999999999,
+          40.153299999999945,
+          40.23439999999982
+        ]
+      },
+      "cpuMilliseconds": {
+        "after": [
+          47,
+          47,
+          47,
+          47,
+          47
+        ],
+        "simd": [
+          47,
+          32,
+          31,
+          31,
+          31
+        ]
+      },
+      "medians": {
+        "after": 41.396600000000035,
+        "simd": 39.731399999999894
+      },
+      "cpuMedians": {
+        "after": 47,
+        "simd": 31
+      },
+      "pairedSpeedup": null,
+      "medianSpeedup": null
+    },
+    {
+      "notes": 256,
+      "effects": false,
+      "milliseconds": {
+        "after": [
+          147.77840000000015,
+          149.9913000000006,
+          146.9393,
+          147.86429999999928,
+          154.5659999999998
+        ],
+        "simd": [
+          146.93709999999965,
+          138.4662999999996,
+          141.0551000000005,
+          144.47299999999996,
+          147.03620000000046
+        ]
+      },
+      "cpuMilliseconds": {
+        "after": [
+          141,
+          156,
+          140,
+          141,
+          156
+        ],
+        "simd": [
+          156,
+          125,
+          140,
+          140,
+          141
+        ]
+      },
+      "medians": {
+        "after": 147.86429999999928,
+        "simd": 144.47299999999996
+      },
+      "cpuMedians": {
+        "after": 141,
+        "simd": 140
+      },
+      "pairedSpeedup": null,
+      "medianSpeedup": null
+    },
+    {
+      "notes": 256,
+      "effects": true,
+      "milliseconds": {
+        "after": [
+          159.9339,
+          204.4994000000006,
+          171.08389999999963,
+          166.09629999999925,
+          160.0645000000004
+        ],
+        "simd": [
+          155.94740000000002,
+          151.8669,
+          155.9434000000001,
+          163.72830000000067,
+          178.25970000000052
+        ]
+      },
+      "cpuMilliseconds": {
+        "after": [
+          157,
+          203,
+          172,
+          172,
+          156
+        ],
+        "simd": [
+          156,
+          156,
+          156,
+          157,
+          173
+        ]
+      },
+      "medians": {
+        "after": 166.09629999999925,
+        "simd": 155.94740000000002
+      },
+      "cpuMedians": {
+        "after": 172,
+        "simd": 156
+      },
+      "pairedSpeedup": null,
+      "medianSpeedup": null
+    },
+    {
+      "notes": 1024,
+      "effects": false,
+      "milliseconds": {
+        "after": [
+          482.90620000000126,
+          464.3027000000002,
+          506.55219999999827,
+          502.78740000000107,
+          484.15339999999924
+        ],
+        "simd": [
+          447.4481999999989,
+          475.25930000000153,
+          450.8477000000021,
+          502.59560000000056,
+          470.7942000000003
+        ]
+      },
+      "cpuMilliseconds": {
+        "after": [
+          484,
+          469,
+          500,
+          500,
+          484
+        ],
+        "simd": [
+          437,
+          484,
+          438,
+          500,
+          469
+        ]
+      },
+      "medians": {
+        "after": 484.15339999999924,
+        "simd": 470.7942000000003
+      },
+      "cpuMedians": {
+        "after": 484,
+        "simd": 469
+      },
+      "pairedSpeedup": null,
+      "medianSpeedup": null
+    },
+    {
+      "notes": 1024,
+      "effects": true,
+      "milliseconds": {
+        "after": [
+          696.2962000000007,
+          558.7518999999993,
+          632.7189999999973,
+          555.3859000000011,
+          672.1981999999989
+        ],
+        "simd": [
+          537.8421000000017,
+          562.5272999999979,
+          500.77000000000044,
+          504.57870000000185,
+          506.59279999999853
+        ]
+      },
+      "cpuMilliseconds": {
+        "after": [
+          703,
+          547,
+          640,
+          562,
+          672
+        ],
+        "simd": [
+          547,
+          547,
+          500,
+          500,
+          515
+        ]
+      },
+      "medians": {
+        "after": 632.7189999999973,
+        "simd": 506.59279999999853
+      },
+      "cpuMedians": {
+        "after": 640,
+        "simd": 515
+      },
+      "pairedSpeedup": null,
+      "medianSpeedup": null
+    }
+  ]
+}

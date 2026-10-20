@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-20T17:52:03.156Z",
+  "cpu": "AMD Ryzen 5 5600X 6-Core Processor             ",
+  "node": "v22.22.3",
+  "rounds": 5,
+  "notes": 1024,
+  "seconds": 1,
+  "frames": 48000,
+  "warmSparseFrames": 65536,
+  "beforeScalarBatch": true,
+  "explicitGc": true,
+  "baselineRoot": "C:\\Work\\Web-MIDI-Player\\Player",
+  "baselineCommit": null,
+  "sourceHashes": {
+    "before": "95e3dd20b379cc370529c456c4faaf306ed422b6bd103fcf0eddf7caa6f817a3",
+    "after": "95e3dd20b379cc370529c456c4faaf306ed422b6bd103fcf0eddf7caa6f817a3",
+    "activePool": "d064d3156e3ea38c8034cd6738a83e8978d12be828aa596b0a8bb9f37556555a",
+    "voiceDSPBefore": "3750e112c3a1ba343ca40c2d1867a315bb9a8e05ef0827531291e423fd7858c3",
+    "voiceDSPAfter": "3750e112c3a1ba343ca40c2d1867a315bb9a8e05ef0827531291e423fd7858c3",
+    "voiceBatch": "617c3d35754515f13ae952a212f34a02c1ff353ff28dd6e7693a53a77d23bd8c",
+    "scalarWasm": "50dc3493f74211c165623f62a3dbb10c933830ef257aee16b1c6479205e7bc12",
+    "simdWasm": "fb8b79905c1dec2fa1667fdd8b5da7903af4bed0dd968da716663e0520354596"
+  },
+  "scope": "Actual before/after synth/DSP modules and shared parsed bank; paired128-frame blocks alternate order; initialization/warmup and explicit GC excluded; exact full PCM checked on every pair. CPU time is the combined pair because the host timer is coarse.",
+  "cases": [
+    {
+      "dsp": "wasm-simd",
+      "effects": false,
+      "scenario": "dense",
+      "poolSize": 2048,
+      "activeVoices": 2048,
+      "times": {
+        "before": [
+          684.6453999999992,
+          714.6288000000059,
+          715.292099999991,
+          668.579700000002,
+          767.4824999999992
+        ],
+        "after": [
+          614.7286999999975,
+          632.5827999999988,
+          621.7762999999977,
+          646.9245999999894,
+          630.0950999999959
+        ]
+      },
+      "pairCpuMilliseconds": [
+        1313,
+        1343,
+        1359,
+        1312,
+        1391
+      ],
+      "medians": {
+        "before": 714.6288000000059,
+        "after": 630.0950999999959
+      },
+      "pairedSpeedup": 1.129700017136108,
+      "pcmSha256": "1f3f16d1544648c3e434301c82035fbdeea309229a1b80c5b5ba6cfe212b940c",
+      "exactPCM": true,
+      "batchCalls": 375,
+      "batchVoices": 768000,
+      "simdPairsLastBatch": 1024,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    },
+    {
+      "dsp": "wasm-simd",
+      "effects": true,
+      "scenario": "dense",
+      "poolSize": 2048,
+      "activeVoices": 2048,
+      "times": {
+        "before": [
+          957.5452999999816,
+          786.9071999999996,
+          948.3065999999744,
+          790.1214999999956,
+          1025.6258000000344
+        ],
+        "after": [
+          857.9146999999757,
+          781.7934000000205,
+          726.6182999999783,
+          796.3003000000153,
+          796.0677000000251
+        ]
+      },
+      "pairCpuMilliseconds": [
+        1781,
+        1563,
+        1641,
+        1594,
+        1812
+      ],
+      "medians": {
+        "before": 948.3065999999744,
+        "after": 796.0677000000251
+      },
+      "pairedSpeedup": 1.116131125856695,
+      "pcmSha256": "1f47ed9cb21de2f85f5e874956c2bf2bd36749906f5f9682f7cda344c17de375",
+      "exactPCM": true,
+      "batchCalls": 375,
+      "batchVoices": 768000,
+      "simdPairsLastBatch": 1024,
+      "scalarVoicesLastBatch": 0,
+      "referenceSimdPairsLastBatch": 0
+    }
+  ]
+}

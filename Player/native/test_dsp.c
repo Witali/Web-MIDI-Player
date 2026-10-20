@@ -223,6 +223,7 @@ static void batch_voices(void) {
             }
             memcpy(expected, s->audio, sizeof(expected)); clear(); dsp_begin_block();
             CHECK(dsp_process_batch(commands, N, count) == 0);
+            CHECK(dsp_get_voice_simd_stats()[0] == 0 && dsp_get_voice_simd_stats()[1] == N);
             for (j = 1; j < 8; j++) CHECK(memcmp(expected[j], s->audio[j], count * sizeof(float)) == 0);
             for (i = 0; i < N; i++) {
                 CHECK(commands[i].active == statuses[i]);
@@ -234,6 +235,8 @@ static void batch_voices(void) {
             }
         }
     }
+    CHECK(dsp_process_batch_scalar(NULL, 0, 128) == 0);
+    CHECK(dsp_get_voice_simd_stats()[0] == 0 && dsp_get_voice_simd_stats()[1] == 0);
     CHECK(dsp_process_batch(NULL, 0, 128) == 0);
     CHECK(dsp_process_batch(NULL, 1, 128) == -1);
     CHECK(dsp_process_batch(commands, N, 0) == -1);
@@ -244,6 +247,43 @@ static void batch_voices(void) {
     commands[N - 1].flags = 0; commands[N - 1].samples = NULL; commands[N - 1].input = NULL;
     CHECK(dsp_process_batch(commands, N, 128) == -1);
 }
+static uint32_t hash_bytes(uint32_t hash, const void *data, size_t count) {
+    const unsigned char *bytes = data; size_t i;
+    for (i = 0; i < count; i++) hash = (hash ^ bytes[i]) * UINT32_C(16777619);
+    return hash;
+}
+/* Rational source/table values avoid cross-libm assumptions. Expected output
+ * comes from five ordinary per-voice calls, not the new SIMD implementation. */
+static uint32_t independent_golden(unsigned count) {
+    float source[257], input[5][128], captured[5][128], table[32601];
+    double filters[5][9], env[5][16] = {{0}}, cursors[5];
+    int32_t active[5]; unsigned i, j; uint32_t hash = UINT32_C(2166136261);
+    for (i = 0; i < 257; i++) source[i] = (float)((int)((i * 13 + 31) % 127) - 64) / 64;
+    for (i = 0; i < 32601; i++) table[i] = (float)(i % 31 + 1) / 32;
+    clear(); dsp_begin_block();
+    for (i = 0; i < 5; i++) {
+        const double f[9] = {.5 + i / 256., .125, .0625, -.25, .03125, .0625, -.125, .03125, -.0625};
+        const int oscillator = (i % 2) == 0, insertion = i == 3;
+        const double cursor = i == 2 ? 254 : i == 0 ? 10.25 : .25;
+        memcpy(filters[i], f, sizeof(f)); memcpy(s->filter, f, sizeof(f));
+        for (j = 0; j < 128; j++) input[i][j] = (float)((int)((i * 17 + j * 11) % 61) - 30) / 32;
+        env[i][0] = (i + 1) / 16.; env[i][2] = 4; env[i][4] = 50; env[i][8] = 100;
+        env[i][9] = i * 20; env[i][14] = i == 2;
+        if (!oscillator) memcpy(s->audio[0], input[i], count * sizeof(float));
+        if (oscillator) active[i] = dsp_process_voice_envelope(count, 1, env[i], .75, table,
+            .71, .27, .12, .08, .03, insertion, source, i == 0, 17, 7, 257, cursor, .7);
+        else active[i] = dsp_process_voice(count, 1, (i + 1) / 16., .003 * ((double)i - 1),
+            .71, .27, .12, .08, .03, insertion, NULL, 0, 17, 7, 257, cursor, .7);
+        cursors[i] = active[i] ? s->cursor : cursor;
+        memcpy(filters[i], s->filter, sizeof(s->filter));
+        memcpy(captured[i], s->audio[0], count * sizeof(float));
+    }
+    for (i = 1; i < 8; i++) hash = hash_bytes(hash, s->audio[i], count * sizeof(float));
+    hash = hash_bytes(hash, filters, sizeof(filters)); hash = hash_bytes(hash, env, sizeof(env));
+    for (i = 0; i < 5; i++) hash = hash_bytes(hash, captured[i], count * sizeof(float));
+    hash = hash_bytes(hash, cursors, sizeof(cursors)); hash = hash_bytes(hash, active, sizeof(active));
+    return hash;
+}
 static void golden(void) {
     unsigned i; const float sample[12] = {0, .2f, -.6f, .9f, .7f, -.2f, -.4f, .3f, .8f, -.5f, .1f, 0};
     clear(); s->filter[0] = .42; s->filter[1] = .2; s->filter[2] = .1; s->filter[3] = -.3; s->filter[4] = .05;
@@ -252,7 +292,10 @@ static void golden(void) {
     printf("{\"audio\":[");
     for (i = 0; i < 8; i++) printf("%s%.17g", i ? "," : "", (double)s->audio[1][i]);
     printf("],\"filter\":["); for (i = 0; i < 9; i++) printf("%s%.17g", i ? "," : "", s->filter[i]);
-    printf("],\"cursor\":%.17g}\n", s->cursor);
+    printf("],\"cursor\":%.17g,\"independentVoices\":[", s->cursor);
+    { const unsigned counts[4] = {1, 3, 127, 128};
+      for (i = 0; i < 4; i++) printf("%s%u", i ? "," : "", independent_golden(counts[i])); }
+    printf("]}\n");
 }
 int main(int argc, char **argv) {
     s = dsp_get_layout(); CHECK(dsp_abi_version() == 1);

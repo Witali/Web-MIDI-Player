@@ -57,8 +57,8 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     if (dsp !== 'js') {
       try {
         if (dsp === 'auto') {
-          // The C scalar kernel won most representative measurements on the
-          // target machine. Keep SIMD selectable rather than assuming a win.
+          // Small scores with effects still favor scalar in the current
+          // measurements. Independent-voice SIMD is selectable for dense parts.
           try { await installVoiceDSP(synth, 'wasm'); }
           catch { await installVoiceDSP(synth, 'wasm-simd'); }
         } else await installVoiceDSP(synth, dsp);

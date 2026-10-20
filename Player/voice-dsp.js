@@ -85,8 +85,15 @@ export async function installVoiceDSP(synth, backend = 'wasm') {
     stateful: !!exports.dsp_process_voice_envelope,
     batchEnabled: !!exports.dsp_process_batch,
     batchMinimumVoices: 16,
+    independentSIMD: true,
     get batching() { return batch?.running || false; },
-    get batchStats() { return batch ? { ...batch.stats, capacity: batch.capacity, payloadCapacity: batch.payloadCapacity } : null; },
+    get batchStats() {
+      if (!batch) return null;
+      const pairs = exports.dsp_get_voice_simd_stats
+        ? new Uint32Array(memory.buffer, exports.dsp_get_voice_simd_stats(), 2) : null;
+      return { ...batch.stats, capacity: batch.capacity, payloadCapacity: batch.payloadCapacity,
+        simdPairsLastBatch: pairs?.[0] || 0, scalarVoicesLastBatch: pairs?.[1] || 0 };
+    },
     flushBatch() { batch?.flush(); },
     get left() { return left; }, get right() { return right; },
     get memoryBuffer() { return memory.buffer; },

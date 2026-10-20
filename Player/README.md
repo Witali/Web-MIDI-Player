@@ -328,8 +328,9 @@ encoding. They are unavailable in the compact Z80 engine.
 
 ## WASM voice DSP
 
-The default `dsp: 'auto'` selects the measured faster scalar C/WASM kernel,
-then SIMD128 or JavaScript as fallback. Hermite interpolation, filtering,
+The default `dsp: 'auto'` tries scalar C/WASM first, then SIMD128 or JavaScript
+as fallback. Measurements on small scores with effects still favor scalar;
+SIMD can be selected explicitly for dense parts. Hermite interpolation, filtering,
 volume/modulation envelope evaluation, stereo mixing, chorus, delay lines and
 Dattorro reverb run in C/WASM. MIDI interpretation and SoundFont parameter
 setup remain unchanged. Use `dsp: 'js'`, `'wasm'` or `'wasm-simd'`
@@ -340,6 +341,14 @@ block. Every voice retains its own envelope, filter and stereo/effect gains;
 the order of mixing and the PCM rounding remain unchanged. The cache probes
 for reuse and bypasses itself for parts with distinct oscillator phases.
 It bounds cache memory, with no limit on musical voices.
+
+The stereo wrapper sends batches of 16 or more listed voices to C, with
+persistent per-voice filter history. The SIMD module evaluates two adjacent
+independent filters in f64x2 lanes while preserving each filter's sample order
+and the original voice mixing/Float32 rounding. Dependent buffers and unmatched
+voices keep the single-voice path. Current dense tests show an advantage for
+SIMD; the full scalar/SIMD comparison and small-score tradeoffs are documented
+in DSP-PERFORMANCE.md.
 
 [DSP-PERFORMANCE.md](DSP-PERFORMANCE.md) records the successful experiment branch,
 reproducible benchmarks and bit-identical audio checks. The browser comparison
