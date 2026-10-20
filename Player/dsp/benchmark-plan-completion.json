@@ -1,0 +1,124 @@
+{
+  "date": "2026-10-20T19:24:57.048Z",
+  "node": "v22.22.3",
+  "cpu": "AMD Ryzen 5 5600X 6-Core Processor             ",
+  "rendererManifest": {
+    "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+    "sources": [
+      "native/dsp.c",
+      "native/dsp.h",
+      "native/envelopes.c",
+      "native/effects.c"
+    ],
+    "sourceHashNormalization": "LF",
+    "flags": [
+      "-O3",
+      "-std=c11",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-ffp-contract=off",
+      "-fno-fast-math",
+      "--no-entry",
+      "-sSTANDALONE_WASM=1",
+      "-sALLOW_MEMORY_GROWTH=1",
+      "-sINITIAL_MEMORY=1048576",
+      "-sSTACK_SIZE=65536",
+      "-sMAXIMUM_MEMORY=2147483648",
+      "-Wl,--export=__heap_base",
+      "-sEXPORTED_FUNCTIONS=[\"_dsp_abi_version\",\"_dsp_get_layout\",\"_dsp_begin_block\",\"_dsp_get_cache_stats\",\"_dsp_batch_abi_version\",\"_dsp_voice_command_size\",\"_dsp_process_batch\",\"_dsp_process_batch_scalar\",\"_dsp_get_voice_simd_stats\",\"_dsp_process_voice\",\"_dsp_process_voice_envelope\",\"_dsp_volume_envelope\",\"_dsp_modulation_envelope\",\"_dsp_chorus\",\"_dsp_delay_line\",\"_dsp_dattorro\"]"
+    ],
+    "simdFlags": [
+      "-msimd128"
+    ],
+    "arithmetic": "Float64; explicit Float32 stores; no fast math or relaxed SIMD",
+    "sha256": {
+      "native/dsp.c": "7a8ab03b4b7fea45b30c35e9261321c0c65a84307c1576be12f1709c399672ee",
+      "native/dsp.h": "d70d1833d33e7769d9ff80eab4db76e728a4c13c3b8741c71776491f820e721f",
+      "native/envelopes.c": "1bb2ff84844c91a421a451da0933f0ddf4b96764ef01e13c1f47c79a79fcf91d",
+      "native/effects.c": "5470936284f52ca04fcbd15374254b90249eb2a92d32b5463b0051e254729670",
+      "dsp/voice-mixer.wasm": "50dc3493f74211c165623f62a3dbb10c933830ef257aee16b1c6479205e7bc12",
+      "dsp/voice-mixer-simd.wasm": "fb8b79905c1dec2fa1667fdd8b5da7903af4bed0dd968da716663e0520354596"
+    }
+  },
+  "measuredFrames": 24000,
+  "rounds": 3,
+  "seconds": 0.5,
+  "warmupSeconds": 0.25,
+  "scope": "steady-state offline rendering; initialization excluded; no audio device",
+  "cases": [
+    {
+      "notes": 1024,
+      "effects": false,
+      "milliseconds": {
+        "js": [
+          571.1838,
+          621.0649999999996,
+          641.6187
+        ],
+        "wasm": [
+          566.3613,
+          447.08889999999974,
+          453.5075999999999
+        ],
+        "wasm-simd": [
+          436.4497000000001,
+          469.66910000000007,
+          424.59580000000005
+        ]
+      },
+      "medians": {
+        "js": 621.0649999999996,
+        "wasm": 453.5075999999999,
+        "wasm-simd": 436.4497000000001
+      },
+      "speedup": {
+        "wasm": 1.3694698831949006,
+        "wasm-simd": 1.4229933025500978
+      }
+    },
+    {
+      "notes": 1024,
+      "effects": true,
+      "milliseconds": {
+        "js": [
+          803.4030999999995,
+          808.6731,
+          791.591699999999
+        ],
+        "wasm": [
+          551.7482,
+          774.0553,
+          555.7127
+        ],
+        "wasm-simd": [
+          727.1814999999988,
+          517.607399999999,
+          501.14580000000024
+        ]
+      },
+      "medians": {
+        "js": 803.4030999999995,
+        "wasm": 555.7127,
+        "wasm-simd": 517.607399999999
+      },
+      "speedup": {
+        "wasm": 1.4457166445899103,
+        "wasm-simd": 1.552147631583322
+      }
+    }
+  ],
+  "verification": {
+    "implementationCommit": "08af299507d067913dff20b437340af7be12a7ea",
+    "sourceHashNormalization": "LF",
+    "sourceHashes": {
+      "vendor/spessasynth.js": "5da8b91e2a74638b60f38bccfed40a708795a420bfae07f8fca1bcea5b1ab983",
+      "sample-dump.js": "a0c042576a8ca44dae3d7edf6458722db9c9f49c7a9a52e04143df0555398368",
+      "sample-dump-bank.js": "4030cc1d1f7d5960f7f5514e7249cf02e489acc702b9686471ab6189050da5ec",
+      "sample-dump-oscillator.js": "87491466039b93f11335b7e3d251de038de84a39b8d62e92c709c89c377662f5",
+      "voice-dsp.js": "3750e112c3a1ba343ca40c2d1867a315bb9a8e05ef0827531291e423fd7858c3",
+      "voice-dsp-batch.js": "617c3d35754515f13ae952a212f34a02c1ff353ff28dd6e7693a53a77d23bd8c",
+      "soundfont-preview.js": "0f2623d00aa7447fe13ab727c3298a4d8d64e6eed5804de212fa157aa411db71"
+    }
+  }
+}

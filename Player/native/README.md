@@ -54,7 +54,9 @@ users who do not call `dsp_begin_block()` retain the uncached renderer.
 JavaScript still parses MIDI/SF2, schedules events, calculates SoundFont generator
 parameters and handles the public transport. Envelope initialization/release
 parameter setup, LFO control calculations, advanced GS/XG insertion effects and
-some effect routing remain in SpessaSynth. The per-sample main voice, chorus,
+some effect routing remain in SpessaSynth. CA-019 Extended SDS uses the host
+source-path oscillator for its backward/bidirectional/release-loop interpolation;
+C/WASM still processes its envelopes, filter, batch mixing and effects. The per-sample main voice, chorus,
 delay-line and Dattorro loops run in C/WASM. This is not a claim that every
 controller or vendor extension has been rewritten in C.
 
