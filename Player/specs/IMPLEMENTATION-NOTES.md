@@ -948,3 +948,45 @@ to the memory budget. A genuinely new wave is cancelled when it cannot fit;
 an identical replay remains possible even when the cache is full. Candidate
 state is checkpointed, while immutable resources stay shared. Boundary tests
 cover replay, cancellation/reset and a late data difference at a full budget.
+
+## Ordered active voice traversal (2026-10-20)
+
+MIDI1.0 Detailed Specification printed A-4 (PDF67) leaves polyphonic voice
+assignment to the receiver, while repeated Note Ons require their corresponding
+Note Off identities. Printed A-5 (PDF68) requires sustain/All Notes Off to enter
+release appropriately rather than abruptly discard held/releasing notes. This
+optimization preserves the player's established allocation, gates and envelope
+behavior; it does not reinterpret these messages or remove low-level voices.
+
+The render/control collection is ordered by original pool index. A min-heap
+returns the lowest inactive index, matching the prior linear first-free search.
+A slot killed and reused before compaction keeps its existing ordered entry;
+otherwise binary insertion adds its new active entry. Finished voices are removed
+with stable in-place compaction during the render walk. Controller-triggered
+kills mark the collection dirty; the next control traversal compacts it once.
+No swap-removal or note-age reordering is used, so Float32 mixing order remains
+unchanged. The last-block voice-count convention also remains unchanged.
+
+Pedals, Note Off/fast release, channel/poly pressure, live generators/modulators
+and MTS updates now walk the active collection. Release, sustain, sostenuto,
+Hold2 and silent-but-still-active notes remain present until the original DSP
+ends their voices. Tests instrument every inactive slot with a read counter:
+subsequent render and controller operations perform zero inactive-slot reads.
+Initial allocation/native binding and explicit cap/checkpoint rebuilds still
+visit retained storage; those operations are outside the audio-block hot path.
+
+Checkpoint restoration rebuilds active/free membership after deactivating new
+slots retained from later pool growth. Native memory/sample caches stay
+monotonic as before. Automatic allocation also reuses retained slots above a
+previously lowered cap, instead of allocating a far-away slot outside the newly
+extended render cap. Explicit fixed-cap priority replacement keeps its prior
+policy. The C sources, ABI and generated WASM modules are unchanged.
+
+Evidence: tests/active-voices.test.mjs uses a linear first-free oracle through
+4000 irregular allocation/release operations, then compares actual full-pool
+scan rendering against active rendering on JS/WASM/SIMD. It checks a1024-note
+burst, holes/reuse, sparse continuation, pedals/pressure, EOF, temporary caps,
+explicit priority replacement, repeated checkpoint restoration and later pool/
+WASM growth. Separate performance runs load the previous committed modules and
+compare complete measured PCM while alternating128-frame blocks. Full logs,
+hashes, medians and reproduction commands are in DSP-PERFORMANCE.md.

@@ -1,0 +1,326 @@
+{
+  "date": "2026-10-20T17:01:11.221Z",
+  "cpu": "AMD Ryzen 5 5600X 6-Core Processor             ",
+  "node": "v22.22.3",
+  "rounds": 5,
+  "notes": 1024,
+  "seconds": 1,
+  "frames": 48000,
+  "explicitGc": true,
+  "baselineRoot": "C:\\Work\\Web-MIDI-Player\\.cache\\active-voices-baseline\\Player",
+  "baselineCommit": "8a0db3174761c1f0aa9171b1c52ca3513074c428",
+  "sourceHashes": {
+    "before": "06d96da2bb9f0787c573abc9df434a518d6845f33bfd86fbc8e0cc2531fc30a8",
+    "after": "4adb3c1f5dfc92212538b67e65026acd20e5b75b944ff0cbb3a0e13b46f4b6de",
+    "activePool": "d064d3156e3ea38c8034cd6738a83e8978d12be828aa596b0a8bb9f37556555a"
+  },
+  "scope": "Actual before/after synth/DSP modules and shared parsed bank; paired128-frame blocks alternate order; initialization/warmup and explicit GC excluded; exact full PCM checked on every pair. CPU time is the combined pair because the host timer is coarse.",
+  "cases": [
+    {
+      "dsp": "wasm",
+      "effects": false,
+      "scenario": "dense",
+      "poolSize": 2048,
+      "activeVoices": 2048,
+      "times": {
+        "before": [
+          1134.0551000000032,
+          1041.5048999999904,
+          1058.8930999999893,
+          1179.1019000000233,
+          1101.505599999984
+        ],
+        "after": [
+          1051.0448999999992,
+          1038.3432999999904,
+          1045.9929999999931,
+          1173.4342999999772,
+          1073.2872000000098
+        ]
+      },
+      "pairCpuMilliseconds": [
+        2125,
+        2031,
+        2110,
+        2297,
+        2250
+      ],
+      "medians": {
+        "before": 1101.505599999984,
+        "after": 1051.0448999999992
+      },
+      "pairedSpeedup": 1.012332874120569,
+      "pcmSha256": "1f3f16d1544648c3e434301c82035fbdeea309229a1b80c5b5ba6cfe212b940c",
+      "exactPCM": true
+    },
+    {
+      "dsp": "wasm",
+      "effects": false,
+      "scenario": "sparse-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          12.005599999976766,
+          9.593000000015309,
+          12.069100000016988,
+          18.91280000000006,
+          11.51159999999436
+        ],
+        "after": [
+          8.771300000000338,
+          5.839200000022174,
+          7.748699999994642,
+          10.87909999999647,
+          7.315599999987171
+        ]
+      },
+      "pairCpuMilliseconds": [
+        16,
+        79,
+        94,
+        78,
+        16
+      ],
+      "medians": {
+        "before": 12.005599999976766,
+        "after": 7.748699999994642
+      },
+      "pairedSpeedup": 1.5735688118561084,
+      "pcmSha256": "615122cbce2fd98b84fac455fe77eb739bf1445e5abbeb2682230c30d4f639c0",
+      "exactPCM": true
+    },
+    {
+      "dsp": "wasm",
+      "effects": false,
+      "scenario": "controls-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          22.849499999989348,
+          13.35239999998521,
+          12.11959999998362,
+          12.054299999997966,
+          9.957400000050256
+        ],
+        "after": [
+          19.04910000002201,
+          9.534399999996822,
+          7.894699999991644,
+          7.9874000000218075,
+          6.054799999979878
+        ]
+      },
+      "pairCpuMilliseconds": [
+        79,
+        31,
+        15,
+        16,
+        15
+      ],
+      "medians": {
+        "before": 12.11959999998362,
+        "after": 7.9874000000218075
+      },
+      "pairedSpeedup": 1.509164433979149,
+      "pcmSha256": "f76a96090c12fc3515bc8d9ca8eab967110f102cc4cc2f702e282a645152e293",
+      "exactPCM": true
+    },
+    {
+      "dsp": "wasm",
+      "effects": false,
+      "scenario": "silence-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 0,
+      "times": {
+        "before": [
+          4.722899999975198,
+          4.740499999948952,
+          4.520399999986694,
+          4.465500000020256,
+          4.649399999972957
+        ],
+        "after": [
+          0.8252000000065891,
+          0.8436000000438071,
+          0.6715000000185682,
+          0.6172999999871536,
+          0.7268000000112806
+        ]
+      },
+      "pairCpuMilliseconds": [
+        0,
+        0,
+        0,
+        0,
+        16
+      ],
+      "medians": {
+        "before": 4.649399999972957,
+        "after": 0.7268000000112806
+      },
+      "pairedSpeedup": 6.397083103881114,
+      "pcmSha256": "fec9afb531a8e036eba1d81651896e1b2c1f78b0234dbadc8e7549563f09407b",
+      "exactPCM": true
+    },
+    {
+      "dsp": "wasm",
+      "effects": true,
+      "scenario": "dense",
+      "poolSize": 2048,
+      "activeVoices": 2048,
+      "times": {
+        "before": [
+          1309.8723000000064,
+          1191.4355999999789,
+          1223.331900000001,
+          1344.5656999999628,
+          1197.5894999999946
+        ],
+        "after": [
+          1269.0078999999823,
+          1199.7882999999892,
+          1171.6313999999984,
+          1377.8672000000006,
+          1188.2533999999832
+        ]
+      },
+      "pairCpuMilliseconds": [
+        2546,
+        2406,
+        2343,
+        2641,
+        2391
+      ],
+      "medians": {
+        "before": 1223.331900000001,
+        "after": 1199.7882999999892
+      },
+      "pairedSpeedup": 1.0078569941394753,
+      "pcmSha256": "466b7bce89df18c871d039bcec47b4db9afd7c75399c8eb344e4b5450f92fc7f",
+      "exactPCM": true
+    },
+    {
+      "dsp": "wasm",
+      "effects": true,
+      "scenario": "sparse-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          16.112500000017462,
+          18.53159999995478,
+          17.064500000036787,
+          12.85570000007283,
+          16.0630000000383
+        ],
+        "after": [
+          11.916799999980867,
+          16.524999999950523,
+          13.347000000001572,
+          9.32709999999497,
+          12.872100000102364
+        ]
+      },
+      "pairCpuMilliseconds": [
+        32,
+        31,
+        46,
+        15,
+        31
+      ],
+      "medians": {
+        "before": 16.112500000017462,
+        "after": 12.872100000102364
+      },
+      "pairedSpeedup": 1.2785270098175454,
+      "pcmSha256": "cb327e9b1cc7c114fa708c19f812bd70435d60b7017219d28aa8a776242b3f94",
+      "exactPCM": true
+    },
+    {
+      "dsp": "wasm",
+      "effects": true,
+      "scenario": "controls-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 8,
+      "times": {
+        "before": [
+          30.055300000080024,
+          23.846799999984796,
+          24.515499999986787,
+          19.898899999978312,
+          21.05839999998716
+        ],
+        "after": [
+          21.452499999992142,
+          19.912099999928614,
+          20.430899999992107,
+          16.19939999989583,
+          17.30169999991631
+        ]
+      },
+      "pairCpuMilliseconds": [
+        15,
+        47,
+        31,
+        109,
+        47
+      ],
+      "medians": {
+        "before": 23.846799999984796,
+        "after": 19.912099999928614
+      },
+      "pairedSpeedup": 1.217128952651417,
+      "pcmSha256": "b0e38fd9a88cc95da3b64458299307322a52ee1b3a2691099b16740b9aa8f0d0",
+      "exactPCM": true
+    },
+    {
+      "dsp": "wasm",
+      "effects": true,
+      "scenario": "silence-after-burst",
+      "poolSize": 2048,
+      "activeVoices": 0,
+      "times": {
+        "before": [
+          10.559799999980896,
+          10.31909999990603,
+          11.356500000038068,
+          8.41470000003028,
+          11.066999999980908
+        ],
+        "after": [
+          6.971499999963271,
+          6.944799999961106,
+          7.908899999922141,
+          5.200499999962631,
+          7.480900000089605
+        ]
+      },
+      "pairCpuMilliseconds": [
+        93,
+        15,
+        15,
+        31,
+        16
+      ],
+      "medians": {
+        "before": 10.559799999980896,
+        "after": 6.971499999963271
+      },
+      "pairedSpeedup": 1.485874323229441,
+      "pcmSha256": "6c715b73ab5a185c1a5cea7608db0bed1fc12ec87d079b973da7d7fa56dccbf3",
+      "exactPCM": true
+    }
+  ],
+  "dspHashes": {
+    "voice-mixer.wasm": {
+      "before": "8b5cde85f23070455e45da448cd5c57234173d3a16f1665be52eaa19841b453e",
+      "after": "8b5cde85f23070455e45da448cd5c57234173d3a16f1665be52eaa19841b453e"
+    },
+    "voice-mixer-simd.wasm": {
+      "before": "fb3046b306a523db482df1430ec384dbd497012376faffa16d0ea798d25427c5",
+      "after": "fb3046b306a523db482df1430ec384dbd497012376faffa16d0ea798d25427c5"
+    }
+  }
+}

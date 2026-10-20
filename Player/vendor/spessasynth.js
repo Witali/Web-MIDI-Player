@@ -1,3 +1,4 @@
+import { OrderedVoicePool } from "../active-voices.js";
 import { SampleDumpReceiver } from "../sample-dump.js";
 import { receiveMIDITuning, tuningFor, bindVoiceTuning, updateTuningVoices, selectTuning, tuningSnapshot, applyTuningSnapshot } from "../midi-tuning.js";
 import { StbVorbis } from "./stb-vorbis.js";
@@ -7096,7 +7097,7 @@ function controllerChange(controller, value, sendEvent = true) {
 			if (value < 64) {
 				let vc = 0;
 				if (this._voiceCount > 0) {
-					for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.isHeld && !v.isSostenuto) {
+					for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive && v.isHeld && !v.isSostenuto) {
 						v.isHeld = false;
 						v.releaseVoice(this.synthCore.currentTime);
 						if (++vc >= this._voiceCount) break;
@@ -7115,7 +7116,7 @@ function controllerChange(controller, value, sendEvent = true) {
 		case MIDIControllers.sostenutoPedal:
 			if (value >= 64 && previousValue < 8192) {
 				// Capture key-down voices, not later notes or sustain-only tails.
-				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.keyDown && v.releaseStartTime === Infinity) {
+				for (const v of this.synthCore.activeVoices) if (v.isActive && v.channel === this.channel && v.keyDown && v.releaseStartTime === Infinity) {
 					v.isSostenuto = true;
 					const key = this.keyPresses.find(k => k.midiNote === v.midiNote && k.noteID === v.noteID);
 					if (key) key.sostenuto = true;
@@ -7123,7 +7124,7 @@ function controllerChange(controller, value, sendEvent = true) {
 			} else if (value < 64) {
 				for (const key of this.keyPresses) key.sostenuto = false;
 				const sustain = this._midiControllers[MIDIControllers.sustainPedal] >= 8192;
-				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.isSostenuto) {
+				for (const v of this.synthCore.activeVoices) if (v.isActive && v.channel === this.channel && v.isSostenuto) {
 					v.isSostenuto = false;
 					if (v.isHeld && !sustain) { v.isHeld = false; v.releaseVoice(this.synthCore.currentTime); }
 				}
@@ -7970,7 +7971,7 @@ function setHold2(channel, enabled) {
 	if (channel.hold2Active === enabled) return;
 	channel.hold2Active = enabled;
 	const now = channel.synthCore.currentTime;
-	for (const v of channel.synthCore.voices) if (v.isActive && v.channel === channel.channel) {
+	for (const v of channel.synthCore.activeVoices) if (v.isActive && v.channel === channel.channel) {
 		if (!enabled) { resumeHold2(v, now); continue; }
 		v.hold2FreezeTime = now;
 		v.hold2OutputGain = v.volEnv.outputGain;
@@ -8005,7 +8006,7 @@ function retuneLegato(channel, key) {
 function setLegato(channel, enabled) {
 	if (enabled === !!channel.legatoState) return;
 	if (!enabled) { channel.legatoState = null; return; }
-	const all = channel.synthCore.voices.filter(v => v.isActive && v.channel === channel.channel);
+	const all = channel.synthCore.activeVoices.filter(v => v.isActive && v.channel === channel.channel);
 	const active = channel.keyPresses.findLast(key => all.some(v => v.midiNote === key.midiNote && v.noteID === key.noteID && v.keyDown && !v.isInRelease));
 	const voices = active ? all.filter(v => v.midiNote === active.midiNote && v.noteID === active.noteID && !v.isInRelease) : [];
 	channel.legatoState = { active, voices };
@@ -8055,7 +8056,7 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 	this.playingNotes[midiNote] = true;
 	if (!this._midiParameters.polyMode && !this.legatoState) {
 		// Changing a mono voice must not erase still-owed Note Off identities.
-		for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.keyDown && !v.isInRelease) { v.keyDown = false; v.releaseVoice(this.synthCore.currentTime); }
+		for (const v of this.synthCore.activeVoices) if (v.isActive && v.channel === this.channel && v.keyDown && !v.isInRelease) { v.keyDown = false; v.releaseVoice(this.synthCore.currentTime); }
 		this.lastMonoNote = midiNote;
 		this.lastMonoVelocity = velocity;
 	}
@@ -8129,7 +8130,7 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 		if (voice.exclusiveClass !== 0 && this._midiParameters.polyMode) {
 			let vc = 0;
 			if (this._voiceCount > 0) {
-				for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.exclusiveClass === voice.exclusiveClass && v.hasRendered) {
+				for (const v of this.synthCore.activeVoices) if (v.isActive && v.channel === this.channel && v.exclusiveClass === voice.exclusiveClass && v.hasRendered) {
 					v.exclusiveRelease(this.synthCore.currentTime);
 					if (++vc >= this._voiceCount) break;
 				}
@@ -8218,7 +8219,7 @@ function noteOff(midiNote, velocity = 64) {
 		else this.noteOn(nextKey.midiNote, nextKey.velocity, false, nextKey);
 	}
 	if (this._voiceCount > 0 && !returnToKey) {
-		for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && v.noteID === noteID && !v.isInRelease) {
+		for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && v.noteID === noteID && !v.isInRelease) {
 			v.keyDown = false; v.releaseVelocity = velocity;
 			if (sustain || v.isSostenuto) v.isHeld = true;
 			else v.releaseVoice(this.synthCore.currentTime);
@@ -13166,8 +13167,8 @@ var MIDIChannel = class {
 		if (force) {
 			let vc = 0;
 			if (this._voiceCount > 0) {
-				for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive) {
-					v.isActive = false;
+				for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive) {
+					this.synthCore.voicePool.retire(v);
 					if (++vc >= this._voiceCount) break;
 				}
 			}
@@ -13175,7 +13176,7 @@ var MIDIChannel = class {
 		} else {
 			let vc = 0;
 			if (this._voiceCount > 0) {
-				for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive) {
+				for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive) {
 					v.releaseVoice(this.synthCore.currentTime);
 					if (++vc >= this._voiceCount) break;
 				}
@@ -13230,7 +13231,7 @@ var MIDIChannel = class {
 	polyPressure(midiNote, pressure) {
 		let vc = 0;
 		if (this._voiceCount > 0) {
-			for (const v of this.synthCore.voices) if (v.isActive && v.channel === this.channel && v.midiNote === midiNote) {
+			for (const v of this.synthCore.activeVoices) if (v.isActive && v.channel === this.channel && v.midiNote === midiNote) {
 				v.pressure = pressure;
 				this.computeModulators(v, 0, ModulatorControllerSources.polyPressure);
 				if (++vc >= this._voiceCount) break;
@@ -13290,7 +13291,7 @@ var MIDIChannel = class {
 		let vc = 0;
 		// A fast release does not cancel the sender's still-owed Note Offs.
 		if (this._voiceCount > 0) {
-			for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && (noteID === undefined || v.noteID === noteID)) {
+			for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive && v.midiNote === midiNote && (noteID === undefined || v.noteID === noteID)) {
 				if (velocity !== undefined) v.releaseVelocity = velocity;
 				resumeHold2(v, this.synthCore.currentTime);
 				v.keyDown = false;
@@ -13344,7 +13345,7 @@ var MIDIChannel = class {
 		if (realtime) {
 			let vc = 0;
 			if (this._voiceCount > 0) {
-				for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive) {
+				for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive) {
 					v.generators[gen] = value;
 					this.computeModulators(v);
 					if (++vc >= this._voiceCount) break;
@@ -13361,7 +13362,7 @@ var MIDIChannel = class {
 		this.generators.offsetsEnabled = true;
 		let vc = 0;
 		if (this._voiceCount > 0) {
-			for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive) {
+			for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive) {
 				this.computeModulators(v);
 				if (++vc >= this._voiceCount) break;
 			}
@@ -13385,7 +13386,7 @@ var MIDIChannel = class {
 	computeModulatorsAll(sourceUsesCC, sourceIndex) {
 		let vc = 0;
 		if (this._voiceCount > 0) {
-			for (const v of this.synthCore.voices) if (v.channel === this.channel && v.isActive) {
+			for (const v of this.synthCore.activeVoices) if (v.channel === this.channel && v.isActive) {
 				this.computeModulators(v, sourceUsesCC, sourceIndex);
 				if (++vc >= this._voiceCount) break;
 			}
@@ -13453,6 +13454,7 @@ function setSystemParameterInternal(parameter, value) {
 				SpessaLog.warn(`Allocating ${cap - this.voices.length} new voices!`);
 				this.allocateNewVoices(cap - this.voices.length);
 			}
+			this.voicePool.rebuild();
 			break;
 		}
 		case "keyShift": if (prev !== value) this.stopAllChannels(true);
@@ -19839,6 +19841,8 @@ var SynthesizerCore = class {
 	* Voices of this synthesizer, as a fixed voice pool.
 	*/
 	voices = [];
+	voicePool = new OrderedVoicePool(this.voices);
+	get activeVoices() { this.voicePool.prune(); return this.voicePool.active; }
 	/**
 	* All MIDI channels of the synthesizer.
 	*/
@@ -20109,30 +20113,23 @@ var SynthesizerCore = class {
 	* If none available, will assign priorities.
 	*/
 	assignVoice() {
-		for (let i = 0; i < this.systemParameters.voiceCap; i++) {
-			const v = this.voices[i];
-			if (!v.isActive) {
-				v.priority = Infinity;
-				return v;
-			}
+		let voice = this.voicePool.take(this.systemParameters.voiceCap);
+		if (!voice && this.systemParameters.autoAllocateVoices) {
+			// Reuse retained storage when a previous cap/checkpoint left room.
+			const cap = this.systemParameters.voiceCap + 1;
+			if (cap > this.voices.length) this.allocateNewVoices(cap - this.voices.length);
+			this.systemParameters.voiceCap = cap;
+			voice = this.voicePool.take(cap);
 		}
-		if (this.systemParameters.autoAllocateVoices) {
-			SpessaLog.info(`%cAllocating a new voice, total count %c${this.systemParameters.voiceCap + 1}.`, ConsoleColors.info, ConsoleColors.value);
-			this.allocateNewVoices(1);
-			const v = this.voices[this.voices.length - 1];
-			this.systemParameters.voiceCap++;
-			v.priority = Infinity;
-			return v;
+		if (!voice) {
+			this.assignVoicePriorities();
+			voice = this.activeVoices[0];
+			for (const current of this.activeVoices) if (current.priority < voice.priority) voice = current;
 		}
-		this.assignVoicePriorities();
-		let lowest = this.voices[0];
-		for (let i = 0; i < this.systemParameters.voiceCap; i++) {
-			const v = this.voices[i];
-			if (v.priority < lowest.priority) lowest = v;
-		}
-		lowest.priority = Infinity;
-		return lowest;
+		voice.priority = Infinity;
+		return voice;
 	}
+
 	/**
 	* Stops all notes on all channels.
 	* @param force if true, all notes are stopped immediately, otherwise they are stopped gracefully.
@@ -20170,6 +20167,7 @@ var SynthesizerCore = class {
 	}
 	destroySynthProcessor() {
 		this.voices.length = 0;
+		this.voicePool.clear();
 		for (const c of this.midiChannels) c.destroy();
 		this.clearCache();
 		this.midiChannels.length = 0;
@@ -20298,17 +20296,21 @@ var SynthesizerCore = class {
 		}
 		for (const c of this.midiChannels) c.clearVoiceCount();
 		this._voiceCount = 0;
-		const cap = this.systemParameters.voiceCap;
-		const outputCount = outputs.length;
-		for (let i = 0; i < cap; i++) {
-			const v = this.voices[i];
-			const ch = this.midiChannels[v.channel];
-			if (!v.isActive) continue;
-			const outputIndex = v.channel % outputCount;
+		const active = this.voicePool.active, activeCount = active.length, outputCount = outputs.length;
+		let kept = 0;
+		for (let i = 0; i < activeCount; i++) {
+			const v = active[i];
+			if (!v.isActive) { v.poolListed = false; this.voicePool.retire(v); continue; }
+			const ch = this.midiChannels[v.channel], outputIndex = v.channel % outputCount;
 			ch.renderVoice(v, this.currentTime, outputs[outputIndex][0], outputs[outputIndex][1], startIndex, sampleCount);
+			// Preserve the existing end-of-block voice-count convention.
 			ch.voiceCount++;
 			this._voiceCount++;
+			if (v.isActive) { if (kept !== i) active[kept] = v; kept++; }
+			else { v.poolListed = false; this.voicePool.retire(v); }
 		}
+		active.length = kept;
+		this.voicePool.dirty = false;
 		if (this.voiceDSP) {
 			// The sample cache may have grown while voices were rendered.
 			effectsLeft = this.voiceDSP.left;
@@ -20686,7 +20688,7 @@ var SynthesizerCore = class {
 	* @protected
 	*/
 	allocateNewVoices(count) {
-		for (let i = 0; i < count; i++) this.voices.push(new Voice(this.sampleRate, this.maxBufferSize));
+		for (let i = 0; i < count; i++) { const voice = new Voice(this.sampleRate, this.maxBufferSize); this.voices.push(voice); this.voicePool.add(voice); }
 	}
 	registerInsertionProcessor(proc) {
 		const p = new proc(this.sampleRate, this.maxBufferSize);
@@ -20746,8 +20748,7 @@ var SynthesizerCore = class {
 		SpessaLog.info("%cPolyphony exceeded, stealing voices", ConsoleColors.warn);
 		this.lastPriorityAssignmentTime = this.currentTime;
 		const cap = this.systemParameters.voiceCap;
-		for (let i = 0; i < cap; i++) {
-			const voice = this.voices[i];
+		for (const voice of this.activeVoices) {
 			voice.priority = 0;
 			if (this.midiChannels[voice.channel].drumChannel) voice.priority += 5;
 			if (voice.isInRelease) voice.priority -= 5;

@@ -74,6 +74,7 @@ export function captureSynthCheckpoint(synth, sequence, midi) {
     // the arena/cache allocator would invalidate samples allocated after A.
     for (let i = poolLength; i < pool.length; i++) pool[i].isActive = false;
     core.systemParameters.voiceCap = pool.length;
+    core.voicePool.rebuild();
     core.randomGenerator.state = randomState;
     native?.restore();
   } };

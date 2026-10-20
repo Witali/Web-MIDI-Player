@@ -14,7 +14,7 @@ export function tuningFor(core,channel,note){
 }
 export function bindVoiceTuning(core,channel,voice){voice.mtsTuning=tuningFor(core,channel,voice.midiNote);voice.mtsScale=channel.mtsScale[voice.midiNote%12];}
 export function updateTuningVoices(core,channel,notes){
- for(const voice of core.voices)if(voice.isActive&&voice.channel===channel.channel&&(!notes||notes.has(voice.midiNote)))voice.mtsTuning=tuningFor(core,channel,voice.midiNote);
+ for(const voice of core.activeVoices)if(voice.isActive&&voice.channel===channel.channel&&(!notes||notes.has(voice.midiNote)))voice.mtsTuning=tuningFor(core,channel,voice.midiNote);
 }
 export function selectTuning(core,channel,parameter,value){
  // Bank0/program0 is an initially available equal-tempered program. Other
@@ -63,7 +63,7 @@ export function receiveMIDITuning(core,data,offset,log){
  if(kind===8||kind===9){
   if(data.length!==(kind===8?20:32)||data[4]>3){reject('Invalid Scale/Octave length or reserved channel-mask bits.');return;}
   const offsets=scale(data,7,kind===9),mask=(data[4]<<14)|(data[5]<<7)|data[6];
-  for(const channel of channels(core,mask,offset)){channel.mtsScale.set(offsets);if(realTime)for(const voice of core.voices)if(voice.isActive&&voice.channel===channel.channel)voice.mtsScale=offsets[voice.midiNote%12];}
+  for(const channel of channels(core,mask,offset)){channel.mtsScale.set(offsets);if(realTime)for(const voice of core.activeVoices)if(voice.isActive&&voice.channel===channel.channel)voice.mtsScale=offsets[voice.midiNote%12];}
   done(`${realTime?'Real-Time':'Non-Real-Time'} Scale/Octave mask ${mask}`);return;
  }
  reject('Unknown tuning sub-ID; no tuning changed.');

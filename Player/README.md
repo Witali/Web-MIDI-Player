@@ -49,6 +49,12 @@ translating the parsed song to an equivalent fixed-tempo clock in memory.
 Tempo events do not change SMPTE timing; ordinary PPQN tempo maps are retained.
 The source file is unchanged, and seeking uses the same corrected timeline.
 
+Rendering and MIDI control updates traverse the active voices in original pool
+order, including held/releasing notes. Free-slot allocation preserves the prior
+first-free policy and exact PCM. Sparse passages after a dense burst avoid
+rescanning retained inactive storage; measurements and limits are in
+[DSP-PERFORMANCE.md](DSP-PERFORMANCE.md).
+
 Playback has no fixed voice-count limit: the SoundFont voice pool grows as
 needed, and the compact WASM preview mixes all sounding notes without the ROM
 compiler's four-voice allocator. Notes and release tails can overlap, including
