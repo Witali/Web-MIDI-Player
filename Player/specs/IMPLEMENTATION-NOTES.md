@@ -120,9 +120,8 @@ future RPNs default to LSB steps unless otherwise specified. RPN 0 carries at
 100 cents rather than 128. Each supported parameter has its own current value;
 returning to it never reuses a different parameter's last Data Entry. Values
 saturate at representable endpoints, including RPN 0's 127:127 endpoint; at its
-highest MSB the remaining representable cents are retained. RPN 3/4 still report
-unsupported tuning-selection semantics; their documented step width alone does
-not establish tuning-bank support.
+highest MSB the remaining representable cents are retained. RPN 3/4 tuning
+selection was added later; see the MIDI Tuning Standard section below.
 
 RP-018 leaves NRPN steps to the manufacturer. This receiver's policy for its
 existing NRPNs is one MSB unit for part/drum 7-bit parameters and one LSB unit
@@ -802,3 +801,68 @@ all five sources on both slots and Variation, signed depth, base-state retention
 inactive System controls, audible stored-tail modulation without voices, nonlinear
 drum bypass, resets, F0/F7, Hold2, changing types, exact seeks/checkpoints on all
 three DSPs, selective loading through the actual Worker and effects:false.
+
+## MIDI Tuning Standard banks, resolution and real-time semantics (2026-10-20)
+
+Primary reference: MIDI Association's MIDI Tuning Updated Specification,
+CA-020/CA-021/RP-020, pp.1-8. Its official source, download, size and hash are
+recorded in specs/README.md. MIDI1.0 pp.48-50 also defines the original format.
+The updated document resolves the original dump checksum ambiguity and adds
+banked/key-based/scale formats and Non-Real-Time forms.
+
+The decoder now accepts the complete original Bulk Dump01, banked Key-Based
+Dump04, Scale/Octave Dumps05/06, Single Note02/07 and channel Scale/Octave08/09.
+Frequency words retain exact1/16384-semitone units. All-7F is a no-change word;
+it does not erase an existing key or reset it to equal temperament. Repeated key
+entries execute in payload order. Lengths/counts, framing, seven-bit values,
+reserved channel-mask bits and allowed RT/NRT headers are validated before any
+state mutation. Later dumps require the specified XOR checksum over the message
+excluding F0, checksum and F7. For legacy01, the decoder follows p.6's permitted
+policy of ignoring its historically ambiguous checksum while checking its size.
+Names and all128 key frequencies are retained, including inactive programs.
+
+Tuning memory is independent of the selected instrument and its Bank Select.
+RPN3/4 select per-receiver-part tuning program/bank, use seven-bit MSB data and
+RP-018 increment/decrement steps, and ignore unavailable selections. Data Entry
+LSB does not reload an unchanged tuning program. Bank0/program0 starts as equal
+temperament; other programs become available when received. Additional banks
+allocate individual128-key Float64 tables on demand. Unset frequencies use an
+internal NaN sentinel, since Scale/Octave dumps can legitimately tune key0 below
+MIDI pitch0, including exactly-1. Full system reset clears the tuning store and
+restores the default selection/offsets; CC121 preserves them. This reset/storage
+policy is documented player behavior, not a hardware memory-persistence claim.
+
+Each voice retains its effective tuning and direct scale offset at Note On.
+RT changes update matching held/released voices without recreating notes,
+samples, envelopes or phase. NRT messages update stored data/future notes and
+leave existing voice values intact. A tuning-program/bank selection applies its
+new current preset immediately, including to sounding notes. Channel scale
+messages replace their earlier offsets rather than accumulate them, and apply
+relative to the selected tuning preset. All16 channel-mask bits, independent
+source ports and custom receive-channel routing are handled. Tuning memory is
+device-wide; direct channel masks address only their source port's channels.
+
+Two-byte Scale/Octave retains fractional cents (100/8192 per data step). The
+voice pitch cache now uses full precision for MTS-active voices, so consecutive
+sub-cent changes reach audio even within the same integer cent. Ordinary voices
+keep their earlier cache behavior. A tuned Note On may choose a different SF2
+sample region; its original MIDI fallback target remains separate, so subsequent
+legato/return/program changes cannot inherit that region-selection pitch offset.
+Sample selection clamps to SF2's0..127 key range while tuning itself keeps its
+full frequency range. Original Note On/Off identity is unchanged.
+
+Stored tables, selected bank/program and channel scale offsets survive ordinary
+snapshots; effective voice state, sparse allocations and tables also survive exact
+seek/checkpoints. Both catalog builds include the standalone decoder. Requests00
+and03 remain explicitly unsupported until a MIDI output is supplied; they are not
+misreported as successful data imports. Other proprietary patch/sample dump
+families still require their own decoders and are not implied by MTS support.
+
+Evidence: tests/midi-tuning.test.mjs checks exact words/no-change/duplicate keys,
+all dump forms and checksums, names, negative and fractional offsets, independent
+program/bank selection, RPN increments/LSBs, RT/NRT voice differences, exact PCM
+against independent channel fine tuning on all three DSPs, successive sub-cent
+pitch updates, additive preset/scale behavior, masks/ports/receive routing,
+malformed messages/device IDs, snapshots/reset, legato phase/targets, F0/F7,
+pedals, exact seeks/checkpoints, and actual Worker selective sample preparation.
+The existing transpose fixture now explicitly selects its MTS tuning program.

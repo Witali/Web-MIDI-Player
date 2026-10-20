@@ -65,7 +65,7 @@ test('host rate scales all SMPTE clocks while tempo meta events remain ineffecti
 
 test('transpose matches independent SoundFont pitch generators, keeps portamento/legato and sample regions, and leaves percussion unchanged', async () => {
   const bytes = midiTracks([
-    [[0, 0xc0, 81], [0, 0xf0, 11, 0x7f, 0x7f, 8, 2, 81, 1, 60, 62, 0, 0, 0xf7], [0, 0x90, 60, 100], [60, 0xb0, 65, 127], [0, 0xb0, 5, 50], [0, 0xb0, 68, 127],
+    [[0, 0xc0, 81], [0, 0xf0, 11, 0x7f, 0x7f, 8, 2, 81, 1, 60, 62, 0, 0, 0xf7], [0, 0xb0, 101, 0], [0, 0xb0, 100, 3], [0, 0xb0, 6, 81], [0, 0x90, 60, 100], [60, 0xb0, 65, 127], [0, 0xb0, 5, 50], [0, 0xb0, 68, 127],
      [60, 0x90, 67, 90], [60, 0x80, 67, 23], [60, 0x80, 60, 64], [0, 0xb0, 68, 0], end],
     [[0, 255, 33, 1, 7], [0, 0xc0, 73], [0, 0x90, 69, 100], [120, 0xe0, 0, 80], [120, 0x80, 69, 127], end],
     [[0, 0x99, 36, 100], [120, 0x99, 46, 100], [120, 0x89, 46, 64], end]

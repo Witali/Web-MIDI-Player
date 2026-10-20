@@ -1,3 +1,4 @@
+import { receiveMIDITuning, tuningFor, bindVoiceTuning, updateTuningVoices, selectTuning, tuningSnapshot, applyTuningSnapshot } from "../midi-tuning.js";
 import { StbVorbis } from "./stb-vorbis.js";
 //#region src/utils/byte_functions/big_endian.ts
 /**
@@ -1174,6 +1175,8 @@ const RegisteredParameterTypes = {
 	pitchWheelRange: 0,
 	fineTuning: 1,
 	coarseTuning: 2,
+	tuningProgram: 3,
+	tuningBank: 4,
 	modulationDepth: 5,
 	resetParameters: 16383
 };
@@ -1656,6 +1659,11 @@ var MIDIUtils = class MIDIUtils {
 				parameter: "keyShift",
 				value: (value >> 7) - 64
 			};
+			case RegisteredParameterTypes.tuningProgram:
+			case RegisteredParameterTypes.tuningBank: return {
+				type: "Channel MIDI Param", channel,
+				parameter: rpn === 3 ? "tuningProgram" : "tuningBank", value: value >> 7
+			};
 			case RegisteredParameterTypes.modulationDepth: return {
 				type: "Channel MIDI Param",
 				channel,
@@ -1819,6 +1827,8 @@ var MIDIUtils = class MIDIUtils {
 			case "pressure": return [MIDIMessage.channelPressure(ticks, channel, value)];
 			case "pitchWheel": return [MIDIMessage.pitchWheel(ticks, channel, value)];
 			case "pitchWheelRange": return MIDIMessage.registeredParameter(ticks, channel, RegisteredParameterTypes.pitchWheelRange, (Math.floor(value) << 7) | Math.round((value - Math.floor(value)) * 100));
+			case "tuningProgram": return MIDIMessage.registeredParameter(ticks, channel, RegisteredParameterTypes.tuningProgram, value << 7);
+			case "tuningBank": return MIDIMessage.registeredParameter(ticks, channel, RegisteredParameterTypes.tuningBank, value << 7);
 			case "modulationDepth": return MIDIMessage.registeredParameter(ticks, channel, RegisteredParameterTypes.modulationDepth, Math.floor(value * 1.28));
 			case "rxChannel": return system === "xg" ? [MIDIUtils.xgMessage(ticks, 8, channel, 4, [value])] : [MIDIUtils.gsMessage(ticks, 64, 16 | gsChannel, 2, [value])];
 			case "polyMode": return value ? [MIDIMessage.controllerChange(ticks, channel, MIDIControllers.polyModeOn, 0)] : [MIDIMessage.controllerChange(ticks, channel, MIDIControllers.monoModeOn, 0)];
@@ -5268,6 +5278,9 @@ function resetChannelInternal(sendCCEvents = true) {
 	this.setMIDIParameter("velocitySenseDepth", 64);
 	this.pitchWheel(8192);
 	this.octaveTuning.fill(0);
+	this.mtsScale.fill(0);
+	this.setMIDIParameter("tuningProgram", 0);
+	this.setMIDIParameter("tuningBank", 0);
 	this.lastPortamentoNote = this.channelSystem === "xg" ? 60 : -1;
 	this.resetDrumParams();
 	this.resetGeneratorOverrides();
@@ -6062,6 +6075,7 @@ var KeyModifierManager = class {
 //#endregion
 //#region src/synthesizer/audio_engine/synthesizer_snapshot.ts
 function applySnapshot$1(snapshot) {
+	if (snapshot.midiTuning) applyTuningSnapshot(this, snapshot.midiTuning);
 	this.keyModifierManager.setMappings(snapshot.keyMappings);
 	while (this.midiChannels.length < snapshot.midiChannels.length) this.createMIDIChannel(true);
 	for (let i = 0; i < snapshot.midiChannels.length; i++) this.midiChannels[i].applySnapshot(snapshot.midiChannels[i]);
@@ -6083,6 +6097,7 @@ function getSynthesizerSnapshot() {
 		lockedMIDIParameters: { ...this.lockedMIDIParameters },
 		systemParameters: { ...this.systemParameters },
 		midiChannels: this.midiChannels.map((c) => c.getSnapshot()),
+		midiTuning: tuningSnapshot(this),
 		keyMappings: this.keyModifierManager.getMappings(),
 		reverbProcessor: this.reverbProcessor.getSnapshot(),
 		chorusProcessor: this.chorusProcessor.getSnapshot(),
@@ -6774,10 +6789,10 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	const xgRoute = core.xgInsertion?.route(this, voice);
 	const prePart = xgRoute?.voiceParameters(voice);
 	let targetKey = voice.targetKey;
-	let cents = voice.pitchOffset + modulated[GeneratorTypes.fineTune] + this.octaveTuning[targetKey] + this.currentTuning;
+	let cents = voice.pitchOffset + voice.mtsScale + modulated[GeneratorTypes.fineTune] + this.octaveTuning[targetKey] + this.currentTuning;
 	let semitones = modulated[GeneratorTypes.coarseTune];
-	const tuning = core.tunings[this.preset.program * 128 + voice.midiNote];
-	if (tuning !== -1) {
+	const tuning = voice.mtsTuning;
+	if (tuning !== null) {
 		targetKey = Math.trunc(tuning);
 		semitones += tuning - targetKey;
 	}
@@ -6827,7 +6842,8 @@ function renderVoice(voice, timeNow, outputL, outputR, startIndex, sampleCount) 
 	}
 	volumeExcursionCentibels -= voice.resonanceOffset;
 	const centsTotal = cents + semitones * 100;
-	const centsRounded = centsTotal | 0;
+	// Retain full MTS resolution; unchanged ordinary voices keep their old cache.
+	const centsRounded = voice.mtsTuning !== null || voice.mtsScale !== 0 ? centsTotal : centsTotal | 0;
 	if (centsRounded !== voice.tuningCents) {
 		voice.tuningCents = centsRounded;
 		voice.tuningRatio = Math.pow(2, centsTotal / 1200);
@@ -7283,6 +7299,8 @@ function dataEntry(controller = MIDIControllers.dataEntryMSB, value = this._midi
 			case 0: { const cents = Math.round(this._midiParameters.pitchWheelRange * 100); const coarse = Math.min(127, Math.floor(cents / 100)); current = (coarse << 7) | Math.min(127, cents - coarse * 100); break; }
 			case 1: current = Math.round(this._midiParameters.fineTune * 81.92 + 8192); break;
 			case 2: current = (this._midiParameters.keyShift + 64) << 7; break;
+			case 3: current = this._midiParameters.tuningProgram << 7; break;
+			case 4: current = this._midiParameters.tuningBank << 7; break;
 			case 5: current = Math.round(this._midiParameters.modulationDepth * 1.28); break;
 		}
 	} else if (msb === NonRegisteredMSB.partParameter) {
@@ -7342,6 +7360,14 @@ function dataEntry(controller = MIDIControllers.dataEntryMSB, value = this._midi
 				const cents = (dataValue - 8192) / 81.92;
 				this.setMIDIParameter("fineTune", cents);
 				SpessaLog.coolInfo(`Fine tuning for ${this.channel}`, Math.round(cents), "cents");
+				break;
+			}
+			case RegisteredParameterTypes.tuningProgram:
+			case RegisteredParameterTypes.tuningBank: {
+				if (controller === MIDIControllers.dataEntryLSB) break;
+				const parameter = rpnValue === 3 ? "tuningProgram" : "tuningBank";
+				const selected = selectTuning(this.synthCore, this, parameter, dataValue >> 7);
+				SpessaLog.gmInfo(selected ? "MIDI Tuning selection" : "MIDI Tuning unavailable selection ignored", [parameter, dataValue >> 7]);
 				break;
 			}
 			case RegisteredParameterTypes.modulationDepth: {
@@ -7962,6 +7988,7 @@ function retuneLegato(channel, key) {
 		const previousTarget = v.targetKey;
 		v.targetKey += key.midiNote - v.midiNote;
 		v.midiNote = key.midiNote; v.noteID = key.noteID; v.keyDown = true;
+		bindVoiceTuning(channel.synthCore, channel, v);
 		v.isHeld = false; v.isSostenuto = !!key.sostenuto;
 		v.releaseStartTime = Infinity;
 		v.portamentoFromKey = portamento && time > 0 && !channel._drumChannel ? previousTarget : -1;
@@ -7996,9 +8023,8 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 	let realVelocity = clamp(Math.floor(velocity * (this._midiParameters.velocitySenseDepth / 64) + (this._midiParameters.velocitySenseOffset - 64) * 2), 0, 127);
 	let soundBankNote = midiNote + this.currentKeyShift;
 	if (midiNote > 127 || midiNote < 0) return;
-	const program = this.preset.program;
-	const tune = this.synthCore.tunings[program * 128 + midiNote];
-	if (tune >= 0) soundBankNote = Math.trunc(tune);
+	const tune = tuningFor(this.synthCore, this, midiNote);
+	if (tune !== null) soundBankNote = Math.max(0, Math.min(127, Math.floor(tune)));
 	if (emit && this.legatoState) {
 		logicalNote = { midiNote, velocity, noteID: this.noteOnID[midiNote]++ };
 		this.keyPresses.push(logicalNote); this.playingNotes[midiNote] = true;
@@ -8065,9 +8091,12 @@ function noteOn(midiNote, velocity, emit = true, logicalNote = undefined) {
 		const voice = this.synthCore.assignVoice();
 		const now = this.synthCore.currentTime;
 		voice.setup(now, this.channel, midiNote, noteID);
+		bindVoiceTuning(this.synthCore, this, voice);
 		assigned?.push(voice);
 		voice.wavetable = voice.oscillators[this._systemParameters.interpolationType ?? this.synthCore.systemParameters.interpolationType];
-		voice.targetKey = cached.targetKey;
+		// Sample selection may use a retuned key, but the fallback/legato target
+		// must retain the original MIDI key (unless SF2 forces a fixed key).
+		voice.targetKey = tune !== null && cached.targetKey === soundBankNote ? midiNote + this.currentKeyShift : cached.targetKey;
 		voice.velocity = cached.velocity;
 		voice.releaseVelocityProfile = cached.releaseVelocityProfile;
 		voice.generators.set(cached.generators);
@@ -12615,6 +12644,7 @@ function getChannelSnapshot() {
 		lockedMIDIParameters: { ...this.lockedMIDIParameters },
 		systemParameters: { ...this._systemParameters },
 		octaveTuning: this.octaveTuning.slice(),
+		mtsScale: this.mtsScale.slice(),
 		perNotePitch: this.perNotePitch,
 		drumParams: this.drumParams.map((d) => ({ ...d })),
 		drumChannel: this._drumChannel,
@@ -12633,6 +12663,7 @@ function applySnapshot(snapshot) {
 	for (let i = 0; i < 128; i++) this.lockController(i, snapshot.lockedControllers[i]);
 	this.pitchWheels.set(snapshot.pitchWheels);
 	this.octaveTuning.set(snapshot.octaveTuning);
+	this.mtsScale.set(snapshot.mtsScale ?? new Float64Array(12));
 	this.perNotePitch = snapshot.perNotePitch;
 	this.generators.offsets.set(snapshot.generators.offsets);
 	this.generators.overrides.set(snapshot.generators.overrides);
@@ -12654,6 +12685,8 @@ const DEFAULT_CHANNEL_MIDI_PARAMETERS = {
 	pitchWheelRange: 2,
 	pressure: 0,
 	modulationDepth: 50,
+	tuningProgram: 0,
+	tuningBank: 0,
 	rxChannel: 0,
 	polyMode: true,
 	keyShift: 0,
@@ -12677,6 +12710,10 @@ function setMIDIParameterInternal$1(parameter, value) {
 	if (this.lockedMIDIParameters[parameter]) return;
 	this._midiParameters[parameter] = value;
 	switch (parameter) {
+		case "tuningProgram":
+		case "tuningBank":
+			updateTuningVoices(this.synthCore, this);
+			break;
 		case "pitchWheel":
 			this.computeModulatorsAll(0, ModulatorControllerSources.pitchWheel);
 			break;
@@ -12892,6 +12929,7 @@ var MIDIChannel = class {
 	* Note: Repeated every 12 notes.
 	*/
 	octaveTuning = new Int8Array(128);
+	mtsScale = new Float64Array(12);
 	/**
 	* https://amei.or.jp/midistandardcommittee/Recommended_Practice/e/rp15.pdf
 	* Reset controllers according to RP-15 Recommended Practice.
@@ -13551,19 +13589,6 @@ var SoundBankManager = class {
 //#endregion
 //#region src/synthesizer/audio_engine/system_exclusive/universal.ts
 /**
-* Calculates frequency for MIDI Tuning Standard.
-* @param byte1 The first byte (midi note).
-* @param byte2 The second byte (most significant bits).
-* @param byte3 The third byte (the least significant bits).
-* @return An object containing the MIDI note and the cent tuning value.
-*/
-function getTuning(byte1, byte2, byte3) {
-	const midiNote = byte1;
-	const fraction = byte2 << 7 | byte3;
-	if (byte1 === 127 && byte2 === 127 && byte3 === 127) return -1;
-	return midiNote + fraction * 61e-6;
-}
-/**
 * Handles a Universal system exclusive (realtime/non-realtime)
 * @param syx
 * @param channelOffset
@@ -13676,54 +13701,7 @@ function universalSystemExclusive(syx, channelOffset = 0) {
 					break;
 			}
 			break;
-		case 8: {
-			let currentMessageIndex = 4;
-			switch (syx[3]) {
-				case 1: {
-					const program = syx[currentMessageIndex++];
-					const tuningName = readBinaryString(syx, 16, currentMessageIndex);
-					currentMessageIndex += 16;
-					if (syx.length < 384) {
-						SpessaLog.warn(`The Bulk Tuning Dump is too short! (${syx.length} bytes, at least 384 are expected)`);
-						return;
-					}
-					for (let midiNote = 0; midiNote < 128; midiNote++) this.tunings[program * 128 + midiNote] = getTuning(syx[currentMessageIndex++], syx[currentMessageIndex++], syx[currentMessageIndex++]);
-					SpessaLog.gmInfo("Bulk Tuning Dump", `${tuningName}, program ${program}`);
-					break;
-				}
-				case 2:
-				case 7: {
-					if (syx[3] === 7) currentMessageIndex++;
-					const tuningProgram = syx[currentMessageIndex++];
-					const numberOfChanges = syx[currentMessageIndex++];
-					for (let i = 0; i < numberOfChanges; i++) {
-						const midiNote = syx[currentMessageIndex++];
-						this.tunings[tuningProgram * 128 + midiNote] = getTuning(syx[currentMessageIndex++], syx[currentMessageIndex++], syx[currentMessageIndex++]);
-					}
-					SpessaLog.gmInfo("Single Note Tuning", `program: ${tuningProgram}. Keys affected: ${numberOfChanges}`);
-					break;
-				}
-				case 9:
-				case 8: {
-					const newOctaveTuning = new Int8Array(12);
-					if (syx[3] === 8) for (let i = 0; i < 12; i++) newOctaveTuning[i] = syx[7 + i] - 64;
-					else for (let i = 0; i < 24; i += 2) {
-						const tuning = (syx[7 + i] << 7 | syx[8 + i]) - 8192;
-						newOctaveTuning[i / 2] = Math.floor(tuning / 81.92);
-					}
-					if ((syx[4] & 1) === 1) this.midiChannels[14 + channelOffset].setOctaveTuning(newOctaveTuning);
-					if ((syx[4] >> 1 & 1) === 1) this.midiChannels[15 + channelOffset].setOctaveTuning(newOctaveTuning);
-					for (let i = 0; i < 7; i++) if ((syx[5] >> i & 1) === 1) this.midiChannels[7 + i + channelOffset].setOctaveTuning(newOctaveTuning);
-					for (let i = 0; i < 7; i++) if ((syx[6] >> i & 1) === 1) this.midiChannels[i + channelOffset].setOctaveTuning(newOctaveTuning);
-					SpessaLog.gmInfo("Octave Scale Tuning", newOctaveTuning.join(" "));
-					break;
-				}
-				default:
-					SpessaLog.gmFail("MIDI Tuning Standard", syx);
-					break;
-			}
-			break;
-		}
+		case 8: receiveMIDITuning(this, syx, channelOffset, SpessaLog); break;
 		default: SpessaLog.gmFail("Universal System Exclusive", syx);
 	}
 }
@@ -19905,11 +19883,12 @@ var SynthesizerCore = class {
 	keyModifierManager = new KeyModifierManager();
 	sampleRate;
 	/**
-	* This.tunings[program * 128 + key] = midiNote,cents (fraction)
-	* All MIDI Tuning Standard tunings, 128 keys for each of 128 programs.
+	* This.tunings[program * 128 + key] = absolute fractional MIDI pitch (NaN = unset)
+	* Bank0 tuning storage, 128 keys for each of128 programs; other banks are sparse.
 	* -1 means no change.
 	*/
-	tunings = new Float32Array(16384).fill(-1);
+	tunings = new Float64Array(16384).fill(NaN);
+	tuningPrograms = new Map();
 	/**
 	* An object indicating if a Global MIDI parameter, at the equivalent key, is locked
 	* (i.e., not allowed changing).
@@ -20232,7 +20211,8 @@ var SynthesizerCore = class {
 		this.setMIDIParameter("pan", 0);
 		this.setMIDIParameter("keyShift", 0);
 		this.setMIDIParameter("fineTune", 0);
-		this.tunings.fill(-1);
+		this.tunings.fill(NaN);
+		this.tuningPrograms.clear();
 		this.portSelectChannelOffset = 0;
 		this.customChannelNumbers = false;
 		this.setReverbMacro(4);

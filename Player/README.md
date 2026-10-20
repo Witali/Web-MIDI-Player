@@ -448,3 +448,13 @@ other supported families. The modulation interpolation law is a host choice.
 Unsupported effect types produce an explicit Thru notice.
 See [implementation notes](specs/IMPLEMENTATION-NOTES.md) for primary sources,
 algorithm choices, coverage and PCM evidence.
+
+MIDI Tuning Standard supports stored key/scale dumps, independent tuning banks
+and programs (RPN3/4), Single Note Tuning and channel Scale/Octave messages.
+Real-Time changes retune sounding notes without restarting them; Non-Real-Time
+changes apply to future notes. Exact frequency fractions and fractional scale
+values survive playback, snapshots and seeking. Direct scale offsets replace
+prior offsets and apply relative to the selected tuning preset. Dump requests
+remain explicitly unsupported until MIDI output is available. See the MTS section
+in [implementation notes](specs/IMPLEMENTATION-NOTES.md) for formats, validation,
+reset/storage policy and the primary MIDI Association specification.

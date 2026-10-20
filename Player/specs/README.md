@@ -49,3 +49,10 @@ GM2 v1.2a (RP-024) and the manufacturer bank-address tables used on
 2026-10-20 are identified with URLs, hashes and printed page numbers in
 [implementation notes](IMPLEMENTATION-NOTES.md#additional-timbres-and-explicit-bank-mappings-2026-10-20).
 They are not redistributed with the player.
+
+MIDI Tuning Updated Specification (CA-020/CA-021/RP-020), read on2026-10-20:
+[official source page](https://midi.org/midi-tuning-updated-specification),
+[official download](https://drive.google.com/file/d/1aSEsFSZMEsnF0LP93ZhD-yUbTmfcHWHA/view).
+72,967 bytes; SHA-256:
+`a798ef37dea8369fc40c1cdb2fdf002ba24cbc8f7ea7eb40d1508abaf5595fff`.
+The PDF is used as a reference and is not redistributed with the player.
