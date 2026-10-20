@@ -110,7 +110,7 @@ queue cancellation alone.
 
 The local synth uses the supported MIDI 1.0/GM/GS/XG/MTS/SDS handlers.
 Common/Realtime bytes remain available to listeners and Thru; external
-synchronization is still pending. This API does not route a loaded SMF to
+synchronization is outside the file-playback plan. This API does not route a loaded SMF to
 hardware or implement UMP. Output controls send test notes or explicit hex
 commands. Tests use modeled device ports, actual Worker/WASM PCM and browser
 audio startup/stop; physical driver conformance is not claimed.
@@ -563,7 +563,7 @@ Real-Time changes retune sounding notes without restarting them; Non-Real-Time
 changes apply to future notes. Exact frequency fractions and fractional scale
 values survive playback, snapshots and seeking. Direct scale offsets replace
 prior offsets and apply relative to the selected tuning preset. Dump requests
-remain explicitly unsupported until MIDI output is available. See the MTS section
+are outside the file-playback plan and retain explicit compatibility notices. See the MTS section
 in [implementation notes](specs/IMPLEMENTATION-NOTES.md) for formats, validation,
 reset/storage policy and the primary MIDI Association specification.
 
