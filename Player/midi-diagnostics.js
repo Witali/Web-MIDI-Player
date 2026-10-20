@@ -1,3 +1,4 @@
+import { installGSEffects } from './gs-effects.js';
 import { installBankMappings } from './fluid-bank-mappings.js';
 import { installPartControls } from './part-controls.js';
 import { SpessaLog, SpessaSynthProcessor, SpessaSynthSequencer } from './vendor/spessasynth.js';
@@ -31,6 +32,7 @@ export async function diagnoseMidi(midi, bank, { effects = true, maxEntries = 20
   synth.soundBankManager.addSoundBank(bank, 'diagnostics');
   await synth.processorInitialized;
   installBankMappings(synth, bank);
+  installGSEffects(synth);
   const foundParts = new Map();
   // Run the actual routing/gates even when only collecting metadata. Never
   // allocate audio voices or decode PCM in this independent inspection synth.

@@ -13709,7 +13709,8 @@ function universalSystemExclusive(syx, channelOffset = 0) {
 * @param syx
 * @param channelOffset
 */
-function rolandSystemExclusive(syx, channelOffset = 0) {
+function rolandSystemExclusive(syx, channelOffset = 0, singleEffectWrite = false) {
+	if (!singleEffectWrite && this.gsEffects?.receive(syx, packet => rolandSystemExclusive.call(this, packet, channelOffset, true))) return;
 	if (syx[3] === 18) switch (syx[2]) {
 		case 66: {
 			const a1 = syx[4];

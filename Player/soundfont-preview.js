@@ -1,3 +1,4 @@
+import { installGSEffects } from './gs-effects.js';
 import { installBankMappings } from './fluid-bank-mappings.js';
 import { resolvePlayback } from './playback-settings.js';
 import { captureSynthCheckpoint } from './synth-checkpoint.js';
@@ -38,6 +39,7 @@ export async function createSoundFontPreview(bytes, bank, { effects = true, dsp 
     synth.soundBankManager.addSoundBank(bank, 'main');
     await synth.processorInitialized;
     installBankMappings(synth, bank);
+    installGSEffects(synth);
     installReleaseVelocityProfiles(synth, profiles);
     // The initial pool is reusable storage, not a musical voice limit. Grow
     // instead of stealing old notes, and retain each instrument's envelopes.

@@ -459,3 +459,39 @@ Every original GM recording's PCM identity, native rate, frame count and
 encoded-file digest remains unchanged. Sample indexes are rebuilt consistently
 with preset/instrument links. PCM regression compares all GM programs against
 independent original SF2 maps, with the unchanged encoded recordings.
+
+
+## GS effect records and distortion models (2026-10-20)
+
+[Roland SC-8850 manual](https://cdn.roland.com/assets/media/pdf/SC-8850_OM.pdf),
+pp.93-94,128,216,224-225,235-237,245, defines Overdrive 01 10 and Distortion
+01 11, the mono L+R → drive → optional amplifier → EQ → pan → level path,
+parameter addresses/defaults, DT1 type macros and address/data checksum.
+The exact PDF digest is recorded above. Printed pp.93 and216 were also
+visually checked so bold factory values and the block diagram were preserved.
+
+The receiver validates an entire effect record before any mutation, then
+applies each payload byte in address order. Type bytes form a two-byte
+parameter: an adjacent complete pair selects once; a partial write retains
+the other byte, including a previous unknown type. Resets clear that state.
+Macro defaults apply before later parameter overrides in the same record.
+Unknown algorithms use Thru with an explicit notice. Reserved/unused addresses
+and values outside documented ranges also report a notice; they do not gain
+an implementation claim from an empty setter. This validator is scoped to
+effect blocks, not an audit of every Roland SysEx family.
+
+GSOverdrive/GSDistortion implement the published controls and routing. The
+soft tanh/hard clipping drive curves, four cabinet filter models, equal-power
+pan and linear level law are deterministic host DSP choices: Roland does not
+publish its DSP coefficients, cabinet impulse responses or gain curves. They
+are not bit-exact SC hardware emulations. The low/high shelves use 200/4000Hz
+and the RBJ Audio EQ Cookbook formulas; dB gains are verified by sine energy.
+All dynamic state is owned by the synth graph, so exact seek/loop snapshots
+restore cabinet/EQ and system-effect history. Existing voices/native kernels
+are unchanged; these insertion processors run in JavaScript on all backends.
+
+Evidence: tests/gs-effects.test.mjs uses the actual published Distortion SysEx
+example, independent parameter/default values and nonlinear PCM references,
+checksum/range failures, complete and partial DT1 writes, macro ordering,
+unknown-type fallback, effects:false identity, fragmented F0/F7, independent
+MIDI ports and exact seek/checkpoint PCM on JS, scalar WASM and SIMD.
