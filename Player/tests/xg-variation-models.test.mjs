@@ -22,12 +22,12 @@ const loader=new BrowserSoundBank(undefined,{fetcher:async url=>new Response(fs.
 const notices=fn=>{const rows=[],before=SpessaLog.onDiagnostic;SpessaLog.onDiagnostic=e=>rows.push(e);try{fn();}finally{SpessaLog.onDiagnostic=before;}return rows;};
 async function synth(){const s=new SpessaSynthProcessor(48000,{eventsEnabled:false,maxBufferSize:128});s.onMissingPreset=(p,system)=>prepared.bank.getPreset(p,system);s.soundBankManager.addSoundBank(prepared.bank,'main');await s.processorInitialized;installXGVariation(s);s.systemExclusive(reset);return s;}
 const equal=(a,b,label='')=>{let error=0;for(let c=0;c<a.length;c++){assert.equal(a[c].length,b[c].length);for(let i=0;i<a[c].length;i++)error=Math.max(error,Math.abs(a[c][i]-b[c][i]));}assert.equal(error,0,label);};
-const programs=[[1,[0,1]],[2,[0,1,2]],[3,[0,1]],[4,[0]],[5,[0]],[6,[0]],[7,[0]],[8,[0]],[0x41,[0,1,2,8]],[0x42,[0,1,2,8]],[0x43,[0,1,8]]];
+const programs=[[1,[0,1]],[2,[0,1,2]],[3,[0,1]],[4,[0]],[5,[0]],[6,[0]],[7,[0]],[8,[0]],[0x41,[0,1,2,8]],[0x42,[0,1,2,8]],[0x43,[0,1,8]],[0x49,[0]],[0x4a,[0]]];
 
-test('all 23 Variation programs have explicit MSB/LSB membership; unsupported subtypes remain diagnosed Thru',async()=>{
+test('all 25 Variation programs have explicit MSB/LSB membership; unsupported subtypes remain diagnosed Thru',async()=>{
   const s=await synth(),fx=s.synthCore.xgVariation;let count=0;
   for(const [msb,lsbs]of programs)for(const lsb of lsbs){const rows=notices(()=>s.systemExclusive(packet(0x40,[msb,lsb])));assert.ok(rows.every(r=>r.kind==='implemented'));assert.ok(fx.processor);assert.equal(fx.processor.block,'variation');count++;}
-  assert.equal(count,23);for(const [msb,lsb]of [[1,2],[2,3],[4,1],[5,1],[0x41,3],[0x42,3],[0x43,2]]){const rows=notices(()=>s.systemExclusive(packet(0x40,[msb,lsb])));assert.equal(fx.mode,'thru');assert.ok(rows.some(r=>r.reason?.includes('Thru')));}
+  assert.equal(count,25);for(const [msb,lsb]of [[1,2],[2,3],[4,1],[5,1],[0x41,3],[0x42,3],[0x43,2]]){const rows=notices(()=>s.systemExclusive(packet(0x40,[msb,lsb])));assert.equal(fx.mode,'thru');assert.ok(rows.some(r=>r.reason?.includes('Thru')));}
 });
 
 test('Variation retains 14-bit pairs for seven-bit algorithms and rejects out-of-range combined values without clamping',async()=>{
@@ -55,7 +55,7 @@ function midEnergy(block,gain,width=10,frequency=1000){
   let a=0,b=0;for(let i=24000;i<48000;i++){a+=input[i]*input[i];b+=pcm[0][i]*pcm[0][i];}return 10*Math.log10(b/a);
 }
 test('middle EQ is audible only for Variation, preserves dB gain and uses the configured width',()=>{
-  for(const gain of [52,76]){assert.ok(Math.abs(midEnergy('variation',gain)-(gain-64))<.002);assert.ok(Math.abs(midEnergy('system',gain))<.002);}
+  for(const gain of [52,76]){assert.ok(Math.abs(midEnergy('variation',gain)-(gain-64))<.002);assert.ok(Math.abs(midEnergy('system',gain))<.002);assert.ok(Math.abs(midEnergy('insertion',gain))<.002);}
   assert.ok(midEnergy('variation',76,10,1500)>midEnergy('variation',76,120,1500)+3);
 });
 

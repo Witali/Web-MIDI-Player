@@ -39,8 +39,8 @@ export class XGChorus {
     this.phaseDifference=this.type===0x43?(p[13]-64)*Math.PI/60:Math.PI/2;
     this.lowL.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[5]],p[6]-64);this.lowR.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[5]],p[6]-64);
     this.highL.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[7]],p[8]-64,true);this.highR.shelf(this.sampleRate,XG_EQ_FREQUENCY[p[7]],p[8]-64,true);
-    this.midL.peak(this.sampleRate,XG_EQ_FREQUENCY[p[10]],this.block==='system'?0:p[11]-64,p[12]/10);
-    this.midR.peak(this.sampleRate,XG_EQ_FREQUENCY[p[10]],this.block==='system'?0:p[11]-64,p[12]/10);
+    this.midL.peak(this.sampleRate,XG_EQ_FREQUENCY[p[10]],this.block==='variation'?p[11]-64:0,p[12]/10);
+    this.midR.peak(this.sampleRate,XG_EQ_FREQUENCY[p[10]],this.block==='variation'?p[11]-64:0,p[12]/10);
   }
   tap(buffer,delay,current){
     if(delay<1)return current*(1-delay)+buffer[(this.position+buffer.length-1)%buffer.length]*delay;

@@ -709,3 +709,27 @@ Dry/Wet versus inactive System controls; isolated No Effect/Thru; serial sends
 with Dry Level 0; Multi Part payload ordering/malformed records; independent ports
 and actual receive-part routing; NRPN 31 per-note drum gating/defaults; Hold2,
 F0/F7, live types, exact seek/checkpoint PCM, real Worker and effects:false.
+
+
+## XG drive models and Insertion-specific limits (2026-10-20)
+
+MU100 Sound List & MIDI Data printed p.16 defines Distortion49/00 and
+Overdrive4A/00: Drive, low shelf, mid peak EQ, LPF, output level, Dry/Wet and
+Edge. Printed pp.43-45 publishes the default Distortion program for both
+Effect2 slots. The original p.16 diagrams were visually checked: Variation
+adds an envelope-follower gate, whereas separate Insertion does not. The
+model reflects this difference; coefficients, transfer curves and gate
+threshold/times remain explicit host choices. Dry taps precede mono summing
+and all wet processing. Unlisted parameters are not invented as controls.
+
+The shared factory also enforces the smaller separate-Insertion bounds from
+p.12: Delay LCR/LR lengths1..7429, Echo/Cross1..3714 (all in0.1ms units).
+Reverb Density there is0..2 instead of Variation's0..4. Factory host defaults
+are clipped into these valid ranges. Mid EQ in Chorus/Celeste/Flanger is only
+specified for the Variation block and stays inactive in the separate slots.
+All variants retain exact type membership rather than accepting an entire MSB.
+
+Evidence: tests/xg-drive.test.mjs transcribes the published default, checks
+all factory parameter limits, independent nonlinear PCM, stereo dry taps,
+real EQ gain, output mute, reset and the gate distinction. The Variation
+model suite now exercises all25 supported addresses through real MIDI.

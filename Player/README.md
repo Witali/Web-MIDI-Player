@@ -433,7 +433,7 @@ mono or stereo; Celeste uses three LFO phases; Flanger controls their relative
 phase. Stereo Variation/Chorus sends precede the corresponding pan and return.
 System-only and insertion-only parameters retain their specified applicability.
 
-XG Variation in System mode supports all those families (23 programs). Its
+XG Variation in System mode supports all those families (25 programs including Distortion/Overdrive). Its
 Reverb input is summed before HPF/LPF/early reflections; Chorus/Celeste/Flanger
 enable the documented mid EQ. Parameter pairs remain 14-bit even for controls
 whose valid value fits in seven bits. Variation Insertion also processes the

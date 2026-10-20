@@ -115,7 +115,7 @@
   XG System Reverb: 8 программ Hall/Room/Stage/Plate; Chorus/Celeste/Flanger:
   11 программ, точные таблицы единиц, стереовход и последовательные посылы.
   Проверены параметры, импульсы, независимый PCM, Worker, seek/checkpoints.
-  XG Variation в режиме System также поддерживает эти типы (всего 23 программы):
+  XG Variation в режиме System также поддерживает эти типы (всего 25 программ, включая XG Distortion/Overdrive):
   моносумма Reverb до фильтров, средний EQ модуляционных эффектов, 14-битные
   поля и диапазоны каждого типа.
   Variation Insertion реализован до volume/expression/pan партии, с Dry/Wet,
