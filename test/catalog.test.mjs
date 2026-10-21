@@ -87,6 +87,7 @@ test('local catalog server serves MIDI and rejects filesystem traversal and writ
   fs.mkdirSync(path.join(directory, 'sources'));
   fs.writeFileSync(path.join(directory, 'sources/score.ly'), 'Public Domain score');
   fs.writeFileSync(path.join(directory, 'sources/private.json'), 'private metadata');
+  fs.copyFileSync(new URL('../public-library/sources/rimsky-korsakov-flight-of-the-bumblebee.mxl', import.meta.url), path.join(directory, 'sources/score.mxl'));
   fs.mkdirSync(path.join(directory, 'icons'));
   for (const name of ['icon.svg', 'icon-32.png', 'icon-192.png', 'icon-512.png']) {
     fs.copyFileSync(new URL('../catalog/pwa/' + name, import.meta.url), path.join(directory, 'icons', name));
@@ -113,6 +114,9 @@ test('local catalog server serves MIDI and rejects filesystem traversal and writ
   const meta = await fetch(`${base}/player/soundfonts/fluidr3-gm/bank.sf3`);
   assert.equal(meta.status, 200); assert.equal(meta.headers.get('cache-control'), 'no-cache');
   assert.equal(await (await fetch(`${base}/sources/score.ly`)).text(), 'Public Domain score');
+  const musicxml = await fetch(`${base}/sources/score.mxl`);
+  assert.equal(musicxml.status, 200); assert.equal(musicxml.headers.get('content-type'), 'application/vnd.recordare.musicxml');
+  assert.deepEqual(Buffer.from(await musicxml.arrayBuffer()), fs.readFileSync(new URL('../public-library/sources/rimsky-korsakov-flight-of-the-bumblebee.mxl', import.meta.url)));
   assert.equal((await fetch(`${base}/sources/private.json`)).status, 404);
   assert.equal((await fetch(`${base}/sources/%2e%2e%2fmanifest.json`)).status, 404);
   assert.equal((await fetch(`${base}/player/%2e%2e%2fmanifest.json`)).status, 404);

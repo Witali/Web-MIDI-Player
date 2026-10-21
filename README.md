@@ -17,9 +17,9 @@
 ## Публичный каталог для сайта
 
 `npm run start:public` собирает и открывает отдельный каталог по адресу
-http://127.0.0.1:8766/. Он содержит восемь редакций Public Domain из Mutopia:
+http://127.0.0.1:8766/. Он содержит девять редакций Public Domain / CC0 из Mutopia и Noctave:
 «К Элизе», «Турецкий марш», The Entertainer, Maple Leaf Rag,
-три гимнопедии Сати и Ave Maria Гуно.
+три гимнопедии Сати, Ave Maria Гуно и «Полёт шмеля» Римского-Корсакова.
 
 Для подготовки статического сайта выполните `npm run setup`, затем
 `npm run catalog:public`. Размещайте содержимое `dist/public-library/`

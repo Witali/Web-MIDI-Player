@@ -12,11 +12,11 @@ import { renderCatalog, writeCatalog } from '../src/catalog-output.mjs';
 
 const source = fileURLToPath(new URL('../public-library/', import.meta.url));
 const manifest = JSON.parse(fs.readFileSync(path.join(source, 'manifest.json'), 'utf8'));
-function fixture(t) {
+function fixture(t, key = manifest.tracks[0].key) {
   const root = fileURLToPath(new URL('../.cache/public-library-tests/', import.meta.url)).replace(/[\\/]+$/, '');
   fs.mkdirSync(root, { recursive: true });
   const directory = fs.mkdtempSync(path.join(root, 'run-'));
-  const copy = { ...structuredClone(manifest), tracks: [structuredClone(manifest.tracks[0])] };
+  const copy = { ...structuredClone(manifest), tracks: [structuredClone(manifest.tracks.find(track => track.key === key))] };
   const track = copy.tracks[0];
   for (const file of [track.file, track.rights.sourceFile]) {
     const target = path.join(directory, file);
@@ -37,6 +37,33 @@ test('public catalog contains exactly the reviewed MIDI files and preserves thei
   assert.ok(library.items.every(item => item.playable && item.noteCount > 0 && item.duration > 0 && item.rights.contributor));
   assert.match(publicLibraryCsv(library), /Статус прав/);
   assert.match(publicLibraryCsv(library), /Public Domain/);
+});
+
+test('the reviewed CC0 Bumblebee keeps its full piano reduction and original MusicXML', t => {
+  const f = fixture(t, 'rimsky-korsakov-flight-of-the-bumblebee');
+  const [item] = buildPublicLibrary(f.directory).items;
+  assert.equal(item.title, 'Полёт шмеля');
+  assert.equal(item.artist, 'Николай Римский-Корсаков');
+  assert.equal(item.rights.label, 'CC0 1.0 (Public Domain)');
+  assert.equal(item.tempo, 144);
+  assert.ok(item.duration > 93 && item.duration < 95);
+  assert.equal(item.noteCount, 1283);
+  assert.deepEqual(item.instruments, ['Фортепиано']);
+  const original = fs.readFileSync(path.join(f.directory, f.track.rights.sourceFile));
+  assert.equal(original.readUInt32LE(), 0x04034b50);
+  assert.match(item.rights.sourceFile, /\.mxl$/);
+  assert.ok(item.aliases.includes('Полет шмеля') && item.aliases.includes('Flight of the Bumblebee'));
+});
+
+test('the generated CC0 edition rejects unreviewed source paths and missing conversion evidence', t => {
+  const f = fixture(t, 'rimsky-korsakov-flight-of-the-bumblebee');
+  const approved = { ...f.track.rights };
+  for (const name of ['sourcePage', 'sourceUrl', 'midiUrl', 'declarationUrl']) {
+    f.track.rights = { ...approved, [name]: approved[name] + 'unreviewed' }; f.save();
+    assert.throws(() => buildPublicLibrary(f.directory), /Unreviewed public-library source URL/);
+  }
+  f.track.rights = { ...approved, modifications: '' }; f.save();
+  assert.throws(() => buildPublicLibrary(f.directory), /Missing public-library evidence: modifications/);
 });
 
 test('unlisted MIDI files never become public catalog entries', t => {

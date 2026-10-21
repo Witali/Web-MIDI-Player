@@ -37,7 +37,7 @@ export function createCatalogServer(directory) {
       absolute = path.resolve(root, `.${pathname}`);
       if (!type || !absolute.startsWith(`${path.join(root, 'player')}${path.sep}`)) { fail(404); return; }
     } else if (pathname.startsWith('/sources/')) {
-      const sourceTypes = { '.ly': 'text/plain; charset=utf-8', '.zip': 'application/zip' };
+      const sourceTypes = { '.ly': 'text/plain; charset=utf-8', '.zip': 'application/zip', '.mxl': 'application/vnd.recordare.musicxml' };
       type = sourceTypes[path.extname(pathname).toLowerCase()];
       absolute = path.resolve(root, '.' + pathname);
       if (!type || !absolute.startsWith(path.join(root, 'sources') + path.sep)) { fail(404); return; }

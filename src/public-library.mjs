@@ -9,6 +9,16 @@ const required = (value, name) => {
   if (typeof value !== 'string' || !value.trim()) throw new Error('Missing public-library evidence: ' + name);
 };
 
+// This generated edition has individually reviewed CC0 source and publication URLs.
+const generatedEditions = {
+  'rimsky-korsakov-flight-of-the-bumblebee': {
+    sourcePage: 'https://noctavepiano.com/en/sheet-music/rimski-vol-du-bourdon/',
+    midiUrl: 'https://raw.githubusercontent.com/Witali/Web-MIDI-Player/main/public-library/midi/rimsky-korsakov-flight-of-the-bumblebee.mid',
+    sourceUrl: 'https://noctavepiano.com/partitions/rimski-vol-du-bourdon/rimski-vol-du-bourdon.mxl',
+    declarationUrl: 'https://creativecommons.org/publicdomain/zero/1.0/'
+  }
+};
+
 export function buildPublicLibrary(directory) {
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   if (manifest.version !== 1 || !Array.isArray(manifest.tracks) || !manifest.tracks.length) throw new Error('Invalid public-library manifest');
@@ -20,12 +30,15 @@ export function buildPublicLibrary(directory) {
     const rights = track.rights;
     if (rights?.status !== 'public-domain') throw new Error('Public library requires a reviewed public-domain declaration');
     for (const name of ['contributor', 'edition', 'reference', 'checkedOn', 'sourcePage', 'midiUrl', 'sourceUrl', 'declarationUrl']) required(rights[name], name);
-    for (const name of ['sourcePage', 'midiUrl', 'sourceUrl', 'declarationUrl']) {
-      const url = new URL(rights[name]);
-      if (url.protocol !== 'https:' || url.hostname !== 'www.mutopiaproject.org' || url.username || url.password) throw new Error('Unreviewed public-library source URL');
-    }
+    const urlFields = ['sourcePage', 'midiUrl', 'sourceUrl', 'declarationUrl'];
+    const urls = urlFields.map(name => new URL(rights[name]));
+    const mutopia = urls.every(url => url.hostname === 'www.mutopiaproject.org');
+    const generated = generatedEditions[track.key];
+    if (urls.some(url => url.protocol !== 'https:' || url.username || url.password) ||
+      !(mutopia || (generated && urlFields.every(name => rights[name] === generated[name])))) throw new Error('Unreviewed public-library source URL');
+    if (!mutopia) required(rights.modifications, 'modifications');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(rights.checkedOn)) throw new Error('Invalid public-library review date');
-    if (!['sources/' + track.key + '.ly', 'sources/' + track.key + '.zip'].includes(rights.sourceFile)) throw new Error('Invalid notation source path');
+    if (!['sources/' + track.key + '.ly', 'sources/' + track.key + '.zip', 'sources/' + track.key + '.mxl'].includes(rights.sourceFile)) throw new Error('Invalid notation source path');
     for (const [file, expected] of [[track.file, track.sha256], [rights.sourceFile, rights.sourceSha256]]) {
       if (!/^[a-f0-9]{64}$/.test(expected || '')) throw new Error('Missing public-library checksum');
       const absolute = path.join(directory, file), real = fs.realpathSync(absolute);

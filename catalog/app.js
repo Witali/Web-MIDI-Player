@@ -125,7 +125,7 @@
       ${item.rights ? `<h3 class="detail-section">Права и происхождение</h3>
       <p class="detail-note"><strong>${escape(item.rights.label)}</strong> · Редакция отмечена источником как общественное достояние.<br>Композитор: ${escape(item.artist)} (${escape(item.composerDates)}) · ${escape(item.compositionYear)}</p>
       <dl class="metadata-grid"><div><dt>Автор набора</dt><dd>${escape(item.rights.contributor)}</dd></div><div><dt>Издание</dt><dd>${escape(item.rights.edition)}</dd></div><div><dt>Проверено</dt><dd>${escape(item.rights.checkedOn)}</dd></div></dl>
-      <p class="detail-note"><a href="${escape(item.rights.sourcePage)}" target="_blank" rel="noopener noreferrer">Подтверждение на Mutopia ↗</a> · <a href="${escape(item.rights.declarationUrl)}" target="_blank" rel="noopener noreferrer">Условия Public Domain ↗</a> · <a href="${href(item.rights.sourceFile)}" download>Исходные ноты ↓</a></p>
+      <p class="detail-note"><a href="${escape(item.rights.sourcePage)}" target="_blank" rel="noopener noreferrer">Подтверждение прав ↗</a> · <a href="${escape(item.rights.declarationUrl)}" target="_blank" rel="noopener noreferrer">Условия Public Domain ↗</a> · <a href="${href(item.rights.sourceFile)}" download>Исходные ноты ↓</a></p>
       ` : ''}
       ${item.metadataInferred ? '<p class="detail-note">Название и исполнитель восстановлены из имени файла в сборнике.</p>' : ''}
       ${item.issues.length ? `<div class="issue-box"><strong>Пометки об исходнике</strong><br>${item.issues.map(message => escape(translated(message))).join('<br>')}<br>Оригинальный файл сохранён без изменений.</div>` : ''}

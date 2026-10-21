@@ -1,8 +1,8 @@
 {
   "version": 1,
   "title": "Публичная MIDI-библиотека",
-  "provider": "Mutopia Project",
-  "verifiedOn": "2026-10-19",
+  "provider": "Mutopia Project; Noctave",
+  "verifiedOn": "2026-10-21",
   "tracks": [
     {
       "key": "beethoven-fur-elise",
@@ -259,6 +259,41 @@
         "declarationUrl": "https://www.mutopiaproject.org/legal.html",
         "checkedOn": "2026-10-19",
         "modifications": "None; original MIDI and LilyPond source retained."
+      }
+    },
+    {
+      "key": "rimsky-korsakov-flight-of-the-bumblebee",
+      "title": "Полёт шмеля",
+      "artist": "Николай Римский-Корсаков",
+      "composerDates": "1844–1908",
+      "compositionYear": 1900,
+      "category": "Классика",
+      "aliases": [
+        "Полет шмеля",
+        "Flight of the Bumblebee",
+        "Flight of the Bumble-Bee",
+        "Le vol du bourdon",
+        "Rimsky-Korsakov",
+        "Римский-Корсаков",
+        "Сказка о царе Салтане"
+      ],
+      "file": "midi/rimsky-korsakov-flight-of-the-bumblebee.mid",
+      "sha256": "30587142be8762b77961751d00a4ccd4170d72787fd401043e39ce38ca2879e7",
+      "bytes": 11581,
+      "rights": {
+        "status": "public-domain",
+        "label": "CC0 1.0 (Public Domain)",
+        "contributor": "Noctave / Matthias Vogel",
+        "edition": "Noctave piano reduction of the original orchestral interlude, 2026",
+        "reference": "Noctave rimski-vol-du-bourdon (2026-10-08)",
+        "sourcePage": "https://noctavepiano.com/en/sheet-music/rimski-vol-du-bourdon/",
+        "midiUrl": "https://raw.githubusercontent.com/Witali/Web-MIDI-Player/main/public-library/midi/rimsky-korsakov-flight-of-the-bumblebee.mid",
+        "sourceUrl": "https://noctavepiano.com/partitions/rimski-vol-du-bourdon/rimski-vol-du-bourdon.mxl",
+        "sourceFile": "sources/rimsky-korsakov-flight-of-the-bumblebee.mxl",
+        "sourceSha256": "35c6678fe4fad9fb9a39bb45620d206cb1710722f2b6ff555acf9da9f6ce94fe",
+        "declarationUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "checkedOn": "2026-10-21",
+        "modifications": "MIDI generated from the unmodified CC0 MusicXML with music21 9.9.1; both piano staves retained, written repeats expanded, ties joined; no manual note edits. Reproduce with public-library/tools/build-bumblebee.py. The generated MIDI is also dedicated to CC0 1.0."
       }
     }
   ]

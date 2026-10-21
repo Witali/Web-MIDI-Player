@@ -15,7 +15,7 @@ function removeProfile(profile) {
   fs.rmSync(resolved, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
 const reviewed = JSON.parse(fs.readFileSync(new URL('../../public-library/manifest.json', import.meta.url), 'utf8')).tracks;
-const types = { '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json',
+const types = { '.mxl': 'application/vnd.recordare.musicxml', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json',
   '.wasm': 'application/wasm', '.mid': 'audio/midi', '.ogg': 'audio/ogg', '.sf3': 'application/octet-stream' };
 let server, siteURL;
 
@@ -95,6 +95,28 @@ test('the built library plays MIDI below the GitHub Pages repository path', asyn
   expect(errors).toEqual([]);
 });
 
+
+test('Bumblebee is searchable, credits its CC0 source, downloads the score and plays', async ({ page }) => {
+  await page.goto(siteURL);
+  for (const query of ['Полёт шмеля', 'Полет шмеля', 'Bumblebee', 'Римский-Корсаков']) {
+    await page.locator('#search').fill(query);
+    await expect(page.locator('#rows tr')).toHaveCount(1);
+    await expect(page.locator('.song-button')).toHaveText('Полёт шмеля');
+  }
+  await page.locator('.song-button').click();
+  await expect(page.locator('#detail-body')).toContainText('CC0 1.0');
+  const declaration = page.getByRole('link', { name: 'Подтверждение прав ↗' });
+  await expect(declaration).toHaveAttribute('href', 'https://noctavepiano.com/en/sheet-music/rimski-vol-du-bourdon/');
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Исходные ноты ↓' }).click();
+  const downloaded = await downloading;
+  expect(downloaded.suggestedFilename()).toBe('rimsky-korsakov-flight-of-the-bumblebee.mxl');
+  expect(await downloaded.failure()).toBeNull();
+  await page.locator('#detail-play').click();
+  await expect(page.locator('#player-title')).toHaveText('Полёт шмеля');
+  await expect(page.locator('#player-toggle')).toHaveAttribute('aria-label', 'Пауза');
+  await expect(page.locator('#current-time')).not.toHaveText('0:00', { timeout: 30000 });
+});
 
 test('the application is installable with scoped file associations and uniform large branding', async ({ playwright }, testInfo) => {
   const profile = newProfile();
