@@ -102,7 +102,7 @@
     $('empty').hidden = filtered.length > 0;
     $('empty-title').textContent = state.view === 'favorites' && !favorites.size ? 'Здесь будет ваша подборка' : 'Ничего не найдено';
     $('empty-description').textContent = state.view === 'favorites' && !favorites.size ? 'Нажмите ☆ рядом с мелодией, чтобы сохранить её в избранное.' : 'Попробуйте другой запрос или сбросьте фильтры.';
-    $('page-title').textContent = state.category || (state.view === 'favorites' ? 'Избранное' : state.view === 'issues' ? 'С пометками' : isPublic ? 'Публичная библиотека' : 'Вся коллекция');
+    $('page-title').textContent = state.category || (state.view === 'favorites' ? 'Избранное' : state.view === 'issues' ? 'С пометками' : isPublic ? 'Библиотека' : 'Вся коллекция');
     for (const button of $('views').querySelectorAll('button')) { const active = !state.category && button.dataset.view === state.view; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); }
     for (const button of $('categories').querySelectorAll('button')) { const active = button.dataset.category === state.category; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); }
     $('active-filter').hidden = !state.family;

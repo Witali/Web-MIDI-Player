@@ -19,8 +19,8 @@ export function renderCatalog(library) {
     .replace('/* MIDI_CORE */', () => '(() => {\n' + core + '\nwindow.MidiCore = {readMidi, instrumentFamily};\n})();')
     .replace('/* CATALOG_APP */', () => read('catalog/app.js'));
   if (library.mode === 'public') html = html
-    .replace('Web-MIDI-Player — каталог мелодий', 'Web-MIDI-Player — публичная библиотека')
-    .replace('Локальная коллекция', 'Публичная библиотека')
+    .replace('Web-MIDI-Player — каталог мелодий', 'Web-MIDI-Player — библиотека')
+    .replace('Локальная коллекция', 'Библиотека')
     .replace('Файлы хранятся на вашем компьютере', 'Классика и регтайм · Public Domain')
     .replace('OFFLINE LIBRARY', 'PUBLIC DOMAIN')
     .replace('Для прослушивания откройте <strong>«Открыть каталог.cmd»</strong> в папке проекта. Поиск и ссылки на файлы работают и здесь.', 'Для прослушивания откройте каталог через HTTP или HTTPS. Поиск и скачивание MIDI работают и здесь.')
