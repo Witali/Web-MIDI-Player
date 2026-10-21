@@ -16,12 +16,13 @@
     "player:assets": "node Player/tools/fetch-assets.mjs",
     "test:core": "node Player/tools/test-core.mjs",
     "test:wasm": "node --test Player/tests/dsp.test.mjs",
-    "test:all": "npm run test:core && npm test && npm run test:ui",
+    "test:all": "npm run test:core && npm test && npm run test:ui && npm run test:pages",
     "player:build": "node Player/tools/build-core.mjs",
     "catalog:public": "node public-catalog.mjs",
     "start:public": "node public-catalog.mjs && node catalog-server.mjs --output dist/public-library --port 8766 --open",
     "player:samples": "node Player/tools/build-browser-bank.mjs",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:pages": "npm run catalog:public && playwright test --config playwright.pages.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1"

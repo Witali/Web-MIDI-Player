@@ -1,0 +1,67 @@
+name: Publish library to GitHub Pages
+
+# Publication is an explicit manual action while preparing the repository.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v6
+        with:
+          lfs: false
+
+      - name: Restore browser sound bank from Git LFS
+        run: git lfs pull --include="Player/soundfonts/fluidr3-gm/**" --exclude=""
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Check catalog and export
+        run: node --test test/catalog.test.mjs test/public-library.test.mjs
+
+      - name: Check dialog scrolling
+        run: npm run test:ui
+
+      - name: Build and check the Pages site
+        run: npm run test:pages
+
+      - name: Upload only the generated library
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/public-library
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy the library
+        id: deployment
+        uses: actions/deploy-pages@v4
