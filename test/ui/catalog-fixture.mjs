@@ -22,6 +22,10 @@ export const test = base.extend({
           response.end(html);
           return;
         }
+        if (pathname === '/pwa-client.js') {
+          response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+          response.end(fs.readFileSync(path.join(root, 'catalog/pwa/client.js'))); return;
+        }
         if (pathname.startsWith('/player/')) {
           const filename = path.resolve(playerRoot, pathname.slice('/player/'.length));
           if (filename.startsWith(playerRoot + path.sep) && path.extname(filename) === '.js') {

@@ -1,3 +1,4 @@
+import { writePwa } from '../src/pwa-output.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -106,4 +107,44 @@ test('public export includes verified standalone sample files and omits the full
   const bank = verifyBrowserBank(path.join(output, 'player/soundfonts/fluidr3-gm'));
   assert.equal(bank.total.unique_files, 1454);
   assert.ok(fs.existsSync(path.join(output, 'player/licenses/FluidR3-MIT.txt')));
+});
+
+
+test('PWA export keeps relative file handlers, versions its cache and never caches private MIDI or full SF2', t => {
+  const f = fixture(t), output = path.join(f.directory, 'pwa');
+  writeCatalog(output, buildPublicLibrary(f.directory));
+  const manifest = JSON.parse(fs.readFileSync(path.join(output, 'manifest.webmanifest'), 'utf8'));
+  for (const member of ['id', 'scope', 'start_url']) assert.equal(new URL(manifest[member], 'https://example.test/repository/manifest.webmanifest').pathname, '/repository/');
+  assert.equal(new URL(manifest.file_handlers[0].action, 'https://example.test/repository/manifest.webmanifest').pathname, '/repository/');
+  assert.deepEqual(manifest.file_handlers[0].accept['audio/midi'], ['.mid', '.midi', '.rmi', '.kar']);
+  for (const size of [192, 512]) {
+    const png = fs.readFileSync(path.join(output, 'icons/icon-' + size + '.png'));
+    assert.equal(png.readUInt32BE(16), size); assert.equal(png.readUInt32BE(20), size);
+  }
+  const describe = directory => {
+    const sandbox = { URL, self: { location: { href: 'https://example.test/repository/sw.js' }, addEventListener() {} } };
+    vm.runInNewContext(fs.readFileSync(path.join(directory, 'sw.js'), 'utf8') + ';globalThis.description = {VERSION, ASSETS, PREFIX};', sandbox);
+    return sandbox.description;
+  };
+  const { ASSETS: assets, VERSION: version, PREFIX: prefix } = describe(output);
+  assert.ok(version.length >= 16);
+  assert.equal(prefix, 'web-midi-player:/repository/:');
+  assert.ok(assets.some(asset => asset.file === 'index.html' && asset.core));
+  assert.ok(assets.some(asset => asset.file === 'player/soundfonts/fluidr3-gm/manifest.json' && asset.core));
+  assert.ok(assets.some(asset => asset.file.includes('/samples/') && !asset.core));
+  assert.ok(!assets.some(asset => /\.sf2$/.test(asset.file) || asset.file.startsWith('downloads/')));
+  for (const asset of assets) assert.ok(fs.existsSync(path.join(output, asset.file)));
+  const privateOutput = path.join(f.directory, 'personal');
+  fs.mkdirSync(path.join(privateOutput, 'midi'), { recursive: true });
+  fs.mkdirSync(path.join(privateOutput, 'player/soundfonts'), { recursive: true });
+  fs.writeFileSync(path.join(privateOutput, 'index.html'), '<p>Personal catalog</p>');
+  fs.copyFileSync(path.join(f.directory, f.track.file), path.join(privateOutput, 'midi/private.mid'));
+  fs.writeFileSync(path.join(privateOutput, 'player/soundfonts/original.sf2'), 'full SoundFont');
+  writePwa(privateOutput);
+  const personal = describe(privateOutput);
+  assert.ok(!personal.ASSETS.some(asset => asset.file.startsWith('midi/') || asset.file.endsWith('.sf2')));
+  fs.appendFileSync(path.join(privateOutput, 'index.html'), '<p>Updated</p>');
+  writePwa(privateOutput);
+  assert.notEqual(describe(privateOutput).VERSION, personal.VERSION);
+
 });

@@ -146,6 +146,7 @@
       if (this.engine) return this.engine;
       const { MidiPlayer: SamplePlayer, renderMidiDiagnostics, renderPartControls, renderMidiText, renderPlaybackControls } = await sampleModule;
       this.renderDiagnostics = renderMidiDiagnostics; this.renderParts = renderPartControls; this.renderText = renderMidiText; this.renderPlayback = renderPlaybackControls;
+      if (this.engine) return this.engine;
       const engine = this.engine = new SamplePlayer({ volume: Number($('volume').value) });
       engine.addEventListener('statechange', () => {
         if (this.engine !== engine) return;
@@ -161,24 +162,44 @@
       engine.addEventListener('error', event => { if (this.engine === engine) toast(event.detail.message); });
       return engine;
     }
+    async openFile(file) {
+      if (!/\.(mid|midi|rmi|kar)$/i.test(file.name)) throw new Error('Выберите MIDI-файл: .mid, .midi, .rmi или .kar.');
+      const token = ++this.token;
+      const bytes = await file.arrayBuffer();
+      if (token !== this.token) return false;
+      const metadata = window.MidiCore.readMidi(bytes, { includeNotes: false });
+      return this.loadItem({ id: 'local:' + token, title: file.name, artist: 'Файл с компьютера',
+        duration: metadata.duration, localFile: file });
+    }
     async toggle(item = this.item) {
+      if (!item) return;
+      if (this.item?.id === item.id && this.song) {
+        const token = ++this.token;
+        try {
+          const engine = await this.initialize(); await engine.unlock();
+          if (token === this.token) await (engine.state === 'playing' ? engine.pause() : engine.play());
+        } catch (error) { if (token === this.token && error.name !== 'AbortError') toast(error.message); }
+        return;
+      }
+      return this.loadItem(item, true);
+    }
+    async loadItem(item, autoplay = false) {
       if (!item) return;
       if (location.protocol === 'file:') { toast('Для прослушивания запустите «Открыть каталог.cmd» в папке проекта.'); return; }
       const token = ++this.token;
       try {
-        const engine = await this.initialize(); await engine.unlock();
+        const engine = await this.initialize();
+        if (autoplay) await engine.unlock();
         if (token !== this.token) return;
-        if (this.item?.id === item.id && this.song) {
-          engine.state === 'playing' ? await engine.pause() : await engine.play(); return;
-        }
         this.item = item; this.song = null; this.position = 0; this.display();
         $('player-title').textContent = `Загрузка: ${item.title}`;
-        const song = await engine.load(href(item.versions[0].file));
+        const song = await engine.load(item.localFile || href(item.versions[0].file));
         if (token !== this.token) return;
         this.song = song; this.display();
         if (song.warnings?.length) toast(song.warnings.join(' '));
         else if (song.diagnostics && ['substituted', 'unsupported', 'partial'].some(key => song.diagnostics.summary[key])) toast('Есть особенности звучания. Подробности — в отчёте «Совместимость».');
-        await engine.play();
+        if (autoplay) await engine.play();
+        return true;
       } catch (error) { if (token === this.token && error.name !== 'AbortError') { toast(error.message); this.display(); } }
     }
     async seek(position) {
@@ -188,6 +209,7 @@
     }
     display() {
       $('player').hidden = !this.item;
+      $('player-toggle').disabled = !this.song;
       $('player-playback').disabled = !this.song;
       $('player-text').disabled = !this.song?.text?.events.length;
       $('player-parts').disabled = !this.song?.parts?.length;
@@ -276,5 +298,8 @@
     if (event.code === 'Space' && !editing && !$('details').open && !$('diagnostics').open && !$('parts').open && !$('midi-text').open && !$('playback-settings').open && player.item) { event.preventDefault(); player.toggle(); }
   });
   window.addEventListener('beforeunload', () => { player.engine?.dispose().catch(() => {}); });
+  if (location.protocol !== 'file:') import('./pwa-client.js').then(({ setupPwa }) => {
+    setupPwa({ openFile: file => player.openFile(file), notify: toast });
+  }).catch(error => toast('Не удалось загрузить открытие файлов: ' + error.message));
   update();
 })();

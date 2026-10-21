@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#11161d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>Web-MIDI-Player — каталог мелодий</title>
   <style>/* CATALOG_STYLES */</style>
 </head>
@@ -22,6 +26,13 @@
   </aside>
   <main>
     <header class="page-header"><div class="eyebrow">WEB-MIDI-PLAYER</div><div class="heading-row"><h1 id="page-title">Вся коллекция</h1><span class="offline-label">OFFLINE LIBRARY</span></div><p id="library-summary" class="description"></p></header>
+    <div class="app-actions" role="group" aria-label="Приложение">
+      <button id="open-local" class="primary-button" disabled>Открыть MIDI…</button>
+      <button id="install-app" class="secondary-button" hidden>Установить приложение</button>
+      <button id="offline-app" class="secondary-button" disabled>Скачать для офлайн</button>
+      <input id="local-file" type="file" accept=".mid,.midi,.rmi,.kar,audio/midi,audio/x-midi" aria-label="Локальный MIDI-файл" hidden>
+      <span id="pwa-status" role="status"></span>
+    </div>
     <div class="file-notice" id="file-notice" hidden>Для прослушивания откройте <strong>«Открыть каталог.cmd»</strong> в папке проекта. Поиск и ссылки на файлы работают и здесь.</div>
     <section class="catalog-controls" aria-label="Поиск и фильтры">
       <div class="search-row"><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Название, исполнитель, композитор…" autocomplete="off" aria-label="Поиск мелодий"><kbd>/</kbd></label><button class="secondary-button" id="export">Экспорт списка ↓</button></div>
@@ -40,6 +51,7 @@
   <dialog id="parts" aria-labelledby="parts-title"><div class="detail-header"><h2 id="parts-title">Партии</h2><button id="close-parts" class="icon-button" aria-label="Закрыть партии">×</button></div><div id="parts-body"></div></dialog>
   <dialog id="midi-text" aria-labelledby="midi-text-title"><div class="detail-header"><h2 id="midi-text-title">Текст и метки</h2><button id="close-midi-text" class="icon-button" aria-label="Закрыть текст и метки">×</button></div><div id="midi-text-body" class="midi-text-report"></div></dialog>
   <dialog id="playback-settings" aria-labelledby="playback-settings-title"><div class="detail-header"><h2 id="playback-settings-title">Темп и повтор</h2><button id="close-playback-settings" class="icon-button" aria-label="Закрыть настройки воспроизведения">×</button></div><div id="playback-settings-body"></div></dialog>
+  <div class="file-drop-overlay" aria-hidden="true">Отпустите MIDI-файл, чтобы открыть</div>
   <div id="toast" class="toast" role="status" hidden></div>
   <noscript><p>Для поиска в каталоге включите JavaScript. Полная таблица доступна в файле library.csv.</p></noscript>
   <script id="library-data" type="application/json">/* CATALOG_DATA */</script>

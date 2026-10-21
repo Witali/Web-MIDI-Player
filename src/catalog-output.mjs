@@ -1,3 +1,4 @@
+import { writePwa } from './pwa-output.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,6 +47,7 @@ export function writeCatalog(directory, library) {
     fs.cpSync(path.join(root, 'Player'), path.join(directory, 'player'), {
       recursive: true, filter: source => !['tests', 'node_modules', '.cache', '.git'].includes(path.basename(source)) && !externalMidiModules.has(path.basename(source))
     });
+    writePwa(directory);
     return;
   }
   const runtime = ['index.js', 'worker.js', 'worklet.js', 'audio-queue.js', 'midi-timing.js',
@@ -57,4 +59,5 @@ export function writeCatalog(directory, library) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.cpSync(path.join(root, 'Player', asset), target, { recursive: true });
   }
+  writePwa(directory, { publicLibrary: true });
 }

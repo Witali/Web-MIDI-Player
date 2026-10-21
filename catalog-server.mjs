@@ -20,6 +20,10 @@ export function createCatalogServer(directory) {
     }
     let absolute, type;
     if (['/', '/index.html'].includes(pathname)) { absolute = path.join(root, 'index.html'); type = 'text/html; charset=utf-8'; }
+    else if (['/manifest.webmanifest', '/pwa-client.js', '/sw.js', '/icons/icon-192.png', '/icons/icon-512.png'].includes(pathname)) {
+      absolute = path.join(root, pathname.slice(1));
+      type = pathname.endsWith('.webmanifest') ? 'application/manifest+json' : pathname.endsWith('.png') ? 'image/png' : 'text/javascript; charset=utf-8';
+    }
     else if (['/library.csv', '/library.json'].includes(pathname)) { absolute = path.join(root, pathname.slice(1)); type = pathname.endsWith('.csv') ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8'; }
     else if (pathname.startsWith('/midi/') && /\.(mid|midi|rmi|kar)$/i.test(pathname)) {
       absolute = path.resolve(root, `.${pathname}`); type = 'audio/midi';
