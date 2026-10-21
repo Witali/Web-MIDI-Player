@@ -1,7 +1,8 @@
 name: Publish library to GitHub Pages
 
-# Publication is an explicit manual action while preparing the repository.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

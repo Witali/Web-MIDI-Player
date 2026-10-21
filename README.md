@@ -88,8 +88,9 @@ Web-MIDI-Player приложением по умолчанию средства�
    и выберите ветку `main`.
 4. Дождитесь успешного задания `deploy`; оно покажет ссылку на сайт.
 
-Публикация запускается вручную. Обычный push в `main` сам по себе сайт
-не обновляет. Workflow находится в [.github/workflows/pages.yml](.github/workflows/pages.yml).
+Публикация запускается автоматически после каждого push в `main`.
+Для повторной публикации без новых коммитов остаётся кнопка **Run workflow**.
+Workflow находится в [.github/workflows/pages.yml](.github/workflows/pages.yml).
 Он восстанавливает через Git LFS только браузерный банк, устанавливает
 зависимости, проверяет каталог и диалоги, собирает сайт и проверяет
 воспроизведение MIDI по пути `/Web-MIDI-Player/` в Chromium.
@@ -103,15 +104,6 @@ Web-MIDI-Player приложением по умолчанию средства�
 Локальная проверка перед публикацией после установки браузера Playwright:
 `npm run test:pages`. Она собирает тот же сайт и проверяет загрузку модулей,
 MIDI, WASM и сэмплов с префиксом имени репозитория.
-Для включения автопубликации можно дополнить `on` в workflow:
-
-```yaml
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-```
-
 Настройка источника описана в
 [документации GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 
