@@ -2,6 +2,7 @@ import { writePwa } from '../src/pwa-output.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
@@ -117,9 +118,16 @@ test('PWA export keeps relative file handlers, versions its cache and never cach
   for (const member of ['id', 'scope', 'start_url']) assert.equal(new URL(manifest[member], 'https://example.test/repository/manifest.webmanifest').pathname, '/repository/');
   assert.equal(new URL(manifest.file_handlers[0].action, 'https://example.test/repository/manifest.webmanifest').pathname, '/repository/');
   assert.deepEqual(manifest.file_handlers[0].accept['audio/midi'], ['.mid', '.midi', '.rmi', '.kar']);
-  for (const size of [192, 512]) {
+  assert.equal(manifest.name, 'Web-MIDI-Player');
+  assert.equal(fs.readFileSync(path.join(output, 'icons/icon.svg'), 'utf8'), fs.readFileSync(new URL('../catalog/pwa/icon.svg', import.meta.url), 'utf8'));
+  for (const size of [32, 192, 512]) {
     const png = fs.readFileSync(path.join(output, 'icons/icon-' + size + '.png'));
     assert.equal(png.readUInt32BE(16), size); assert.equal(png.readUInt32BE(20), size);
+  }
+  for (const icon of manifest.icons) {
+    const url = new URL(icon.src, 'https://example.test/repository/');
+    const bytes = fs.readFileSync(path.join(output, url.pathname.slice('/repository/'.length)));
+    assert.equal(url.searchParams.get('v'), createHash('sha256').update(bytes).digest('hex').slice(0, 12), 'New artwork must update the manifest icon URL');
   }
   const describe = directory => {
     const sandbox = { URL, self: { location: { href: 'https://example.test/repository/sw.js' }, addEventListener() {} } };

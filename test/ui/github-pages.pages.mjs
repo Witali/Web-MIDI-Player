@@ -15,7 +15,7 @@ function removeProfile(profile) {
   fs.rmSync(resolved, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
 const reviewed = JSON.parse(fs.readFileSync(new URL('../../public-library/manifest.json', import.meta.url), 'utf8')).tracks;
-const types = { '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json',
+const types = { '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json',
   '.wasm': 'application/wasm', '.mid': 'audio/midi', '.ogg': 'audio/ogg', '.sf3': 'application/octet-stream' };
 let server, siteURL;
 
@@ -106,6 +106,20 @@ test('the application is installable with scoped file associations and uniform l
     const manifest = await session.send('Page.getAppManifest');
     expect(manifest.errors).toEqual([]);
     const data = JSON.parse(manifest.data);
+    expect(data.name).toBe('Web-MIDI-Player');
+    const favicon = page.locator('link[rel=icon][type="image/svg+xml"]');
+    await expect(favicon).toHaveAttribute('href', 'icons/icon.svg');
+    const icon = await page.request.get(new URL(await favicon.getAttribute('href'), siteURL).href);
+    expect(icon.ok()).toBe(true);
+    expect(icon.headers()['content-type']).toBe('image/svg+xml');
+    expect(await icon.text()).toBe(fs.readFileSync(new URL('../../catalog/pwa/icon.svg', import.meta.url), 'utf8'));
+    for (const size of [32, 192, 512]) {
+      const image = await page.evaluate(async url => {
+        const icon = new Image(); icon.src = url; await icon.decode();
+        return { width: icon.naturalWidth, height: icon.naturalHeight };
+      }, new URL('icons/icon-' + size + '.png', siteURL).href);
+      expect(image).toEqual({ width: size, height: size });
+    }
     expect(new URL(data.start_url, manifest.url).pathname).toBe(basePath);
     expect(new URL(data.file_handlers[0].action, manifest.url).pathname).toBe(basePath);
     expect(data.file_handlers[0].accept['audio/midi']).toEqual(['.mid', '.midi', '.rmi', '.kar']);

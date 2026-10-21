@@ -9,7 +9,8 @@ export function writePwa(directory, { publicLibrary = false } = {}) {
   fs.copyFileSync(path.join(source, 'manifest.webmanifest'), path.join(directory, 'manifest.webmanifest'));
   fs.copyFileSync(path.join(source, 'client.js'), path.join(directory, 'pwa-client.js'));
   fs.mkdirSync(path.join(directory, 'icons'), { recursive: true });
-  for (const size of [192, 512]) fs.copyFileSync(path.join(source, 'icon-' + size + '.png'), path.join(directory, 'icons/icon-' + size + '.png'));
+  fs.copyFileSync(path.join(source, 'icon.svg'), path.join(directory, 'icons/icon.svg'));
+  for (const size of [32, 192, 512]) fs.copyFileSync(path.join(source, 'icon-' + size + '.png'), path.join(directory, 'icons/icon-' + size + '.png'));
   const assets = [];
   function collect(relative) {
     const full = path.join(directory, relative);

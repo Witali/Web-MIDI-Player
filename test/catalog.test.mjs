@@ -87,11 +87,21 @@ test('local catalog server serves MIDI and rejects filesystem traversal and writ
   fs.mkdirSync(path.join(directory, 'sources'));
   fs.writeFileSync(path.join(directory, 'sources/score.ly'), 'Public Domain score');
   fs.writeFileSync(path.join(directory, 'sources/private.json'), 'private metadata');
+  fs.mkdirSync(path.join(directory, 'icons'));
+  for (const name of ['icon.svg', 'icon-32.png', 'icon-192.png', 'icon-512.png']) {
+    fs.copyFileSync(new URL('../catalog/pwa/' + name, import.meta.url), path.join(directory, 'icons', name));
+  }
   const { server } = createCatalogServer(directory);
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
   assert.equal((await fetch(base)).status, 200);
+  for (const name of ['icon.svg', 'icon-32.png', 'icon-192.png', 'icon-512.png']) {
+    const response = await fetch(base + '/icons/' + name + '?v=updated');
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), name.endsWith('.svg') ? 'image/svg+xml' : 'image/png');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), fs.readFileSync(new URL('../catalog/pwa/' + name, import.meta.url)));
+  }
   assert.deepEqual(Buffer.from(await (await fetch(`${base}/midi/song.mid`)).arrayBuffer()), sample);
   assert.equal((await fetch(`${base}/manifest.json`)).status, 404);
   assert.match((await fetch(`${base}/player/index.js`)).headers.get('content-type'), /javascript/);
